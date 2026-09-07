@@ -79,6 +79,22 @@ func syntheticCatalogIsDeterministicAtEachScale() {
   }
 }
 
+@Test("Synthetic catalog IDs are unique across every supported address space")
+func syntheticCatalogIDsAreUniqueAcrossSupportedScales() throws {
+  var ids = Set<MediaItem.ID>()
+  ids.reserveCapacity(SyntheticCatalogFixture.Scale.allCases.reduce(0) { $0 + $1.rawValue })
+
+  for scale in SyntheticCatalogFixture.Scale.allCases {
+    let fixture = SyntheticCatalogFixture(scale: scale, seed: 42)
+    for index in 0..<fixture.count {
+      let item = try #require(fixture.item(at: index))
+      #expect(ids.insert(item.id).inserted)
+    }
+  }
+
+  #expect(ids.count == 160_000)
+}
+
 @Test("Large-catalog Home snapshot stays bounded and preserves stable IDs")
 func syntheticCatalogHomeSnapshotIsBounded() {
   let fixture = SyntheticCatalogFixture(scale: .oneHundredThousand)

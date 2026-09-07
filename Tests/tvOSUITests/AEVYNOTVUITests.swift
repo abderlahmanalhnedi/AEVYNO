@@ -16,7 +16,7 @@ final class AEVYNOTVUITests: XCTestCase {
       waitForFocus(on: secondCard), "Right navigation should move focus to the next card")
   }
 
-  func testDetailPresentationAndFocusRestoration() {
+  func testDetailPresentationAndFocusRestoration() throws {
     let app = launchApp()
     let firstCard = app.buttons["home.card.continue-orbit"]
     XCTAssertTrue(firstCard.waitForExistence(timeout: 10))
@@ -28,6 +28,7 @@ final class AEVYNOTVUITests: XCTestCase {
 
     XCTAssertTrue(app.staticTexts["detail.title"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.buttons["detail.play"].exists)
+    try app.performAccessibilityAudit()
 
     let detailScreenshot = XCTAttachment(screenshot: app.screenshot())
     detailScreenshot.name = "Synthetic Detail screen"
@@ -45,6 +46,20 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertTrue(openedCard.waitForExistence(timeout: 5))
     XCTAssertTrue(
       waitForFocus(on: openedCard), "Returning from Detail should restore the opened card")
+
+    for cycle in 2...3 {
+      XCUIRemote.shared.press(.select)
+      XCTAssertTrue(
+        app.staticTexts["detail.title"].waitForExistence(timeout: 5),
+        "Detail should open on cycle \(cycle)"
+      )
+      XCUIRemote.shared.press(.menu)
+      XCTAssertTrue(openedCard.waitForExistence(timeout: 5))
+      XCTAssertTrue(
+        waitForFocus(on: openedCard),
+        "Returning from Detail should restore the opened card on cycle \(cycle)"
+      )
+    }
   }
 
   func testEmptyStateIsIntentionalAndNonInteractive() {
@@ -76,6 +91,14 @@ final class AEVYNOTVUITests: XCTestCase {
 
     XCTAssertTrue(firstCard.waitForExistence(timeout: 10))
     XCTAssertTrue(waitForFocus(on: firstCard))
+  }
+
+  func testLoadedHomePassesSimulatorAccessibilityAudit() throws {
+    let app = launchApp()
+    let firstCard = app.buttons["home.card.continue-orbit"]
+
+    XCTAssertTrue(firstCard.waitForExistence(timeout: 10))
+    try app.performAccessibilityAudit()
   }
 
   private func launchApp(arguments: [String] = []) -> XCUIApplication {

@@ -4,7 +4,7 @@ Last updated: 2026-09-07
 
 ## Current phase
 
-**Phase 1 — Premium tvOS shell active; simulator-validated development slice complete**
+**Phase 1 — Premium tvOS shell active; simulator hardening complete**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -57,14 +57,20 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   SwiftUI state.
 - expanded shared and tvOS UI automation for Detail, navigation/focus restoration, safe
   placeholder action, Home states, cache bounds/cancellation and fixture determinism.
+- simulator hardening prevents a memory-warning purge from being undone by artwork work
+  already in flight, disables eager ImageIO source caching before downsampling, and adds
+  deterministic LRU, cost, oversized-image, purge, malformed-data, full address-space ID
+  uniqueness and simulator accessibility coverage.
 
 ## Validation evidence
 
-- shared package tests: 9 passed, 0 failed (`swift test`).
+- shared package tests: 15 passed, 0 failed (`swift test`).
 - generic tvOS Simulator build: passed.
 - generic iOS Simulator build: passed.
 - tvOS and iOS Xcode static analysis: passed.
-- tvOS 26.5 Apple TV 4K (3rd generation) UI tests: 6 passed, 0 failed.
+- tvOS 26.5 Apple TV 4K (3rd generation) UI tests: 7 passed, 0 failed.
+- simulator accessibility audits passed for loaded Home and Detail; Detail/back focus
+  restoration passed three consecutive cycles on the selected card.
 - Phase 1 Home and Detail were visually inspected at 4K simulator resolution.
 - the 10k-address-space stress launch passed UI automation with stable initial focus; cache
   bounds and cancellation passed deterministic shared tests.
@@ -80,6 +86,9 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 - Phase 1 work is on `feature/phase-1-premium-tvos-shell`, created from merged `main` at
   `521888e`.
+- GitHub PR #3 was merged to `origin/main` at `62dabb5` before the simulator-hardening
+  audit began. The hardening follow-up was pushed to the Phase 1 branch after that merge,
+  so it is not part of the already-merged PR #3.
 - Phase 0 is recorded in coherent source-of-truth, shared-foundation and
   native-application commits.
 - Git author identity is configured locally by the repository owner.
