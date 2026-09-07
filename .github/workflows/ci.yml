@@ -1,0 +1,203 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: aevyno-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core-build-analyze:
+    name: Core / Build / Analyze
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select Xcode 26.6
+        run: |
+          set -euo pipefail
+          xcode_path=/Applications/Xcode_26.6.app/Contents/Developer
+          if [[ ! -d "$xcode_path" ]]; then
+            echo "::error title=Xcode 26.6 unavailable::Expected $xcode_path on the macos-26 runner."
+            find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode_path"
+
+      - name: Print toolchain diagnostics
+        run: |
+          set -euo pipefail
+          xcode-select -p
+          xcodebuild -version
+          swift --version
+          xcodebuild -showsdks
+          xcrun simctl list runtimes
+          xcrun simctl list devices available
+
+      - name: Test shared Swift package
+        run: swift test
+
+      - name: Build tvOS Simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace AEVYNO.xcworkspace \
+            -scheme AEVYNOTV \
+            -configuration Debug \
+            -destination 'generic/platform=tvOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/aevyno-tvos-build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Build iOS Simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace AEVYNO.xcworkspace \
+            -scheme AEVYNOiOS \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/aevyno-ios-build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Analyze tvOS app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace AEVYNO.xcworkspace \
+            -scheme AEVYNOTV \
+            -configuration Debug \
+            -destination 'generic/platform=tvOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/aevyno-tvos-analyze" \
+            CODE_SIGNING_ALLOWED=NO \
+            analyze
+
+      - name: Analyze iOS app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace AEVYNO.xcworkspace \
+            -scheme AEVYNOiOS \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/aevyno-ios-analyze" \
+            CODE_SIGNING_ALLOWED=NO \
+            analyze
+
+      - name: Lint changed Swift files
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          if ! git cat-file -e "${BASE_SHA}^{commit}"; then
+            echo "::error title=PR base unavailable::The full checkout did not contain base commit $BASE_SHA."
+            exit 1
+          fi
+
+          merge_base="$(git merge-base HEAD "$BASE_SHA")"
+          changed_swift_files=()
+          while IFS= read -r -d '' changed_file; do
+            changed_swift_files+=("$changed_file")
+          done < <(
+            git diff --name-only --diff-filter=ACMR -z "$merge_base"...HEAD -- '*.swift'
+          )
+
+          if (( ${#changed_swift_files[@]} == 0 )); then
+            echo "No changed Swift files to lint."
+            exit 0
+          fi
+
+          printf 'Linting %s\n' "${changed_swift_files[@]}"
+          swift format lint --strict -- "${changed_swift_files[@]}"
+
+  tvos-ui-tests:
+    name: tvOS UI Tests
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode 26.6
+        run: |
+          set -euo pipefail
+          xcode_path=/Applications/Xcode_26.6.app/Contents/Developer
+          if [[ ! -d "$xcode_path" ]]; then
+            echo "::error title=Xcode 26.6 unavailable::Expected $xcode_path on the macos-26 runner."
+            find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode_path"
+
+      - name: Discover and boot tvOS Simulator
+        run: |
+          set -euo pipefail
+
+          xcrun simctl list runtimes
+          xcrun simctl list devices available
+          xcodebuild -showdestinations \
+            -workspace AEVYNO.xcworkspace \
+            -scheme AEVYNOTV
+
+          simulator_record="$(
+            xcrun simctl list devices available --json | python3 -c '
+          import json
+          import sys
+
+          runtime = "com.apple.CoreSimulator.SimRuntime.tvOS-26-5"
+          name = "Apple TV 4K (3rd generation)"
+          devices = json.load(sys.stdin).get("devices", {}).get(runtime, [])
+          match = next(
+              (device for device in devices
+               if device.get("name") == name and device.get("isAvailable", False)),
+              None,
+          )
+          if match:
+              print("{}\t{}".format(match.get("udid", ""), match.get("state", "")))
+          '
+          )"
+          IFS=$'\t' read -r simulator_id simulator_state <<< "$simulator_record"
+
+          if [[ -z "$simulator_id" ]]; then
+            echo "::error title=tvOS Simulator unavailable::Apple TV 4K (3rd generation) with tvOS 26.5 is not available."
+            exit 1
+          fi
+
+          if [[ "$simulator_state" != "Booted" ]]; then
+            xcrun simctl boot "$simulator_id"
+          fi
+          xcrun simctl bootstatus "$simulator_id" -b
+
+      - name: Run tvOS UI tests
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace AEVYNO.xcworkspace \
+            -scheme AEVYNOTV \
+            -configuration Debug \
+            -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation),OS=26.5' \
+            -derivedDataPath "$RUNNER_TEMP/aevyno-tvos-ui-tests" \
+            CODE_SIGNING_ALLOWED=NO \
+            test

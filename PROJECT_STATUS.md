@@ -82,13 +82,25 @@ No frame-rate, interaction-latency or peak-memory numbers are claimed. Lazy cont
 bounded Home materialization and a bounded image cache are verified structurally and by
 tests, while Instruments profiling and long-session focus review remain real-device work.
 
+## Continuous integration
+
+- A GitHub Actions CI foundation validates Pull Requests targeting `main`, pushes to `main`
+  and manual dispatches on GitHub-hosted macOS 26 with explicitly selected Xcode 26.6.
+- Blocking checks cover shared Swift tests, independent tvOS and iOS Simulator builds,
+  tvOS and iOS static analysis, and the tvOS UI suite on an Apple TV 4K (3rd generation)
+  tvOS 26.5 Simulator.
+- Pull Requests also receive strict `swift format lint` validation for changed Swift files
+  only, preserving the known formatting debt in untouched Phase 0 files.
+- CI uses no signing identity, repository secret, Apple ID, provider credential or external
+  runtime dependency. It does not replace physical Apple TV validation.
+- Phase 1 remains physically **PENDING**, and Phase 2 has not started.
+
 ## Repository state
 
-- Phase 1 work is on `feature/phase-1-premium-tvos-shell`, created from merged `main` at
-  `521888e`.
-- GitHub PR #3 was merged to `origin/main` at `62dabb5` before the simulator-hardening
-  audit began. The hardening follow-up was pushed to the Phase 1 branch after that merge,
-  so it is not part of the already-merged PR #3.
+- The GitHub Actions CI foundation is defined in `.github/workflows/ci.yml`; its focused
+  implementation branch was created from synchronized `main` at `19396a2`.
+- Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
+  and #4. The physical Apple TV exit gate remains pending.
 - Phase 0 is recorded in coherent source-of-truth, shared-foundation and
   native-application commits.
 - Git author identity is configured locally by the repository owner.
