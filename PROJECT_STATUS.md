@@ -52,8 +52,8 @@ containers, but real-device profiling and large-catalog fixtures belong to later
 ## Repository state
 
 - Git was initialized locally and work is on `feature/phase-0-foundation`.
-- Phase 0 is recorded in coherent source-of-truth, application-foundation and
-  test/documentation commits.
+- Phase 0 is recorded in coherent source-of-truth, shared-foundation and
+  native-application commits.
 - Git author identity is configured locally by the repository owner.
 - no remote was created and nothing was pushed or published.
 
