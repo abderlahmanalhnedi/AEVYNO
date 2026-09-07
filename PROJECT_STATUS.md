@@ -89,8 +89,11 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - Blocking checks cover shared Swift tests, independent tvOS and iOS Simulator builds,
   tvOS and iOS static analysis, and the tvOS UI suite on an Apple TV 4K (3rd generation)
   tvOS 26.5 Simulator.
-- Pull Requests also receive strict `swift format lint` validation for changed Swift files
-  only, preserving the known formatting debt in untouched Phase 0 files.
+- A repository-wide Swift formatting baseline covers all 29 tracked Swift source and test
+  files. Strict `swift format lint` is clean locally and CI enforces it for Pull Requests,
+  pushes to `main` and manual dispatches.
+- Hosted CI health is reported only from actual GitHub Actions results. Main run
+  `34155548727` confirmed the CI foundation green before this formatting-baseline change.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
 - Phase 1 remains physically **PENDING**, and Phase 2 has not started.
