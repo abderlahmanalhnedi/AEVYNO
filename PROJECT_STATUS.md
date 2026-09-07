@@ -138,13 +138,16 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 ## Next milestone
 
 Run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
-on a physical Apple TV. Include rapid directional navigation, repeated open/back cycles and
+on a physical Apple TV in both the base LTR experience and Arabic RTL. Include rapid directional
+navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase
 1 complete. Do not start Phase 2 until the Phase 1 exit gate passes.
 
 ## Active blockers
 
-- No implementation or simulator blocker remains.
+- No infrastructure/simulator blocker remains.
+- Phase 1 localization/Arabic RTL implementation and simulator validation are newly required by
+  the product owner before the Phase 1 exit gate.
 - The Phase 1 exit gate is pending because the physical Apple TV is currently unavailable
   to the owner. Pair/connect the Apple TV and select it as the AEVYNOTV run destination when
   the owner returns.
