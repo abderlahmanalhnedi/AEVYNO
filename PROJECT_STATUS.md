@@ -112,6 +112,10 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Confirmed product decisions
 
+- first-class interface languages: English, German and Arabic.
+- Arabic is mandatory native RTL with premium typography, layout, focus and accessibility quality.
+- Apple-native localization and system typography are the default; localization rules live in
+  `docs/LOCALIZATION.md`.
 - Native Apple stack.
 - tvOS primary.
 - iOS/iPadOS companion.
@@ -137,7 +141,11 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Next milestone
 
-Run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
+Add the Phase 1 localization foundation for English, German and Arabic using Apple-native String
+Catalogs, then validate Home, Detail, loading, empty and error states in Arabic RTL, including
+automated focus movement and Detail/back restoration.
+
+After that, run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
 on a physical Apple TV in both the base LTR experience and Arabic RTL. Include rapid directional
 navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase
