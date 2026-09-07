@@ -30,7 +30,24 @@ A premium Apple-native IPTV/media client for lawful user-provided sources. The a
 6. Keep favorites and selected preferences synchronized.
 7. Recover gracefully from provider/network failures.
 
-## 5. MVP feature set
+## 5. Localization and language support
+
+The MVP interface languages are:
+
+- English.
+- German.
+- Arabic with complete right-to-left support.
+
+Arabic is a first-class product language. It must not be treated as a late translation pass.
+Layouts, typography, tvOS focus behavior, accessibility and reusable components must be designed
+and tested for RTL from the beginning.
+
+Use Apple-native localization and system typography. App-owned strings must be localizable, while
+provider-supplied media metadata may remain in any source language.
+
+Read `docs/LOCALIZATION.md`.
+
+## 6. MVP feature set
 
 ### Source management
 - Xtream-compatible API/source support.
@@ -62,7 +79,7 @@ A premium Apple-native IPTV/media client for lawful user-provided sources. The a
 - selected non-secret settings.
 - conflict resolution for changes from multiple devices.
 
-## 6. Explicitly not MVP
+## 7. Explicitly not MVP
 
 - built-in content provider.
 - account/password backend owned by us.
@@ -74,7 +91,7 @@ A premium Apple-native IPTV/media client for lawful user-provided sources. The a
 - second playback engine unless compatibility evidence requires it.
 - macOS app.
 
-## 7. Quality requirements
+## 8. Quality requirements
 
 ### Design
 - tvOS must feel native, calm and cinematic.
@@ -95,11 +112,11 @@ A premium Apple-native IPTV/media client for lawful user-provided sources. The a
 - playback progress should survive app interruption.
 - CloudKit being unavailable must not make local playback unusable.
 
-## 8. Legal/content boundary
+## 9. Legal/content boundary
 
 The app is a player. It does not provide media, subscriptions, playlists, copyrighted catalogs, provider accounts, DRM bypass or unauthorized scraping.
 
-## 9. Success metrics
+## 10. Success metrics
 
 Track during development:
 - cold/warm launch to interactive UI.
