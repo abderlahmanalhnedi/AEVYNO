@@ -30,8 +30,10 @@ Deliver:
 - Arabic RTL-safe Home, Detail, loading, empty and error states.
 
 Exit gate:
-- real Apple TV UX review.
-- no obvious navigation/focus stalls.
+- English, German and Arabic RTL simulator review passes for Phase 1-owned UI.
+- Arabic tvOS focus movement and Detail/back restoration pass automated coverage.
+- real Apple TV UX review includes Arabic RTL.
+- no obvious navigation/focus stalls or broken/truncated Arabic layouts.
 
 ## Phase 2 — Sources and local library
 
