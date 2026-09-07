@@ -4,11 +4,12 @@ Last updated: 2026-09-07
 
 ## Current phase
 
-**Phase 0 — Foundation complete in simulator; physical-device validation pending**
+**Phase 1 — Premium tvOS shell active; simulator-validated development slice complete**
 
-The AEVYNO repository is now the source of truth. It contains a native Xcode workspace,
-tvOS and iOS/iPadOS app targets, shared Swift package boundaries, an original synthetic
-Home foundation and automated tests. No Phase 1 work has started.
+Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
+the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
+deferral. Phase 1 development has started and stopped at the simulator-validated stage.
+Phase 1 is not complete because its real Apple TV UX review has not been performed.
 
 ## Verified development environment
 
@@ -36,32 +37,54 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - Swift Testing coverage for module imports, deterministic Home data and Home state logic.
 - tvOS XCUITest coverage for launch, initial card focus and right-direction focus movement.
 
+## Phase 1 simulator-validated development delivered
+
+- original, cinematic Home hero and refined lazy rails for Continue Watching, Movies,
+  Series, Live TV and Favorites.
+- reusable landscape, poster and live card families with stable geometry, restrained focus
+  scale, explicit live/progress semantics and synthetic artwork.
+- native tvOS Detail presentation with title, metadata, concise description, accessibility
+  semantics, a safe no-playback primary action and temporary demo-only secondary state.
+- native `NavigationStack` and `FocusState` flow that remembers deterministic media IDs and
+  restores focus to the opened card after returning from Detail in simulator UI automation.
+- stable, non-focusable loading skeletons; intentional empty state; concise error state with
+  a focusable Retry action.
+- injected actor-isolated artwork pipeline with request cancellation, target-size synthetic
+  rendering, ImageIO downsampling support, a 48 MiB default LRU memory bound and memory-
+  warning purge behavior. No network artwork service or third-party dependency was added.
+- deterministic 10k, 50k and 100k synthetic catalog address spaces. The tvOS stress mode
+  materializes a bounded 800-item Home snapshot instead of retaining a full catalog in
+  SwiftUI state.
+- expanded shared and tvOS UI automation for Detail, navigation/focus restoration, safe
+  placeholder action, Home states, cache bounds/cancellation and fixture determinism.
+
 ## Validation evidence
 
-- shared package tests: 4 passed, 0 failed (`swift test`).
+- shared package tests: 9 passed, 0 failed (`swift test`).
 - generic tvOS Simulator build: passed.
 - generic iOS Simulator build: passed.
-- tvOS 26.5 Apple TV 4K (3rd generation) UI test: 1 passed, 0 failed.
-- tvOS and iPhone 17 Pro simulator launches: visually inspected.
-- physical Apple TV: **BLOCKED** on 2026-09-07 because Xcode discovered no physical
-  devices; the AEVYNOTV scheme exposed only simulator destinations and the generic tvOS
-  device placeholder. No physical build, install, launch or UX observation was performed.
+- tvOS and iOS Xcode static analysis: passed.
+- tvOS 26.5 Apple TV 4K (3rd generation) UI tests: 6 passed, 0 failed.
+- Phase 1 Home and Detail were visually inspected at 4K simulator resolution.
+- the 10k-address-space stress launch passed UI automation with stable initial focus; cache
+  bounds and cancellation passed deterministic shared tests.
+- physical Apple TV: **PENDING** because the owner is currently away from the device. No
+  physical build, install, launch, focus, accessibility or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
 
-No performance numbers are claimed; Phase 0 uses bounded synthetic data and lazy UI
-containers, but real-device profiling and large-catalog fixtures belong to later work.
+No frame-rate, interaction-latency or peak-memory numbers are claimed. Lazy containers,
+bounded Home materialization and a bounded image cache are verified structurally and by
+tests, while Instruments profiling and long-session focus review remain real-device work.
 
 ## Repository state
 
-- Git was initialized locally and work is on `feature/phase-0-foundation`.
+- Phase 1 work is on `feature/phase-1-premium-tvos-shell`, created from merged `main` at
+  `521888e`.
 - Phase 0 is recorded in coherent source-of-truth, shared-foundation and
   native-application commits.
 - Git author identity is configured locally by the repository owner.
-- `origin` is configured for the project GitHub repository, and
-  `feature/phase-0-foundation` is published there.
-- GitHub PR #1 was already merged at commit `dd66531` before this physical-validation
-  status was recorded. The later status commit is pushed to the feature branch but is not
-  part of the merged PR.
+- `origin` is configured for the project GitHub repository.
+- Phase 0 was merged to `main` through PR #2 at `521888e`.
 
 ## Confirmed product decisions
 
@@ -90,19 +113,20 @@ containers, but real-device profiling and large-catalog fixtures belong to later
 
 ## Next milestone
 
-Run the Phase 0 Home and focus/accessibility checklist on a physical Apple TV, including
-rapid directional navigation and Reduce Motion. Address only Phase 0 findings before
-starting the Phase 1 premium shell.
+Run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
+on a physical Apple TV. Include rapid directional navigation, repeated open/back cycles and
+a long stress-mode browsing session with Instruments. Resolve findings before marking Phase
+1 complete. Do not start Phase 2 until the Phase 1 exit gate passes.
 
 ## Active blockers
 
 - No implementation or simulator blocker remains.
-- Physical Apple TV validation is blocked because no physical Apple device is currently
-  connected, paired and visible to Xcode. Pair/connect a compatible Apple TV, trust the
-  development Mac, and select it as the AEVYNOTV run destination before rerunning the gate.
+- The Phase 1 exit gate is pending because the physical Apple TV is currently unavailable
+  to the owner. Pair/connect the Apple TV and select it as the AEVYNOTV run destination when
+  the owner returns.
 
 ## Real-device validation status
 
-Physical Apple TV: **BLOCKED — no physical device discovered by Xcode on 2026-09-07**.
+Physical Apple TV: **PENDING — owner away from device; no Phase 1 real-device review run**.
 
 Physical iPhone/iPad: **NOT RUN**.

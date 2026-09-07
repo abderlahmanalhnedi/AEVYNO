@@ -10,55 +10,83 @@ import Testing
 
 @Test("All Phase 0 module boundaries compile and import")
 func sharedModuleBoundariesImport() {
-    #expect(Bool(true))
+  #expect(Bool(true))
 }
 
 @Test("Mock Home content is deterministic and complete")
 func mockHomeSectionsAreDeterministic() async throws {
-    let repository = MockHomeRepository()
+  let repository = MockHomeRepository()
 
-    let firstLoad = try await repository.fetchHomeSections()
-    let secondLoad = try await repository.fetchHomeSections()
+  let firstLoad = try await repository.fetchHomeSections()
+  let secondLoad = try await repository.fetchHomeSections()
 
-    #expect(firstLoad == secondLoad)
-    #expect(firstLoad.map(\.id) == HomeSectionKind.allCases)
-    #expect(firstLoad.allSatisfy { !$0.items.isEmpty })
-    #expect(Set(firstLoad.flatMap(\.items).map(\.id)).count == firstLoad.flatMap(\.items).count)
+  #expect(firstLoad == secondLoad)
+  #expect(firstLoad.map(\.id) == HomeSectionKind.allCases)
+  #expect(firstLoad.allSatisfy { !$0.items.isEmpty })
+  #expect(Set(firstLoad.flatMap(\.items).map(\.id)).count == firstLoad.flatMap(\.items).count)
+  #expect(firstLoad.flatMap(\.items).allSatisfy { !$0.facts.isEmpty && !$0.summary.isEmpty })
 }
 
 @Test("Home loader resolves loaded and empty states")
 func homeLoaderResolvesContentStates() async {
-    let loaded = HomeLoader(
-        fetchHomeSections: FetchHomeSections(repository: MockHomeRepository())
-    )
-    let empty = HomeLoader(
-        fetchHomeSections: FetchHomeSections(repository: MockHomeRepository(sections: []))
-    )
+  let loaded = HomeLoader(
+    fetchHomeSections: FetchHomeSections(repository: MockHomeRepository())
+  )
+  let empty = HomeLoader(
+    fetchHomeSections: FetchHomeSections(repository: MockHomeRepository(sections: []))
+  )
 
-    #expect(await loaded.load() == .loaded(MockHomeRepository.previewSections))
-    #expect(await empty.load() == .empty)
+  #expect(await loaded.load() == .loaded(MockHomeRepository.previewSections))
+  #expect(await empty.load() == .empty)
 }
 
 @Test("Home loader maps implementation errors to a safe display state")
 func homeLoaderMapsErrors() async {
-    let loader = HomeLoader(
-        fetchHomeSections: FetchHomeSections(repository: FailingHomeRepository())
-    )
+  let loader = HomeLoader(
+    fetchHomeSections: FetchHomeSections(repository: FailingHomeRepository())
+  )
 
-    #expect(
-        await loader.load() == .failure(
-            HomeDisplayError(
-                title: "Home is unavailable",
-                message: "Please try loading the preview again."
-            )
+  #expect(
+    await loader.load()
+      == .failure(
+        HomeDisplayError(
+          title: "Home is unavailable",
+          message: "Please try loading the preview again."
         )
-    )
+      )
+  )
 }
 
 private struct FailingHomeRepository: HomeRepository {
-    func fetchHomeSections() async throws -> [HomeSection] {
-        throw SyntheticFailure()
-    }
+  func fetchHomeSections() async throws -> [HomeSection] {
+    throw SyntheticFailure()
+  }
 }
 
 private struct SyntheticFailure: Error {}
+
+@Test("Synthetic catalog supports deterministic 10k, 50k and 100k address spaces")
+func syntheticCatalogIsDeterministicAtEachScale() {
+  for scale in SyntheticCatalogFixture.Scale.allCases {
+    let first = SyntheticCatalogFixture(scale: scale, seed: 42)
+    let second = SyntheticCatalogFixture(scale: scale, seed: 42)
+
+    #expect(first.count == scale.rawValue)
+    #expect(first.item(at: 0) == second.item(at: 0))
+    #expect(first.item(at: scale.rawValue - 1) == second.item(at: scale.rawValue - 1))
+    #expect(first.item(at: -1) == nil)
+    #expect(first.item(at: scale.rawValue) == nil)
+  }
+}
+
+@Test("Large-catalog Home snapshot stays bounded and preserves stable IDs")
+func syntheticCatalogHomeSnapshotIsBounded() {
+  let fixture = SyntheticCatalogFixture(scale: .oneHundredThousand)
+  let sections = fixture.homeSnapshot(itemsPerSection: 160)
+  let items = sections.flatMap(\.items)
+
+  #expect(sections.map(\.id) == HomeSectionKind.allCases)
+  #expect(sections.allSatisfy { $0.items.count == 160 })
+  #expect(items.count == 800)
+  #expect(Set(items.map(\.id)).count == items.count)
+}

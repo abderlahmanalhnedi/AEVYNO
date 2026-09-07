@@ -46,3 +46,17 @@
   tvOS-only focus treatment.
 - `Tests/LibraryTests/` — deterministic shared foundation tests.
 - `Tests/tvOSUITests/` — tvOS launch and directional-focus smoke test.
+
+## Phase 1 premium tvOS shell
+
+- `App/tvOS/TVHomeHero.swift` — original noninteractive cinematic Home identity panel.
+- `App/tvOS/TVMediaCard.swift` — reusable landscape, poster and live tvOS card families.
+- `App/tvOS/TVDetailView.swift` — synthetic native Detail experience with safe demo actions.
+- `DesignSystem/ArtworkImagePipeline.swift` — injected, cancellable target-size artwork
+  rendering/downsampling and bounded actor-isolated memory cache.
+- `Core/Library/SyntheticCatalogFixture.swift` — deterministic paged 10k/50k/100k fixture
+  address spaces and bounded Home stress snapshots.
+- `Tests/LibraryTests/ArtworkImagePipelineTests.swift` — cache-bound, sizing and cancellation
+  coverage.
+- `Tests/tvOSUITests/AEVYNOTVUITests.swift` — Home, Detail, focus restoration, state and
+  stress-mode journeys.
