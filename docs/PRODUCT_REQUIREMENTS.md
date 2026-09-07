@@ -95,6 +95,9 @@ Read `docs/LOCALIZATION.md`.
 
 ### Design
 - tvOS must feel native, calm and cinematic.
+- English, German and Arabic RTL must preserve the same premium visual hierarchy.
+- Arabic text must render with correct shaping, alignment and wrapping without clipped or broken layouts.
+- reusable UI must avoid hard-coded left/right assumptions.
 - cards must have clear focus states.
 - layouts must work at TV viewing distance.
 - avoid clutter.
