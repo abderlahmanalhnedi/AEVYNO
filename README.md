@@ -30,7 +30,8 @@ interfaces. See `docs/LOCALIZATION.md`.
 - ChatGPT Project instructions: `CHATGPT_PROJECT_INSTRUCTIONS.md`
 - Product requirements: `docs/PRODUCT_REQUIREMENTS.md`
 - Architecture: `docs/ARCHITECTURE.md`
-- Design rules: `docs/DESIGN_SYSTEM.md`\n- Localization / Arabic RTL: `docs/LOCALIZATION.md`
+- Design rules: `docs/DESIGN_SYSTEM.md`
+- Localization / Arabic RTL: `docs/LOCALIZATION.md`
 - Performance rules: `docs/PERFORMANCE_BUDGET.md`
 - Playback compatibility: `docs/PLAYBACK_COMPATIBILITY.md`
 - Cloud sync: `docs/CLOUD_SYNC.md`
