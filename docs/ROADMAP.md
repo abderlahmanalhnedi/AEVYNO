@@ -25,6 +25,9 @@ Deliver:
 - loading/error/empty states.
 - image pipeline abstraction/cache.
 - synthetic large-catalog UI stress fixture.
+- localization foundation using Apple-native String Catalogs.
+- English, German and Arabic interface resources for Phase 1-owned UI.
+- Arabic RTL-safe Home, Detail, loading, empty and error states.
 
 Exit gate:
 - real Apple TV UX review.
