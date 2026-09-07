@@ -1,0 +1,446 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000001 /* Domain in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000001 /* Domain */; };
+		100000000000000000000002 /* Library in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000002 /* Library */; };
+		100000000000000000000003 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000003 /* DesignSystem */; };
+		100000000000000000000004 /* Domain in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000004 /* Domain */; };
+		100000000000000000000005 /* Library in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000005 /* Library */; };
+		100000000000000000000006 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000006 /* DesignSystem */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		200000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 600000000000000000000001;
+			remoteInfo = AEVYNOTV;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		300000000000000000000001 /* AEVYNOTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AEVYNOTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		300000000000000000000002 /* AEVYNOiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AEVYNOiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		300000000000000000000003 /* AEVYNOTVUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AEVYNOTVUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		400000000000000000000001 /* tvOS */ = {isa = PBXFileSystemSynchronizedRootGroup; path = App/tvOS; sourceTree = "<group>"; };
+		400000000000000000000002 /* iOS */ = {isa = PBXFileSystemSynchronizedRootGroup; path = App/iOS; sourceTree = "<group>"; };
+		400000000000000000000003 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; path = App/Shared; sourceTree = "<group>"; };
+		400000000000000000000004 /* tvOSUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Tests/tvOSUITests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		500000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000001 /* Domain in Frameworks */,
+				100000000000000000000002 /* Library in Frameworks */,
+				100000000000000000000003 /* DesignSystem in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		500000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000004 /* Domain in Frameworks */,
+				100000000000000000000005 /* Library in Frameworks */,
+				100000000000000000000006 /* DesignSystem in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		500000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		700000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				400000000000000000000001 /* tvOS */,
+				400000000000000000000002 /* iOS */,
+				400000000000000000000003 /* Shared */,
+				400000000000000000000004 /* tvOSUITests */,
+				700000000000000000000002 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		700000000000000000000002 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000001 /* AEVYNOTV.app */,
+				300000000000000000000002 /* AEVYNOiOS.app */,
+				300000000000000000000003 /* AEVYNOTVUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		600000000000000000000001 /* AEVYNOTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B00000000000000000000001 /* Build configuration list for PBXNativeTarget "AEVYNOTV" */;
+			buildPhases = (
+				500000000000000000000011 /* Sources */,
+				500000000000000000000001 /* Frameworks */,
+				500000000000000000000021 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				400000000000000000000001 /* tvOS */,
+				400000000000000000000003 /* Shared */,
+			);
+			name = AEVYNOTV;
+			packageProductDependencies = (
+				800000000000000000000001 /* Domain */,
+				800000000000000000000002 /* Library */,
+				800000000000000000000003 /* DesignSystem */,
+			);
+			productName = AEVYNOTV;
+			productReference = 300000000000000000000001 /* AEVYNOTV.app */;
+			productType = "com.apple.product-type.application";
+		};
+		600000000000000000000002 /* AEVYNOiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B00000000000000000000002 /* Build configuration list for PBXNativeTarget "AEVYNOiOS" */;
+			buildPhases = (
+				500000000000000000000012 /* Sources */,
+				500000000000000000000002 /* Frameworks */,
+				500000000000000000000022 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				400000000000000000000002 /* iOS */,
+				400000000000000000000003 /* Shared */,
+			);
+			name = AEVYNOiOS;
+			packageProductDependencies = (
+				800000000000000000000004 /* Domain */,
+				800000000000000000000005 /* Library */,
+				800000000000000000000006 /* DesignSystem */,
+			);
+			productName = AEVYNOiOS;
+			productReference = 300000000000000000000002 /* AEVYNOiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		600000000000000000000003 /* AEVYNOTVUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B00000000000000000000003 /* Build configuration list for PBXNativeTarget "AEVYNOTVUITests" */;
+			buildPhases = (
+				500000000000000000000013 /* Sources */,
+				500000000000000000000003 /* Frameworks */,
+				500000000000000000000023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				200000000000000000000002 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				400000000000000000000004 /* tvOSUITests */,
+			);
+			name = AEVYNOTVUITests;
+			packageProductDependencies = (
+			);
+			productName = AEVYNOTVUITests;
+			productReference = 300000000000000000000003 /* AEVYNOTVUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					600000000000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					600000000000000000000002 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					600000000000000000000003 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 600000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = B00000000000000000000000 /* Build configuration list for PBXProject "AEVYNO" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 700000000000000000000001;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				800000000000000000000000 /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 700000000000000000000002 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				600000000000000000000001 /* AEVYNOTV */,
+				600000000000000000000002 /* AEVYNOiOS */,
+				600000000000000000000003 /* AEVYNOTVUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		500000000000000000000021 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		500000000000000000000022 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		500000000000000000000023 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		500000000000000000000011 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		500000000000000000000012 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		500000000000000000000013 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		200000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 600000000000000000000001 /* AEVYNOTV */;
+			targetProxy = 200000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C000000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		C000000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		C000000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AEVYNO;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aevyno.app.tvos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		C000000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AEVYNO;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aevyno.app.tvos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+		C000000000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AEVYNO;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aevyno.app.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C000000000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = AEVYNO;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aevyno.app.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C000000000000000000000031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aevyno.app.tvos.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_TARGET_NAME = AEVYNOTV;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		C000000000000000000000032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aevyno.app.tvos.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_TARGET_NAME = AEVYNOTV;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B00000000000000000000000 /* Build configuration list for PBXProject "AEVYNO" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C000000000000000000000001 /* Debug */,
+				C000000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B00000000000000000000001 /* Build configuration list for PBXNativeTarget "AEVYNOTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C000000000000000000000011 /* Debug */,
+				C000000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B00000000000000000000002 /* Build configuration list for PBXNativeTarget "AEVYNOiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C000000000000000000000021 /* Debug */,
+				C000000000000000000000022 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B00000000000000000000003 /* Build configuration list for PBXNativeTarget "AEVYNOTVUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C000000000000000000000031 /* Debug */,
+				C000000000000000000000032 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		800000000000000000000000 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		800000000000000000000001 /* Domain */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Domain; };
+		800000000000000000000002 /* Library */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Library; };
+		800000000000000000000003 /* DesignSystem */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = DesignSystem; };
+		800000000000000000000004 /* Domain */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Domain; };
+		800000000000000000000005 /* Library */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Library; };
+		800000000000000000000006 /* DesignSystem */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = DesignSystem; };
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A00000000000000000000001 /* Project object */;
+}
