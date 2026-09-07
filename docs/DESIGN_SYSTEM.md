@@ -56,9 +56,29 @@ Define reusable card families instead of one-off screens:
 
 Cards must not fetch business data themselves.
 
-## 6. Typography
+## 6. Localization and RTL design
+
+AEVYNO supports English, German and Arabic as first-class interface languages.
+
+Arabic is a design constraint from the beginning:
+
+- use native RTL layout direction.
+- use semantic leading/trailing alignment rather than physical left/right assumptions.
+- preserve predictable focus geometry and restoration on tvOS.
+- do not manually reverse strings or force mirrored layouts with custom hacks.
+- mirror only directional controls that should semantically mirror.
+- test mixed Arabic/Latin metadata and long Arabic titles.
+- loading, empty, error and Detail states must be equally polished in RTL.
+
+Read `docs/LOCALIZATION.md`.
+
+## 7. Typography
 
 Prefer system typography and platform semantics. Avoid hard-coded tiny text.
+
+Use Apple system typography for Arabic by default so shaping and glyph selection remain native and
+high quality. Do not add a custom Arabic font without a documented design/licensing/performance
+review. Avoid Latin-oriented tracking and fixed text heights that can damage Arabic rendering.
 
 Use a small token set:
 - hero/title.
@@ -67,7 +87,7 @@ Use a small token set:
 - metadata.
 - caption/status.
 
-## 7. Spacing
+## 8. Spacing
 
 Use spacing tokens; do not invent arbitrary values in each screen.
 
@@ -76,7 +96,7 @@ Suggested token names:
 
 Exact values may be tuned after real-device review.
 
-## 8. Motion
+## 9. Motion
 
 Use motion sparingly and purposefully.
 
@@ -86,7 +106,7 @@ Avoid long chained animations that slow interaction.
 
 Never block remote input while decorative animation completes.
 
-## 9. Images/posters
+## 10. Images/posters
 
 - use placeholders immediately.
 - load asynchronously.
@@ -95,7 +115,7 @@ Never block remote input while decorative animation completes.
 - avoid decoding giant source images when a smaller display size is enough.
 - preserve aspect ratio.
 
-## 10. Loading
+## 11. Loading
 
 Prefer stable skeleton/placeholders over global spinners for catalog screens.
 
@@ -103,7 +123,7 @@ Loading must not steal focus.
 
 Cached content should remain visible while refresh happens when safe.
 
-## 11. Error UX
+## 12. Error UX
 
 Examples:
 - Provider unavailable -> Retry / Use cached library.
@@ -111,7 +131,7 @@ Examples:
 - Stream unsupported -> Show useful message and diagnostics ID, not raw codec dumps.
 - iCloud unavailable -> Continue locally and show non-blocking sync status.
 
-## 12. iPhone/iPad adaptation
+## 13. iPhone/iPad adaptation
 
 Share visual tokens and domain behavior, not the exact tvOS layout.
 
@@ -121,7 +141,7 @@ Touch UI may use:
 - context menus.
 - drag/scroll patterns that are inappropriate on tvOS.
 
-## 13. Accessibility
+## 14. Accessibility
 
 Support platform accessibility semantics from the beginning:
 - meaningful labels.

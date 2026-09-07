@@ -39,8 +39,32 @@ Critical journeys:
 - open Player and exit.
 - source setup error/success.
 - Continue Watching appears after progress.
+- English/German/Arabic locale launches for owned screens.
+- Arabic RTL Home focus movement.
+- Arabic RTL Detail/back focus restoration.
+- long and mixed-direction Arabic text does not break critical layouts.
 
-## 3. Performance tests
+## 3. Localization and RTL tests
+
+The required first-class interface locales are English, German and Arabic.
+
+For Arabic, test:
+
+- native RTL layout direction.
+- Home and Detail layout.
+- loading, empty and error states.
+- long titles and Arabic/Latin mixed-direction metadata.
+- focus movement and restoration.
+- accessibility labels.
+- Reduce Motion behavior where relevant.
+- locale-aware numbers, durations and other formatted values.
+
+Physical Apple TV milestone review must include Arabic RTL. Simulator screenshots alone do not
+prove Siri Remote focus behavior.
+
+Read `docs/LOCALIZATION.md`.
+
+## 4. Performance tests
 
 Maintain synthetic catalog generators/fixtures for 10k/50k/100k items.
 
@@ -51,7 +75,7 @@ Measure:
 - memory behavior.
 - search latency.
 
-## 4. Playback compatibility tests
+## 5. Playback compatibility tests
 
 Maintain lawful fixture matrix.
 
@@ -64,7 +88,7 @@ Record for each fixture:
 
 Do not mark a stream supported based only on one simulator run.
 
-## 5. Physical Apple TV validation checklist
+## 6. Physical Apple TV validation checklist
 
 Before major milestone/TestFlight:
 - cold launch.
@@ -79,8 +103,10 @@ Before major milestone/TestFlight:
 - memory behavior during long session.
 - app background/foreground.
 - Continue Watching sync with iPhone/iPad.
+- Arabic RTL Home/Detail visual quality.
+- Arabic RTL rapid focus navigation and repeated Detail/back restoration.
 
-## 6. Device matrix
+## 7. Device matrix
 
 Once minimum OS and hardware baseline are selected, record the exact matrix in this file.
 
@@ -90,7 +116,7 @@ At least:
 - representative iPhone.
 - representative iPad if layout differs materially.
 
-## 7. Test evidence
+## 8. Test evidence
 
 Every completed Codex task must state:
 - tests run.

@@ -163,7 +163,28 @@ Use the project design system and Apple interaction conventions.
 
 Read `docs/DESIGN_SYSTEM.md`.
 
-## 10. Playback compatibility rules
+## 10. Localization and Arabic RTL rules
+
+The first-class interface languages are English, German and Arabic.
+
+Arabic is mandatory first-class RTL support, not a late translation pass.
+
+For user-facing UI:
+
+- use Apple-native localization and String Catalogs where appropriate.
+- use semantic leading/trailing alignment; do not hard-code left/right layout assumptions.
+- use Apple system typography by default, including native Arabic font behavior.
+- do not manually reverse Arabic strings or add bidirectional layout hacks.
+- do not add a custom Arabic font without explicit design, shaping, licensing and performance review.
+- preserve tvOS focus predictability and focus restoration under RTL.
+- test long Arabic strings, Arabic/Latin mixed metadata and localized accessibility labels.
+- provider content may be in any language and must not be forcibly translated or reordered.
+- a milestone-critical tvOS screen is not localization-complete until Arabic RTL has been reviewed
+  on simulator and, when required by the roadmap gate, physical Apple TV.
+
+Read `docs/LOCALIZATION.md` and `docs/DESIGN_SYSTEM.md`.
+
+## 11. Playback compatibility rules
 
 AVPlayer/AVFoundation is the primary engine.
 
@@ -180,7 +201,7 @@ Never implement DRM bypassing, stream theft, credential harvesting, or unauthori
 
 Read `docs/PLAYBACK_COMPATIBILITY.md`.
 
-## 11. iCloud and persistence rules
+## 12. iCloud and persistence rules
 
 CloudKit is not the main media catalog database.
 
@@ -204,7 +225,7 @@ Local catalog data is cacheable/rebuildable and should live locally.
 
 Read `docs/CLOUD_SYNC.md` and `docs/SECURITY_PRIVACY.md`.
 
-## 12. Networking and security rules
+## 13. Networking and security rules
 
 - Prefer HTTPS.
 - Never globally disable App Transport Security merely to support one provider.
@@ -215,7 +236,7 @@ Read `docs/CLOUD_SYNC.md` and `docs/SECURITY_PRIVACY.md`.
 - Do not log full playlist lines when they can contain credentials.
 - No secrets in source, xcconfig committed files, screenshots or sample plist files.
 
-## 13. Error handling rules
+## 14. Error handling rules
 
 No silent failures.
 
@@ -232,7 +253,7 @@ Network/media failures should distinguish at least:
 - expired URL/session.
 - CloudKit unavailable/account missing.
 
-## 14. Testing rules
+## 15. Testing rules
 
 For every behavior change, add/update the smallest appropriate test.
 
@@ -250,7 +271,7 @@ Never state that real-device behavior passed unless a physical device was used.
 
 Read `docs/TEST_STRATEGY.md`.
 
-## 15. Source-control rules
+## 16. Source-control rules
 
 - Do not work directly on protected `main` when a feature branch is expected.
 - Use focused branches: `feature/...`, `fix/...`, `perf/...`, `docs/...`.
@@ -263,7 +284,7 @@ Read `docs/TEST_STRATEGY.md`.
 
 Read `docs/GIT_WORKFLOW.md`.
 
-## 16. Definition of Done gate
+## 17. Definition of Done gate
 
 A task is not complete merely because code was written.
 
@@ -280,7 +301,7 @@ Before declaring completion:
 
 Read `docs/DEFINITION_OF_DONE.md`.
 
-## 17. Documentation discipline
+## 18. Documentation discipline
 
 Architecture changes require an ADR.
 
@@ -288,7 +309,7 @@ Behavioral assumptions must not live only in chat history. Put durable decisions
 
 When a documented rule becomes obsolete, update the document in the same change that replaces it.
 
-## 18. Codex communication style
+## 19. Codex communication style
 
 For each task, return a concise engineering summary containing:
 - what changed.

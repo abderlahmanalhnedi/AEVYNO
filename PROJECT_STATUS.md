@@ -4,12 +4,13 @@ Last updated: 2026-09-07
 
 ## Current phase
 
-**Phase 1 — Premium tvOS shell active; simulator hardening complete**
+**Phase 1 — Premium tvOS shell active; localization/Arabic RTL foundation pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
-deferral. Phase 1 development has started and stopped at the simulator-validated stage.
-Phase 1 is not complete because its real Apple TV UX review has not been performed.
+deferral. The existing Phase 1 LTR shell has completed simulator hardening. A newly approved localization
+foundation for English, German and Arabic RTL must now be implemented and simulator-validated.
+Phase 1 remains incomplete until localization requirements and the real Apple TV UX review pass.
 
 ## Verified development environment
 
@@ -112,6 +113,10 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Confirmed product decisions
 
+- first-class interface languages: English, German and Arabic.
+- Arabic is mandatory native RTL with premium typography, layout, focus and accessibility quality.
+- Apple-native localization and system typography are the default; localization rules live in
+  `docs/LOCALIZATION.md`.
 - Native Apple stack.
 - tvOS primary.
 - iOS/iPadOS companion.
@@ -137,14 +142,21 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Next milestone
 
-Run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
-on a physical Apple TV. Include rapid directional navigation, repeated open/back cycles and
+Add the Phase 1 localization foundation for English, German and Arabic using Apple-native String
+Catalogs, then validate Home, Detail, loading, empty and error states in Arabic RTL, including
+automated focus movement and Detail/back restoration.
+
+After that, run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
+on a physical Apple TV in both the base LTR experience and Arabic RTL. Include rapid directional
+navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase
 1 complete. Do not start Phase 2 until the Phase 1 exit gate passes.
 
 ## Active blockers
 
-- No implementation or simulator blocker remains.
+- No infrastructure/simulator blocker remains.
+- Phase 1 localization/Arabic RTL implementation and simulator validation are newly required by
+  the product owner before the Phase 1 exit gate.
 - The Phase 1 exit gate is pending because the physical Apple TV is currently unavailable
   to the owner. Pair/connect the Apple TV and select it as the AEVYNOTV run destination when
   the owner returns.
