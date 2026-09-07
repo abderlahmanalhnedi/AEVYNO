@@ -26,7 +26,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Select Xcode 26.6
@@ -101,33 +100,22 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             analyze
 
-      - name: Lint changed Swift files
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      - name: Lint all tracked Swift files
         run: |
           set -euo pipefail
 
-          if ! git cat-file -e "${BASE_SHA}^{commit}"; then
-            echo "::error title=PR base unavailable::The full checkout did not contain base commit $BASE_SHA."
-            exit 1
-          fi
+          swift_files=()
+          while IFS= read -r -d '' swift_file; do
+            swift_files+=("$swift_file")
+          done < <(git ls-files -z '*.swift')
 
-          merge_base="$(git merge-base HEAD "$BASE_SHA")"
-          changed_swift_files=()
-          while IFS= read -r -d '' changed_file; do
-            changed_swift_files+=("$changed_file")
-          done < <(
-            git diff --name-only --diff-filter=ACMR -z "$merge_base"...HEAD -- '*.swift'
-          )
-
-          if (( ${#changed_swift_files[@]} == 0 )); then
-            echo "No changed Swift files to lint."
+          if (( ${#swift_files[@]} == 0 )); then
+            echo "No tracked Swift files to lint."
             exit 0
           fi
 
-          printf 'Linting %s\n' "${changed_swift_files[@]}"
-          swift format lint --strict -- "${changed_swift_files[@]}"
+          printf 'Linting %s\n' "${swift_files[@]}"
+          swift format lint --strict -- "${swift_files[@]}"
 
   tvos-ui-tests:
     name: tvOS UI Tests
