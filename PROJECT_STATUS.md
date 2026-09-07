@@ -43,7 +43,9 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - generic iOS Simulator build: passed.
 - tvOS 26.5 Apple TV 4K (3rd generation) UI test: 1 passed, 0 failed.
 - tvOS and iPhone 17 Pro simulator launches: visually inspected.
-- physical Apple TV: **NOT RUN**.
+- physical Apple TV: **BLOCKED** on 2026-09-07 because Xcode discovered no physical
+  devices; the AEVYNOTV scheme exposed only simulator destinations and the generic tvOS
+  device placeholder. No physical build, install, launch or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
 
 No performance numbers are claimed; Phase 0 uses bounded synthetic data and lazy UI
@@ -55,7 +57,8 @@ containers, but real-device profiling and large-catalog fixtures belong to later
 - Phase 0 is recorded in coherent source-of-truth, shared-foundation and
   native-application commits.
 - Git author identity is configured locally by the repository owner.
-- no remote was created and nothing was pushed or published.
+- `origin` is configured for the project GitHub repository, and
+  `feature/phase-0-foundation` is published for PR #1.
 
 ## Confirmed product decisions
 
@@ -91,10 +94,12 @@ starting the Phase 1 premium shell.
 ## Active blockers
 
 - No implementation or simulator blocker remains.
-- Physical-device UX validation remains outstanding.
+- Physical Apple TV validation is blocked because no physical Apple device is currently
+  connected, paired and visible to Xcode. Pair/connect a compatible Apple TV, trust the
+  development Mac, and select it as the AEVYNOTV run destination before rerunning the gate.
 
 ## Real-device validation status
 
-Physical Apple TV: **NOT RUN**.
+Physical Apple TV: **BLOCKED — no physical device discovered by Xcode on 2026-09-07**.
 
 Physical iPhone/iPad: **NOT RUN**.
