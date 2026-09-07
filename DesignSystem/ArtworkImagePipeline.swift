@@ -62,6 +62,7 @@ public actor ArtworkImagePipeline {
   private var entries: [ArtworkRequest: Entry] = [:]
   private var totalCostInBytes = 0
   private var accessCounter: UInt64 = 0
+  private var cacheGeneration: UInt64 = 0
 
   public init(maximumCostInBytes: Int = 48 * 1_024 * 1_024) {
     self.maximumCostInBytes = max(0, maximumCostInBytes)
@@ -100,15 +101,20 @@ public actor ArtworkImagePipeline {
       return entry.image
     }
 
+    let generation = cacheGeneration
     let image = try await renderer(request)
     try Task.checkCancellation()
-    insert(image, for: request)
+    if generation == cacheGeneration {
+      insert(image, for: request)
+    }
     return image
   }
 
   public func removeAll() {
     entries.removeAll(keepingCapacity: false)
     totalCostInBytes = 0
+    accessCounter = 0
+    cacheGeneration &+= 1
   }
 
   public func metrics() -> ArtworkCacheMetrics {
@@ -175,7 +181,15 @@ public struct ArtworkImageView: View {
 
 private enum ArtworkDownsampler {
   static func decode(data: Data, request: ArtworkRequest) throws -> ArtworkImage {
-    guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+    let sourceOptions: [CFString: Any] = [
+      kCGImageSourceShouldCache: false
+    ]
+    guard
+      let source = CGImageSourceCreateWithData(
+        data as CFData,
+        sourceOptions as CFDictionary
+      )
+    else {
       throw ArtworkPipelineError.dataUnavailable
     }
 
