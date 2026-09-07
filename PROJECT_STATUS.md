@@ -4,12 +4,13 @@ Last updated: 2026-09-07
 
 ## Current phase
 
-**Phase 1 — Premium tvOS shell active; simulator hardening complete**
+**Phase 1 — Premium tvOS shell active; localization/Arabic RTL foundation pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
-deferral. Phase 1 development has started and stopped at the simulator-validated stage.
-Phase 1 is not complete because its real Apple TV UX review has not been performed.
+deferral. The existing Phase 1 LTR shell has completed simulator hardening. A newly approved localization
+foundation for English, German and Arabic RTL must now be implemented and simulator-validated.
+Phase 1 remains incomplete until localization requirements and the real Apple TV UX review pass.
 
 ## Verified development environment
 
