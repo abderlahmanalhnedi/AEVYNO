@@ -1,0 +1,30 @@
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Secrets / local config
+Secrets.xcconfig
+*.secrets
+.env
+.env.*
+!.env.example
+
+# Logs / local test output
+*.log
+TestResults/
+PerformanceResults/
+
+# IDE
+.vscode/
+.idea/
