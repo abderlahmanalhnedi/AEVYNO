@@ -58,7 +58,10 @@ containers, but real-device profiling and large-catalog fixtures belong to later
   native-application commits.
 - Git author identity is configured locally by the repository owner.
 - `origin` is configured for the project GitHub repository, and
-  `feature/phase-0-foundation` is published for PR #1.
+  `feature/phase-0-foundation` is published there.
+- GitHub PR #1 was already merged at commit `dd66531` before this physical-validation
+  status was recorded. The later status commit is pushed to the feature branch but is not
+  part of the merged PR.
 
 ## Confirmed product decisions
 
