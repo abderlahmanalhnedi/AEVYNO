@@ -12,6 +12,17 @@ This repository/context pack defines the source of truth for building a premium,
 4. **Cross-device continuity** — Continue Watching, favorites and selected settings synchronized through iCloud/CloudKit.
 5. **Maintainability** — modular architecture, measurable behavior, tests, ADRs, minimal dependencies.
 
+## Interface languages
+
+AEVYNO treats localization as a product-quality requirement from the foundation:
+
+- English.
+- German.
+- Arabic with first-class native RTL support.
+
+Arabic must receive the same premium design, focus, accessibility and testing quality as the LTR
+interfaces. See `docs/LOCALIZATION.md`.
+
 ## Start here
 
 - Arabic owner guide: `00_START_HERE_AR.md`
@@ -19,7 +30,7 @@ This repository/context pack defines the source of truth for building a premium,
 - ChatGPT Project instructions: `CHATGPT_PROJECT_INSTRUCTIONS.md`
 - Product requirements: `docs/PRODUCT_REQUIREMENTS.md`
 - Architecture: `docs/ARCHITECTURE.md`
-- Design rules: `docs/DESIGN_SYSTEM.md`
+- Design rules: `docs/DESIGN_SYSTEM.md`\n- Localization / Arabic RTL: `docs/LOCALIZATION.md`
 - Performance rules: `docs/PERFORMANCE_BUDGET.md`
 - Playback compatibility: `docs/PLAYBACK_COMPATIBILITY.md`
 - Cloud sync: `docs/CLOUD_SYNC.md`
