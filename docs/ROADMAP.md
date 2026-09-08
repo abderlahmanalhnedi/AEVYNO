@@ -101,7 +101,7 @@ Candidates:
 
 Each feature requires its own performance and compatibility check.
 
-## Phase 7 — Hardening/TestFlight
+## Phase 7 — Hardening/TestFlight and commercial readiness
 
 Deliver:
 - crash/error cleanup.
@@ -110,10 +110,23 @@ Deliver:
 - accessibility pass.
 - privacy/security review.
 - TestFlight deployment.
+- StoreKit 2 entitlement foundation.
+- localized purchase/restore flows for English, German and Arabic.
+- Free/Pro packaging decision.
+- subscription/lifetime pricing decision based on launch economics.
+- StoreKit sandbox/configuration testing and restore-purchase validation.
+- App Store/legal review of the player-only commercial model.
+- commercial design review confirming monetization does not degrade the premium UX.
+
+Exit gate additions:
+- commercial readiness checklist in `docs/MONETIZATION.md` passes before paid launch.
+- premium design review confirms AEVYNO has an original identity and clearly exceeds the chosen
+  competitive IPTV quality baseline in the reviewed experience.
 
 ## Later
 
 - macOS.
+- optional premium visual personalization only after the core design system is stable.
 - profiles.
 - downloads only if lawful and technically justified.
 - recording/timeshift only after product/legal/technical design.

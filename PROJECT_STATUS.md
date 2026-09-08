@@ -251,6 +251,15 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Confirmed product decisions
 
+- AEVYNO is intended to become a sustainable commercial product after the core experience reaches
+  launch quality.
+- preferred commercial direction: useful Free tier + AEVYNO Pro, recurring plans and a possible
+  lifetime purchase; final packaging/pricing remains a pre-launch decision.
+- intrusive ads inside Home/library/playback are not part of the product strategy.
+- the design target is to exceed IPTVX's perceived quality bar by a clear margin through original
+  Apple-native design, stronger focus/navigation, responsiveness, Arabic RTL, accessibility and
+  overall polish; copying remains prohibited.
+- commercialization rules live in `docs/MONETIZATION.md`.
 - first-class interface languages: English, German and Arabic.
 - Arabic is mandatory native RTL with premium typography, layout, focus and accessibility quality.
 - Apple-native localization and system typography are the default; localization rules live in
@@ -276,6 +285,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - whether a fallback playback engine is needed.
 - EPG storage/index strategy after real provider fixtures are profiled.
 - TestFlight/App Store distribution timing.
+- final Free/Pro feature boundaries.
+- final monthly/annual/lifetime pricing and whether lifetime remains economically sustainable.
 
 ## Next milestone
 

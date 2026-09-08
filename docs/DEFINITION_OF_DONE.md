@@ -38,6 +38,25 @@ A change is done only when all applicable gates pass.
 - remote navigation considered.
 - physical Apple TV validation recorded for milestone-critical UX/playback/performance work.
 
+## Design quality
+
+For user-facing milestone work:
+- design remains original.
+- no copied competitive assets/layouts/text.
+- premium-state quality includes loading, empty and error states.
+- Arabic RTL receives equivalent polish.
+- where a competitive review is applicable, improvements are stated in observable terms rather than
+  unsupported claims that the design is "better".
+
+## Commercialization
+
+For monetization-related work:
+- entitlement logic is separated from view code.
+- purchase/restore/error states are tested.
+- prices are not hard-coded when StoreKit-provided pricing is available.
+- monetization does not introduce intrusive advertising or weaken the player-only legal boundary.
+- then-current App Store requirements are reviewed before launch.
+
 ## Documentation
 
 - `PROJECT_STATUS.md` updated for milestone completion/blockers.
