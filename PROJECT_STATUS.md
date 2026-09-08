@@ -4,13 +4,14 @@ Last updated: 2026-09-08
 
 ## Current phase
 
-**Phase 1 open; Phase 2 source/security foundation started in parallel**
+**Phase 1 open with localization simulator foundation delivered; Phase 2A intact**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
-deferral. The existing Phase 1 LTR shell has completed simulator hardening. A newly approved localization
-foundation for English, German and Arabic RTL must now be implemented and simulator-validated.
-Phase 1 remains incomplete until localization requirements and the real Apple TV UX review pass.
+deferral. The existing Phase 1 shell has completed simulator hardening. Its Apple-native localization
+foundation for English, German and Arabic now covers the current tvOS and iOS surfaces, and the
+Arabic RTL Home, Detail and state flows have been simulator-validated. Phase 1 remains incomplete
+until the real Apple TV UX review passes in both LTR and Arabic RTL.
 By explicit owner direction, Phase 2 work that does not depend on physical Apple TV validation
 has started in parallel. Phase 3 playback work has not started.
 
@@ -64,6 +65,12 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   already in flight, disables eager ImageIO source caching before downsampling, and adds
   deterministic LRU, cost, oversized-image, purge, malformed-data, full address-space ID
   uniqueness and simulator accessibility coverage.
+- a shared Apple String Catalog provides complete English, German and Arabic values for current
+  app-owned Home, Detail, loading, empty, error, Retry, preview-notice and accessibility text on
+  tvOS and iOS/iPadOS, including the synthetic Phase 1 preview presentation.
+- native SwiftUI layout direction drives Arabic RTL without manual string reversal, forced
+  direction overrides, duplicated Arabic components or artwork/media-glyph mirroring. Stable media
+  IDs continue to drive tvOS focus memory and restoration.
 
 ## Phase 2A source/security foundation
 
@@ -83,14 +90,21 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 
 ## Validation evidence
 
-- shared package tests: 27 passed, 0 failed (`swift test`) on the Phase 2A branch.
+- shared package tests: 30 passed, 0 failed (`swift test`), including catalog completeness checks
+  for English, German and Arabic and critical synthetic-preview coverage.
 - generic tvOS Simulator build: passed.
 - generic iOS Simulator build: passed.
 - tvOS and iOS Xcode static analysis: passed.
-- tvOS 26.5 Apple TV 4K (3rd generation) UI tests: 7 passed, 0 failed.
+- tvOS 26.5 Apple TV 4K (3rd generation) UI tests: 11 passed, 0 failed, covering the default
+  English flow, German launch, and targeted Arabic RTL Home/Detail/state/focus behavior.
 - simulator accessibility audits passed for loaded Home and Detail; Detail/back focus
   restoration passed three consecutive cycles on the selected card.
 - Phase 1 Home and Detail were visually inspected at 4K simulator resolution.
+- Arabic Home and Detail were visually inspected at 4K simulator resolution: native RTL placed
+  the first rail item on the right, semantic alignment and button order reflowed correctly, mixed
+  Arabic/Latin names and numeric metadata rendered without visible clipping or overlap, and media
+  artwork plus the play glyph remained unmirrored. The iPhone 17 Pro iOS 26.5 Simulator companion
+  shell was smoke-inspected in Arabic RTL with the same content-direction behavior.
 - the 10k-address-space stress launch passed UI automation with stable initial focus; cache
   bounds and cancellation passed deterministic shared tests.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No
@@ -111,8 +125,9 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - A repository-wide Swift formatting baseline covers all 36 tracked Swift/package source and
   test files after Phase 2A. Strict `swift format lint` is clean locally and CI enforces it
   for Pull Requests, pushes to `main` and manual dispatches.
-- Hosted CI health is reported only from actual GitHub Actions results. Main run
-  `34158813184` confirmed the synchronized Phase 2A base green before implementation.
+- Hosted CI health is reported only from actual GitHub Actions results. Main run `34200518183`
+  confirmed the synchronized Phase 2A base at `c53ff99` green before localization implementation.
+  Localization branch CI is recorded only after its Pull Request run.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
 - Phase 1 remains physically **PENDING**. Phase 2A has started in parallel; Phase 2 is not
@@ -162,11 +177,7 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Next milestone
 
-Continue the Phase 1 localization foundation for English, German and Arabic using Apple-native
-String Catalogs, then validate Home, Detail, loading, empty and error states in Arabic RTL,
-including automated focus movement and Detail/back restoration.
-
-After that, run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
+Run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
 on a physical Apple TV in both the base LTR experience and Arabic RTL. Include rapid directional
 navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
@@ -180,8 +191,6 @@ Phase 3 playback implementation before its approved phase gate.
 ## Active blockers
 
 - No infrastructure/simulator blocker remains.
-- Phase 1 localization/Arabic RTL implementation and simulator validation are newly required by
-  the product owner before the Phase 1 exit gate.
 - The Phase 1 exit gate is pending because the physical Apple TV is currently unavailable
   to the owner. Pair/connect the Apple TV and select it as the AEVYNOTV run destination when
   the owner returns.
