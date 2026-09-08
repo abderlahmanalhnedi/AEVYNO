@@ -135,9 +135,10 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Repository state
 
-- The GitHub Actions CI foundation is defined in `.github/workflows/ci.yml`. Phase 2A branch
-  `feature/phase-2a-source-security-foundation` was created from synchronized `main` at
-  `33088a4`.
+- The GitHub Actions CI foundation is defined in `.github/workflows/ci.yml`. Phase 2A was merged
+  into `main` through PR #8 at `c53ff99`; the source/security foundation remains intact.
+- Phase 1 localization work is isolated on `feature/phase-1-localization-rtl`, created from the
+  synchronized and hosted-CI-green `c53ff99` base.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
 - Phase 0 is recorded in coherent source-of-truth, shared-foundation and
