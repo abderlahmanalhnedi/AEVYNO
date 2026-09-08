@@ -72,7 +72,11 @@ Local, fast, rebuildable storage for catalog and EPG.
 
 Expose protocols so persistence can be benchmarked or replaced without affecting UI.
 
-Preferred first spike: Apple-native persistence with SQLite-backed storage characteristics. Do not lock the project to a persistence choice without measuring bulk import and query behavior against synthetic large catalogs.
+Phase 2D implements the SDK system SQLite library behind `CatalogImportRepository` and
+`CatalogQueryRepository`, with actor-isolated transactions and bounded indexed pages.
+[ADR-0008](../decisions/ADR-0008-local-catalog-persistence.md) records the selection for review;
+[Phase 2D evidence](PHASE_2D_PERSISTENCE.md) records measured bulk imports and queries.
+The current app shell still consumes synthetic Phase 1 data; production query/UI composition is later work.
 
 ### Playback
 Define a playback abstraction, for example conceptually:

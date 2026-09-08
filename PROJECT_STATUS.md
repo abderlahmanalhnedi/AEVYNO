@@ -4,7 +4,7 @@ Last updated: 2026-09-08
 
 ## Current phase
 
-**Phase 1 open with localization simulator foundation delivered; Phase 2A and Phase 2B merged; Phase 2C provider adapter foundation implemented**
+**Phase 1 physical validation open; Phase 2A/B/C merged; Phase 2D local persistence implemented for review**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -135,9 +135,35 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - ADR-0007 records the Xtream adapter, import boundary and deterministic source/kind/provider-ID
   identity decisions.
 
+## Phase 2D production persistence foundation
+
+- Apple system SQLite (SDK `SQLite3`, no third-party package) implements actor-isolated local
+  catalog storage behind `CatalogImportRepository` and `CatalogQueryRepository`.
+- Schema v1 persists catalog partitions, exact stable item IDs, source-scoped categories, original
+  titles, indexed normalized titles and encrypted opaque media/artwork/provider references.
+  ADR-0008 records the technology comparison, schema boundary and encrypted-reference design for PR review.
+- A writer transaction replaces one source/origin/kind partition in batches of at most 256. An
+  independent WAL reader keeps the previous committed catalog visible until successful commit.
+  Parser/transport/write/commit failure and cancellation preserve the previous catalog.
+- `PersistentCatalogImportSink` supports the existing M3U and Xtream services. The Xtream service
+  stages categories with items when the sink supports categories; M3U group IDs remain source-scoped,
+  and M3U media kind is explicitly unspecified rather than guessed.
+- Database-backed item/category pages support source/kind/category filters, deterministic ordering,
+  item lookup, counts and cancellation. Page size is capped at 256; no catalog-wide UI state was added.
+- Source catalog deletion leaves other sources and all Keychain/progress/favorites state untouched.
+- CryptoKit AES-256-GCM protects opaque URL/reference payloads with a separate device-local Keychain
+  key. No provider credential fields, raw responses or diagnostics are serialized; no CloudKit catalog
+  sync exists. The default database is a backup-excluded rebuildable cache, subject to tvOS purge.
+- Schema ownership/version checks reject unknown/corrupt stores without destructive reset.
+- [Phase 2D evidence](docs/PHASE_2D_PERSISTENCE.md) records synthetic 10k/50k/100k import, replacement,
+  query and reopen measurements, failure tests, privacy limits and reproduction commands.
+- Physical Apple TV performance/cache/Keychain validation and Phase 1 LTR/Arabic RTL UX review remain
+  **PENDING**. Phase 2 is not complete; Phase 3 playback has not started.
+
 ## Validation evidence
 
-- shared package tests: 57 passed, 0 failed (`swift test`), including Xtream request construction,
+- Phase 2D shared package tests: 73 passed, 0 failed (`swift test`), including production persistence,
+  rollback, query bounds, encrypted references and key storage, plus Xtream request construction,
   authentication, tolerant live/VOD/series decoding, normalized errors, security redaction,
   cancellation, deterministic identity and transactional import, plus all existing M3U,
   localization and synthetic-preview coverage.
@@ -170,11 +196,20 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - Phase 2C Pull Request #11 hosted run `34211142740` passed the Core/Build/Analyze job and tvOS UI
   Tests job at implementation commit `048f9a0`; any follow-up commit remains subject to current-head
   CI before merge.
+- Phase 2D release-mode disk-backed encrypted provider-model import: 10k **0.244 s**, 50k
+  **1.354 s**, 100k **2.904 s**; full replacements **0.269 / 2.749 / 5.054 s** respectively.
+  M3U parser through production persistence: **0.301 / 1.563 / 5.186 s** imports and
+  **0.385 / 3.548 / 6.539 s** replacements. On the same MacBook Air, measured 64-item pages
+  were **0.589 / 0.629 / 0.565 ms**; 100k category page **0.594 ms**, ID lookup **0.057 ms**,
+  source count **7.901 ms**. Reproduce with
+  `swift test -c release --filter CatalogPersistencePerformanceTests`.
+  These are single local observations; peak memory and physical-device performance were not measured.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No
   physical build, install, launch, focus, accessibility or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
 
-No frame-rate, interaction-latency or peak-memory numbers are claimed. Lazy containers,
+No frame-rate, UI interaction-latency or peak-memory numbers are claimed. Local database query
+latencies above are measured separately from UI behavior. Lazy containers,
 bounded Home materialization and a bounded image cache are verified structurally and by
 tests, while Instruments profiling and long-session focus review remain real-device work.
 
@@ -188,14 +223,13 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - A repository-wide Swift formatting baseline covers all tracked Swift/package source and test
   files. Strict `swift format lint` is clean locally and CI enforces it
   for Pull Requests, pushes to `main` and manual dispatches.
-- Hosted CI health is reported only from actual GitHub Actions results. Main run `34207942745`
-  confirmed the synchronized Phase 2B merge commit `112a8a0` green before Phase 2C implementation.
-  Phase 2C Pull Request #11 initial hosted run `34211142740` also passed both required jobs.
+- Hosted CI health is reported only from actual GitHub Actions results. Main run `34212462495`
+  passed both jobs for the synchronized Phase 2C merge commit `6835219`. It was queued during the
+  initial Phase 2D audit and completed successfully during implementation.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
-- Phase 1 remains physically **PENDING**. Phase 2A and Phase 2B are merged; Phase 2 is not complete.
-  Phase 2C has local validation and a green initial hosted Pull Request run on its feature branch.
-  Phase 3 has not started.
+- Phase 1 remains physically **PENDING**. Phase 2A/B/C are merged; Phase 2D is implemented for review.
+  Phase 2 is not complete. Phase 3 has not started.
 
 ## Repository state
 
@@ -203,10 +237,10 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   into `main` through PR #8 at `c53ff99`; the source/security foundation remains intact.
 - Phase 2B was merged into `main` through PR #10 at `112a8a0`; the M3U parser/import foundation
   remains intact.
-- Phase 2C is isolated on `feature/phase-2c-xtream-provider-adapter`, created from synchronized,
-  hosted-CI-green `112a8a0`.
-- Phase 1 localization work is isolated on `feature/phase-1-localization-rtl`, created from the
-  synchronized and hosted-CI-green `c53ff99` base.
+- Phase 2C merged through PR #11 at `6835219`; the provider adapter foundation remains intact.
+- Phase 2D is isolated on `feature/phase-2d-local-persistence`, created from clean synchronized
+  `6835219`. No rebase, force push, history rewrite or automatic merge was performed.
+- Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
 - Phase 0 is recorded in coherent source-of-truth, shared-foundation and
@@ -239,7 +273,6 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - final app/product name.
 - final distribution minimum OS versions; Phase 0 provisionally targets iOS/tvOS 17.0
   under ADR-0004 and must be reassessed before TestFlight.
-- exact local persistence implementation after benchmark spike.
 - whether a fallback playback engine is needed.
 - EPG storage/index strategy after real provider fixtures are profiled.
 - TestFlight/App Store distribution timing.
@@ -252,10 +285,10 @@ navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
 complete.
 
-In parallel, complete the remaining Phase 2 work: source validation flows, benchmark-driven local
-catalog persistence, durable refresh/import behavior, production category/search queries and query
-evidence. M3U network/file acquisition remains a future source-adapter responsibility. Do not begin
-Phase 3 playback implementation before its approved phase gate.
+In parallel, complete the remaining Phase 2 work: source validation/management flows, acquisition,
+refresh scheduling/orchestration, production search and app query integration. The Phase 2D local
+persistence foundation is implemented and awaiting review. M3U network/file acquisition remains a
+future source-adapter responsibility. Do not begin Phase 3 playback implementation before its approved phase gate.
 
 ## Active blockers
 
