@@ -19,8 +19,8 @@ gh auth status >/dev/null 2>&1 || fail "gh is not authenticated. Run: gh auth lo
 
 arch="$(uname -m)"
 case "$arch" in
-  arm64) asset_pattern='^actions-runner-osx-arm64-.*\.tar\.gz$' ;;
-  x86_64) asset_pattern='^actions-runner-osx-x64-.*\.tar\.gz$' ;;
+  arm64) asset_prefix="actions-runner-osx-arm64-" ;;
+  x86_64) asset_prefix="actions-runner-osx-x64-" ;;
   *) fail "Unsupported macOS architecture: $arch" ;;
 esac
 
@@ -37,7 +37,7 @@ else
   echo "Resolving latest official GitHub Actions runner release..."
   asset_line="$(
     gh api repos/actions/runner/releases/latest \
-      --jq ".assets[] | select(.name | test(\"$asset_pattern\")) | [.browser_download_url, (.digest // \"\")] | @tsv" \
+      --jq ".assets[] | select(.name | startswith(\"$asset_prefix\")) | select(.name | endswith(\".tar.gz\")) | [.browser_download_url, (.digest // \"\")] | @tsv" \
       | head -n 1
   )"
 
