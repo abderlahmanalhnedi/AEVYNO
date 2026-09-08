@@ -4,7 +4,7 @@ Last updated: 2026-09-08
 
 ## Current phase
 
-**Phase 1 physical validation open; Phase 2A/B/C merged; Phase 2D local persistence implemented for review**
+**Phase 1 physical validation open; Phase 2A/B/C/D merged; Phase 2E durable refresh implemented for review**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -163,6 +163,37 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - Physical Apple TV performance/cache/Keychain validation and Phase 1 LTR/Arabic RTL UX review remain
   **PENDING**. Phase 2 is not complete; Phase 3 playback has not started.
 
+## Phase 2E durable source refresh foundation
+
+- `Library` now exposes an actor-isolated, provider-neutral `CatalogRefreshService` with explicit
+  dependencies and safe validating/acquiring/parsing/staging/committing/completed/failed/cancelled
+  lifecycle stages. It has no SwiftUI or `MainActor` dependency.
+- remote M3U acquisition uses Foundation `URLSession` async bytes with ephemeral/cacheless/cookieless
+  configuration, a 30-second request timeout, no retries, safe redirects and a 64 MiB maximum enforced
+  from both declared and actually received bytes. Errors and logs never contain full URLs or bodies.
+- Xtream refresh reuses the existing credential-backed `XtreamProviderAdapter`, request builder,
+  normalized models, bounded import service and persistent sink. Authentication plus live, VOD and
+  series categories/items are refreshed; no final playback URL is generated.
+- SQLite schema v3 supports one query-invisible staging ID across multiple source partitions.
+  Xtream's three kinds and successful refresh metadata publish in one short final transaction only
+  after acquisition, normalization, staging and integrity checks finish. Schema v1/v2 migrations
+  preserve committed catalogs.
+- local-only metadata records source ID, attempt/success times, committed item count and a safe result
+  category. The committed count comes from distinct staged rows inside the final transaction.
+  Failure/cancellation changes attempt/result only. A metadata commit failure rolls back catalog B
+  and preserves catalog A plus its last-success values.
+- a second same-source refresh returns `inProgress` without starting another attempt. Different-source
+  acquisition and staging may overlap, while SQLite calls/final commits remain actor-serialized and
+  bounded. There is no scheduler or implicit retry.
+- deterministic synthetic coverage includes M3U HTTP/size/cancellation and full persistence flow,
+  all Xtream kinds and failure classes, atomic last-known-good behavior, lifecycle/metadata semantics,
+  schema migration, and the one-second slow-network writer-lock regression.
+- [ADR-0009](decisions/ADR-0009-durable-source-refresh.md) records the durable orchestration,
+  concurrency, multi-partition and metadata decisions. [Phase 2E evidence](docs/PHASE_2E_REFRESH.md)
+  records reproduction commands, measured 10k/50k/100k results, privacy review and limitations.
+- no source-management UI, scheduling, Phase 2F search/application integration, CloudKit catalog sync
+  or Phase 3 playback work is included.
+
 ## Validation evidence
 
 - Phase 2D shared package tests: 75 passed, 0 failed (`swift test`), including production persistence,
@@ -209,6 +240,13 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   Reproduce with
   `swift test -c release --filter CatalogPersistencePerformanceTests`.
   These are single local observations; peak memory and physical-device performance were not measured.
+- Phase 2E release-mode full M3U refresh completed 10k/50k/100k in **0.591 / 3.221 / 7.567 s**;
+  corresponding staging was **0.278 / 1.858 / 4.523 s** and final live transactions were
+  **0.172 / 0.803 / 1.924 s**. Normalized provider refresh across live/VOD/series completed in
+  **0.412 / 2.786 / 6.783 s**, with staging **0.226 / 1.738 / 4.333 s** and final transactions
+  **0.145 / 0.869 / 2.091 s**. Synthetic response/generator preparation was outside the timer;
+  M3U acquisition numbers represent in-memory handoff, not network throughput. Reproduce with
+  `swift test -c release --filter CatalogRefreshPerformanceTests`. Peak memory was not measured.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No
   physical build, install, launch, focus, accessibility or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
@@ -221,19 +259,20 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 ## Continuous integration
 
 - A GitHub Actions CI foundation validates Pull Requests targeting `main`, pushes to `main`
-  and manual dispatches on GitHub-hosted macOS 26 with explicitly selected Xcode 26.6.
+  and manual dispatches on the repository-scoped self-hosted macOS runner with explicitly selected
+  Xcode 26.6.
 - Blocking checks cover shared Swift tests, independent tvOS and iOS Simulator builds,
   tvOS and iOS static analysis, and the tvOS UI suite on an Apple TV 4K (3rd generation)
   tvOS 26.5 Simulator.
 - A repository-wide Swift formatting baseline covers all tracked Swift/package source and test
   files. Strict `swift format lint` is clean locally and CI enforces it
   for Pull Requests, pushes to `main` and manual dispatches.
-- Hosted CI health is reported only from actual GitHub Actions results. Main run `34212462495`
-  passed both jobs for the synchronized Phase 2C merge commit `6835219`. It was queued during the
-  initial Phase 2D audit and completed successfully during implementation.
+- CI health is reported only from actual GitHub Actions results. Main run `34256599979` passed on the
+  repository-scoped self-hosted runner before the Phase 2E branch was created. The Phase 2E PR head
+  remains subject to its own real CI run before this work is declared complete.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
-- Phase 1 remains physically **PENDING**. Phase 2A/B/C are merged; Phase 2D is implemented for review.
+- Phase 1 remains physically **PENDING**. Phase 2A/B/C/D are merged; Phase 2E is implemented for review.
   Phase 2 is not complete. Phase 3 has not started.
 
 ## Repository state
@@ -243,8 +282,9 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - Phase 2B was merged into `main` through PR #10 at `112a8a0`; the M3U parser/import foundation
   remains intact.
 - Phase 2C merged through PR #11 at `6835219`; the provider adapter foundation remains intact.
-- Phase 2D is isolated on `feature/phase-2d-local-persistence`, created from clean synchronized
-  `6835219`. No rebase, force push, history rewrite or automatic merge was performed.
+- Phase 2D and its transaction-lifetime correction merged through PR #14 at `07a0ccc`.
+- Phase 2E is isolated on `feature/phase-2e-refresh-acquisition`, created from clean `07a0ccc`.
+  No rebase, force push, history rewrite or automatic merge was performed.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -301,10 +341,10 @@ navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
 complete.
 
-In parallel, complete the remaining Phase 2 work: source validation/management flows, acquisition,
-refresh scheduling/orchestration, production search and app query integration. The Phase 2D local
-persistence foundation is implemented and awaiting review. M3U network/file acquisition remains a
-future source-adapter responsibility. Do not begin Phase 3 playback implementation before its approved phase gate.
+In parallel, complete the remaining Phase 2 work after Phase 2E review: source-management UI/flows,
+refresh scheduling, production search and app query integration. M3U file acquisition is not part of
+the current remote-acquisition slice. Do not begin Phase 3 playback implementation before its
+approved phase gate.
 
 ## Active blockers
 
