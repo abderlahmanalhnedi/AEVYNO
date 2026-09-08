@@ -150,6 +150,42 @@ func credentialStoreSupportsConcurrentAccess() async throws {
   }
 }
 
+@Test("Catalog encryption key is stable, device-local and separate from source credentials")
+func catalogKeyIsStableAndIsolated() async throws {
+  let client = LockedKeychainClient()
+  let keys = CatalogKeyStore(service: "com.aevyno.tests.catalog", client: client)
+  let first = try await keys.key()
+  let reopened = CatalogKeyStore(service: "com.aevyno.tests.catalog", client: client)
+  #expect(try await reopened.key() == first)
+  #expect(first.bitCount == 256)
+  let observation = client.observation()
+  #expect(observation.lastAccessibility == .whenUnlockedThisDeviceOnly)
+  #expect(observation.lastAccount == "catalog-reference-key-v1")
+  let credentials = KeychainCredentialStore(service: "com.aevyno.tests.credentials", client: client)
+  let reference = CredentialReference()
+  try await credentials.store(
+    SourceCredential(secret: "synthetic", secretKind: .password), for: reference)
+  try await credentials.deleteCredential(for: reference)
+  #expect(try await keys.key() == first)
+}
+
+@Test("Unavailable or corrupt catalog Keychain data fails without replacing the key")
+func catalogKeyFailures() async throws {
+  let unavailable = CatalogKeyStore(
+    service: "com.aevyno.tests.catalog",
+    client: LockedKeychainClient(readStatusOverride: errSecNotAvailable))
+  await #expect(throws: CredentialStoreError.unavailable) { try await unavailable.key() }
+  let client = LockedKeychainClient()
+  let service = "com.aevyno.tests.corrupt-catalog"
+  _ = client.add(
+    data: Data([1, 2, 3]), service: service, account: "catalog-reference-key-v1",
+    accessibility: .whenUnlockedThisDeviceOnly)
+  let corrupt = CatalogKeyStore(service: service, client: client)
+  await #expect(throws: CredentialStoreError.corruptedData) { try await corrupt.key() }
+  #expect(
+    client.read(service: service, account: "catalog-reference-key-v1").data == Data([1, 2, 3]))
+}
+
 private actor InMemoryCredentialStore: CredentialStore {
   private var credentials: [CredentialReference: SourceCredential] = [:]
 
