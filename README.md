@@ -12,6 +12,17 @@ This repository/context pack defines the source of truth for building a premium,
 4. **Cross-device continuity** — Continue Watching, favorites and selected settings synchronized through iCloud/CloudKit.
 5. **Maintainability** — modular architecture, measurable behavior, tests, ADRs, minimal dependencies.
 
+## Commercial direction
+
+AEVYNO is intended to become a sustainable commercial product. The preferred direction is a
+premium freemium model with a useful free tier, AEVYNO Pro, recurring plans and a possible lifetime
+purchase. Monetization must never degrade the core browsing/player experience with intrusive ads or
+compromise the legal player-only boundary.
+
+The product's competitive design target is to exceed the perceived quality bar of IPTVX by a clear
+margin through original Apple-native design, faster-feeling interaction, stronger tvOS focus behavior,
+excellent Arabic RTL and higher overall polish — never through copying.
+
 ## Interface languages
 
 AEVYNO treats localization as a product-quality requirement from the foundation:
@@ -32,6 +43,7 @@ interfaces. See `docs/LOCALIZATION.md`.
 - Architecture: `docs/ARCHITECTURE.md`
 - Design rules: `docs/DESIGN_SYSTEM.md`
 - Localization / Arabic RTL: `docs/LOCALIZATION.md`
+- Monetization / commercialization: `docs/MONETIZATION.md`
 - Performance rules: `docs/PERFORMANCE_BUDGET.md`
 - Playback compatibility: `docs/PLAYBACK_COMPATIBILITY.md`
 - Cloud sync: `docs/CLOUD_SYNC.md`
