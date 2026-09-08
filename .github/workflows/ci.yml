@@ -40,9 +40,19 @@ jobs:
           )
 
           for candidate in "${candidates[@]}"; do
-            if [[ -d "$candidate" ]] && DEVELOPER_DIR="$candidate" xcodebuild -version | grep -q '^Xcode 26\.6$'; then
+            [[ -d "$candidate" ]] || continue
+
+            if ! xcode_version="$(DEVELOPER_DIR="$candidate" xcodebuild -version 2>&1)"; then
+              echo "Unable to query Xcode at $candidate:"
+              printf '%s\n' "$xcode_version"
+              continue
+            fi
+
+            first_line="${xcode_version%%$'\n'*}"
+            if [[ "$first_line" == "Xcode 26.6" ]]; then
               echo "DEVELOPER_DIR=$candidate" >> "$GITHUB_ENV"
               echo "Using $candidate"
+              printf '%s\n' "$xcode_version"
               exit 0
             fi
           done
@@ -158,9 +168,19 @@ jobs:
           )
 
           for candidate in "${candidates[@]}"; do
-            if [[ -d "$candidate" ]] && DEVELOPER_DIR="$candidate" xcodebuild -version | grep -q '^Xcode 26\.6$'; then
+            [[ -d "$candidate" ]] || continue
+
+            if ! xcode_version="$(DEVELOPER_DIR="$candidate" xcodebuild -version 2>&1)"; then
+              echo "Unable to query Xcode at $candidate:"
+              printf '%s\n' "$xcode_version"
+              continue
+            fi
+
+            first_line="${xcode_version%%$'\n'*}"
+            if [[ "$first_line" == "Xcode 26.6" ]]; then
               echo "DEVELOPER_DIR=$candidate" >> "$GITHUB_ENV"
               echo "Using $candidate"
+              printf '%s\n' "$xcode_version"
               exit 0
             fi
           done
