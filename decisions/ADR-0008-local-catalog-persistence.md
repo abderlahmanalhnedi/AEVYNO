@@ -1,6 +1,6 @@
 # ADR-0008 — System SQLite Catalog and Encrypted References
 
-Status: Proposed for review with Phase 2D implementation
+Status: Accepted
 Date: 2026-09-08
 
 ## Context and evaluated options
@@ -31,30 +31,40 @@ provides `PersistentCatalogImportSink`; the app's Phase 1 preview remains unchan
 
 ### Transactions and concurrency
 
-One `SQLiteCatalogStore` actor owns two non-Sendable database connections. The writer starts
-`BEGIN IMMEDIATE`, deletes only the requested source/origin/kind partition, recreates it, and
-writes batches of at most 256 items/categories. The independent reader sees catalog A until
-`COMMIT` atomically publishes catalog B. Use WAL with `synchronous=FULL`; don't weaken durability
-for benchmark numbers. Schema creation is also transactional.
+One `SQLiteCatalogStore` actor owns two non-Sendable database connections. Acquisition and parsing
+write encrypted values to query-invisible staging tables in short, bounded transactions of at most
+256 items/categories. No SQLite writer transaction remains open between batches or across an
+adapter/network suspension.
 
-Only one replacement may be active per store. A concurrent begin or source deletion returns
-`busy`; no hidden queue holds full catalogs. UUID transaction tokens prevent another operation's
-rollback from touching an active import. Construct one sink per service invocation. The owner
-must commit/rollback each successful begin; `close()` abandons any unfinished transaction.
-SQLite handles an abandoned writer on process death; abrupt power loss is not locally simulated.
+After acquisition and validation finish, `commitStagedReplacement` starts `BEGIN IMMEDIATE`,
+deletes only the requested source/origin/kind partition, recreates it, copies staged categories and
+items in database-local batches of at most 256, and commits. The independent reader sees catalog A
+until that final `COMMIT` atomically publishes catalog B. Staging uses `synchronous=NORMAL` because
+it is disposable after a crash; the final live replacement switches to `synchronous=FULL` before
+`BEGIN IMMEDIATE`. Schema creation and migration are also transactional.
+
+Only one logical staging operation may be active per store. A concurrent begin or source deletion
+returns `busy`; no hidden queue holds full catalogs. This logical ownership does not retain a SQLite
+writer lock. UUID staging IDs prevent another operation's discard from touching an active import.
+Construct one sink per service invocation. The owner must commit/discard each successful staging
+begin; `close()` discards unfinished staging. Startup removes invisible staging left by a prior
+process crash; abrupt power loss during final commit is not locally simulated.
 
 Every query/batch checks cancellation, and a SQLite progress callback checks it during long SQL
-statements. Cleanup deliberately ignores cancellation. Write/commit errors discard the transaction;
-a rollback error closes the writer, preventing uncertain state from being reused. No detached tasks,
+statements. Cleanup deliberately ignores cancellation. Stage failure discards the complete staging
+set. Final-copy/commit failure rolls back the live replacement, then discards staging; a rollback or
+cleanup error closes the writer, preventing uncertain state from being reused. No detached tasks,
 main-actor database work, managed objects crossing actors or unchecked Sendable database wrappers.
 
-### Schema v1 and identity
+### Schema v2 and identity
 
 - `catalogs`: primary key `(source, origin, kind)`. An explicitly empty successful refresh still
   records a committed partition. No timestamp is needed for this foundation.
 - `items`: exact existing stable item ID, source UUID, origin, media kind, unchanged display title,
   normalized searchable title, optional category ID, authenticated encrypted reference payload.
 - `categories`: stable ID, source UUID, origin, kind, unchanged title, normalized searchable title.
+- `staged_catalogs`, `staged_categories`, `staged_items`: encrypted, query-invisible acquisition
+  staging keyed by a UUID. Staging rows never replace or join the committed query tables directly.
 - Foreign keys tie categories/items to partitions and ensure an item cannot reference a category
   belonging to another source/kind. Missing category references reject commit; they are not silently
   dropped. A provider with inconsistent category endpoints retains its previous catalog and reports
@@ -68,7 +78,7 @@ continue preserving parser duplicates. Cross-partition ID collisions fail rather
 
 Indexes cover title/ID ordering, source, kind, source+kind and category item queries, plus category
 source+kind/kind/title ordering. Search preparation folds case/diacritics with a fixed POSIX locale
-and canonical composition while preserving the original display title, including Arabic. Schema v1
+and canonical composition while preserving the original display title, including Arabic. Schema v2
 sorting is binary `(search_title, id)` and independent of insertion order. This is preparation for
 Phase 2F, not full-text, token, substring or language-aware relevance search.
 
@@ -109,11 +119,12 @@ The real Keychain entitlement/device runtime and physical Apple TV cache lifecyc
 
 ### Evolution
 
-`PRAGMA user_version=1` and an application ID identify the initial schema. New stores are created
-atomically; unknown versions, unidentified existing stores and corrupt files fail without reset.
-Future versions must add an explicit transactional migration (with old/new fixture tests) or a
-reviewed cache-rebuild flow; do not open a newer schema optimistically. No speculative migration
-ladder or pre-existing production data conversion is added.
+`PRAGMA user_version=2` and an application ID identify the current schema. Version 1 migrates
+transactionally by adding the staging tables without changing committed catalogs, with an automated
+migration fixture. New stores are created atomically; unknown versions, unidentified existing stores
+and corrupt files fail without reset. Future versions must add an explicit transactional migration
+(with old/new fixture tests) or a reviewed cache-rebuild flow; do not open a newer schema
+optimistically. No speculative migration ladder is added.
 
 ## Evidence and consequences
 
@@ -123,10 +134,10 @@ Memory peak and physical Apple TV performance are not claimed. SQLite's caches a
 4 MiB per connection; that setting is not a process-memory ceiling. The M3U importer's hashed
 identity counters and Xtream's response/DTO arrays remain the limitations recorded by ADR-0006/7.
 
-Costs: maintained SQL/schema code, serial writes across network waits, actor query delays during
-long deletion/begin/commit SQL statements, temporary WAL/disk growth
-during refresh, encrypted-reference work, retained index pages after deletion, and linear deep-offset
-scan cost. Freed database pages can be reused; secure deletion/compaction is not promised.
+Costs: maintained SQL/schema code, extra encrypted staging disk space, short per-batch staging
+transactions, actor query delays during the final copy/delete/commit SQL work, temporary WAL/disk
+growth during refresh, encrypted-reference work, retained index pages after deletion, and linear
+deep-offset scan cost. Freed database pages can be reused; secure deletion/compaction is not promised.
 
 References:
 - [Apple SwiftData](https://developer.apple.com/documentation/swiftdata/)
