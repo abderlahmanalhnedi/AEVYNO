@@ -1,1 +1,1 @@
-// Phase 0 establishes this importable boundary without selecting a database.
+// Local catalog persistence is exposed through CatalogQueryRepository and CatalogImportRepository.

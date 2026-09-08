@@ -164,7 +164,7 @@ protocol KeychainClient: Sendable {
   func delete(service: String, account: String) -> OSStatus
 }
 
-private struct SystemKeychainClient: KeychainClient {
+struct SystemKeychainClient: KeychainClient {
   func add(
     data: Data,
     service: String,

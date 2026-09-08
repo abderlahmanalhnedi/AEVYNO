@@ -26,9 +26,11 @@ let package = Package(
       dependencies: ["Domain", "AEVYNOSecurity"],
       path: "Core/IPTVCore"
     ),
-    .target(name: "Library", dependencies: ["Domain", "IPTVCore"], path: "Core/Library"),
+    .target(
+      name: "Library", dependencies: ["Domain", "IPTVCore", "Persistence"], path: "Core/Library"),
     .target(name: "Playback", dependencies: ["Domain"], path: "Core/Playback"),
-    .target(name: "Persistence", dependencies: ["Domain"], path: "Core/Persistence"),
+    .target(
+      name: "Persistence", dependencies: ["Domain", "AEVYNOSecurity"], path: "Core/Persistence"),
     .target(name: "CloudSync", dependencies: ["Domain"], path: "Core/CloudSync"),
     .target(name: "AEVYNOSecurity", dependencies: ["Domain"], path: "Core/Security"),
     .target(name: "DesignSystem", dependencies: ["Domain"], path: "DesignSystem"),
