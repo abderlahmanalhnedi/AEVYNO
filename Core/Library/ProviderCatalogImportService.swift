@@ -11,6 +11,11 @@ public protocol ProviderCatalogImportSink: Sendable {
   func rollbackImport() async
 }
 
+/// Optional category capability keeps existing catalog-only sinks source-compatible.
+public protocol ProviderCategoryImportSink: Sendable {
+  func writeCategories(_ categories: [ProviderCategory]) async throws
+}
+
 public struct ProviderCatalogImportReport: Equatable, Sendable {
   public let receivedCount: Int
   public let importedCount: Int
@@ -40,8 +45,19 @@ public struct ProviderCatalogImportService: Sendable {
   ) async throws -> ProviderCatalogImportReport {
     try Task.checkCancellation()
 
+    try await sink.beginImport(for: source.id, kind: kind)
     do {
-      try await sink.beginImport(for: source.id, kind: kind)
+      if let categorySink = sink as? any ProviderCategoryImportSink {
+        let result = try await adapter.categories(for: kind, source: source)
+        guard result.receivedCount == result.categories.count + result.skippedCount else {
+          throw ProviderAdapterError.providerResponseInvalid
+        }
+        for start in stride(from: 0, to: result.categories.count, by: batchSize) {
+          try Task.checkCancellation()
+          try await categorySink.writeCategories(
+            Array(result.categories[start..<min(start + batchSize, result.categories.count)]))
+        }
+      }
       var batch: [ProviderCatalogItem] = []
       batch.reserveCapacity(batchSize)
       var importedCount = 0
