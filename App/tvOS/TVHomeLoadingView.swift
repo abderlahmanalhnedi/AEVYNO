@@ -16,7 +16,7 @@ struct TVHomeLoadingView: View {
     }
     .scrollDisabled(true)
     .accessibilityIdentifier("home.loading")
-    .accessibilityLabel("Loading Home preview")
+    .accessibilityLabel(AppText.homeLoadingAccessibilityLabel)
   }
 
   private func loadingRail(cardSize: CGSize) -> some View {

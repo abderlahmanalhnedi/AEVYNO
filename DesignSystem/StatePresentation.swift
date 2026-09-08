@@ -23,6 +23,7 @@ public struct StatusPanel: View {
   private let title: String
   private let message: String
   private let actionTitle: String?
+  private let actionAccessibilityHint: String?
   private let action: (() -> Void)?
 
   public init(
@@ -30,12 +31,14 @@ public struct StatusPanel: View {
     title: String,
     message: String,
     actionTitle: String? = nil,
+    actionAccessibilityHint: String? = nil,
     action: (() -> Void)? = nil
   ) {
     self.symbolName = symbolName
     self.title = title
     self.message = message
     self.actionTitle = actionTitle
+    self.actionAccessibilityHint = actionAccessibilityHint
     self.action = action
   }
 
@@ -60,7 +63,7 @@ public struct StatusPanel: View {
           .buttonStyle(.borderedProminent)
           .tint(AEVYNOColor.accent)
           .accessibilityIdentifier("home.retry")
-          .accessibilityHint("Attempts to load Home again")
+          .accessibilityHint(actionAccessibilityHint ?? "")
       }
     }
     .padding(AEVYNOSpacing.xl)

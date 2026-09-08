@@ -16,7 +16,7 @@ struct MobileHomeView: View {
         AEVYNOColor.background.ignoresSafeArea()
         content
       }
-      .navigationTitle("AEVYNO")
+      .navigationTitle(AppText.appName)
       .toolbarColorScheme(.dark, for: .navigationBar)
     }
     .preferredColorScheme(.dark)
@@ -33,7 +33,7 @@ struct MobileHomeView: View {
     case .loaded(let sections):
       ScrollView {
         LazyVStack(alignment: .leading, spacing: AEVYNOSpacing.lg) {
-          Text("Your shared media foundation, shaped for touch.")
+          Text(AppText.mobileHomeSubtitle)
             .aevynoTypography(.status)
             .foregroundStyle(AEVYNOColor.secondaryText)
 
@@ -47,16 +47,17 @@ struct MobileHomeView: View {
     case .empty:
       StatusPanel(
         symbolName: "rectangle.stack.badge.plus",
-        title: "Nothing here yet",
-        message: "Source setup will arrive in a later phase."
+        title: AppText.mobileHomeEmptyTitle,
+        message: AppText.mobileHomeEmptyMessage
       )
       .padding(AEVYNOSpacing.md)
-    case .failure(let error):
+    case .failure:
       StatusPanel(
         symbolName: "arrow.clockwise.circle",
-        title: error.title,
-        message: error.message,
-        actionTitle: "Retry"
+        title: AppText.homeErrorTitle,
+        message: AppText.homeErrorMessage,
+        actionTitle: AppText.retry,
+        actionAccessibilityHint: AppText.retryAccessibilityHint
       ) {
         Task { await viewModel.reload() }
       }
@@ -66,7 +67,7 @@ struct MobileHomeView: View {
 
   private func mobileSection(_ section: HomeSection) -> some View {
     VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
-      Text(section.title)
+      Text(AppText.sectionTitle(for: section.id, fallback: section.title))
         .aevynoTypography(.sectionTitle)
         .foregroundStyle(AEVYNOColor.primaryText)
         .accessibilityAddTraits(.isHeader)
@@ -86,18 +87,22 @@ struct MobileHomeView: View {
 private struct MobileMediaCard: View {
   let item: MediaItem
 
+  private var presentation: MediaPresentation {
+    AppText.mediaPresentation(for: item)
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: AEVYNOSpacing.xs) {
       ArtworkPlaceholder(theme: item.artworkTheme, kind: item.kind)
         .frame(width: 190, height: 112)
         .clipShape(RoundedRectangle(cornerRadius: AEVYNOCornerRadius.card, style: .continuous))
 
-      Text(item.title)
+      Text(presentation.title)
         .aevynoTypography(.cardTitle)
         .foregroundStyle(AEVYNOColor.primaryText)
         .lineLimit(1)
 
-      Text(item.subtitle)
+      Text(presentation.subtitle)
         .aevynoTypography(.metadata)
         .foregroundStyle(AEVYNOColor.secondaryText)
         .lineLimit(1)

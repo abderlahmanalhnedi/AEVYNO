@@ -73,16 +73,17 @@ struct TVHomeView: View {
     case .empty:
       StatusPanel(
         symbolName: "sparkles.rectangle.stack",
-        title: "Your screen is ready",
-        message: "There is no preview content in this synthetic collection yet."
+        title: AppText.homeEmptyTitle,
+        message: AppText.homeEmptyMessage
       )
       .accessibilityIdentifier("home.empty")
-    case .failure(let error):
+    case .failure:
       StatusPanel(
         symbolName: "arrow.clockwise.circle",
-        title: error.title,
-        message: error.message,
-        actionTitle: "Retry"
+        title: AppText.homeErrorTitle,
+        message: AppText.homeErrorMessage,
+        actionTitle: AppText.retry,
+        actionAccessibilityHint: AppText.retryAccessibilityHint
       ) {
         Task { await viewModel.reload() }
       }
@@ -127,14 +128,14 @@ private struct TVMediaRail: View {
   var body: some View {
     VStack(alignment: .leading, spacing: AEVYNOSpacing.md) {
       HStack(alignment: .firstTextBaseline) {
-        Text(section.title)
+        Text(AppText.sectionTitle(for: section.id, fallback: section.title))
           .aevynoTypography(.sectionTitle)
           .foregroundStyle(AEVYNOColor.primaryText)
           .accessibilityAddTraits(.isHeader)
 
         Spacer()
 
-        Text("\(section.items.count) items")
+        Text(AppText.itemCount(section.items.count))
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
           .accessibilityHidden(true)
@@ -158,7 +159,7 @@ private struct TVMediaRail: View {
             .focusEffectDisabled()
             .focused(focusedItemID, equals: item.id)
             .accessibilityIdentifier("home.card.\(item.id.rawValue)")
-            .accessibilityHint("Opens details")
+            .accessibilityHint(AppText.openDetailsAccessibilityHint)
           }
         }
         .padding(.horizontal, AEVYNOSpacing.xs)

@@ -9,6 +9,10 @@ struct TVDetailView: View {
   let item: MediaItem
   let artworkPipeline: ArtworkImagePipeline
 
+  private var presentation: MediaPresentation {
+    AppText.mediaPresentation(for: item)
+  }
+
   var body: some View {
     ZStack(alignment: .bottomLeading) {
       AEVYNOColor.background.ignoresSafeArea()
@@ -17,10 +21,10 @@ struct TVDetailView: View {
       details
     }
     .navigationBarBackButtonHidden(false)
-    .alert("Playback comes later", isPresented: $isShowingPreviewNotice) {
-      Button("Done", role: .cancel) {}
+    .alert(AppText.detailPreviewNoticeTitle, isPresented: $isShowingPreviewNotice) {
+      Button(AppText.done, role: .cancel) {}
     } message: {
-      Text("This Phase 1 action is a safe interface preview and does not start playback.")
+      Text(AppText.detailPreviewNoticeMessage)
     }
   }
 
@@ -60,27 +64,27 @@ struct TVDetailView: View {
   private var details: some View {
     VStack(alignment: .leading, spacing: AEVYNOSpacing.lg) {
       VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
-        Text(item.kind.detailEyebrow)
+        Text(AppText.detailEyebrow(for: item.kind))
           .aevynoTypography(.eyebrow)
           .tracking(2.4)
           .foregroundStyle(AEVYNOColor.accent)
 
-        Text(item.title)
+        Text(presentation.title)
           .aevynoTypography(.detailTitle)
           .foregroundStyle(AEVYNOColor.primaryText)
           .accessibilityIdentifier("detail.title")
           .accessibilityAddTraits(.isHeader)
 
-        if !item.facts.isEmpty {
-          Text(item.facts.joined(separator: "  ·  "))
+        if !presentation.facts.isEmpty {
+          Text(presentation.facts.joined(separator: "  ·  "))
             .aevynoTypography(.metadata)
             .foregroundStyle(Color.white.opacity(0.82))
-            .accessibilityLabel(item.facts.joined(separator: ", "))
+            .accessibilityLabel(presentation.facts.joined(separator: ", "))
         }
       }
       .accessibilityElement(children: .contain)
 
-      Text(item.summary)
+      Text(presentation.summary)
         .aevynoTypography(.status)
         .foregroundStyle(AEVYNOColor.primaryText.opacity(0.9))
         .lineLimit(3)
@@ -90,41 +94,35 @@ struct TVDetailView: View {
         Button {
           isShowingPreviewNotice = true
         } label: {
-          Label("Play Preview", systemImage: "play.fill")
+          Label(AppText.detailPlayPreview, systemImage: "play.fill")
             .frame(minWidth: 220)
         }
         .buttonStyle(.borderedProminent)
         .tint(.white)
         .foregroundStyle(.black)
         .accessibilityIdentifier("detail.play")
-        .accessibilityHint("Shows a message; playback is not included in this preview")
+        .accessibilityHint(AppText.detailPlayAccessibilityHint)
 
         Button {
           isSavedForDemo.toggle()
         } label: {
           Label(
-            isSavedForDemo ? "Saved for Demo" : "Save for Demo",
+            isSavedForDemo ? AppText.detailSaved : AppText.detailSave,
             systemImage: isSavedForDemo ? "checkmark" : "plus"
           )
           .frame(minWidth: 220)
         }
         .buttonStyle(.bordered)
         .accessibilityIdentifier("detail.save")
-        .accessibilityValue(isSavedForDemo ? "Saved" : "Not saved")
-        .accessibilityHint("Changes only this temporary synthetic preview")
+        .accessibilityValue(
+          isSavedForDemo
+            ? AppText.detailSavedAccessibilityValue
+            : AppText.detailNotSavedAccessibilityValue
+        )
+        .accessibilityHint(AppText.detailSaveAccessibilityHint)
       }
     }
     .padding(.horizontal, 110)
     .padding(.bottom, 88)
-  }
-}
-
-extension MediaKind {
-  fileprivate var detailEyebrow: String {
-    switch self {
-    case .movie: return "AEVYNO FILM"
-    case .series: return "AEVYNO SERIES"
-    case .liveChannel: return "AEVYNO LIVE"
-    }
   }
 }
