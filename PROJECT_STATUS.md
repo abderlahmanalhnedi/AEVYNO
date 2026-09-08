@@ -4,7 +4,7 @@ Last updated: 2026-09-08
 
 ## Current phase
 
-**Phase 1 open with localization simulator foundation delivered; Phase 2A intact**
+**Phase 1 open with localization simulator foundation delivered; Phase 2A intact; Phase 2B parser/import foundation implemented**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -88,10 +88,35 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - no provider networking, M3U parsing, catalog persistence, source-management UI or playback
   implementation is included in Phase 2A.
 
+## Phase 2B M3U parser/import foundation
+
+- `IPTVCore` accepts asynchronous line sequences and incrementally parses basic and extended M3U
+  without materializing a playlist-wide string or entry array. `M3UDataLineSequence` provides a
+  cancellation-aware UTF-8/BOM/LF/CRLF adapter for already available data, while future file or
+  network adapters can supply lines directly.
+- the parser supports `#EXTM3U`, `#EXTINF`, quoted and unquoted attributes, whitespace variations,
+  commas in display titles, `tvg-id`, `tvg-name`, `tvg-logo`, `group-title`, optional non-negative
+  duration, blank lines, comments and unknown attributes.
+- only absolute HTTP and HTTPS media/artwork URLs are accepted. Media URL path and query semantics are
+  preserved; local/file URLs are outside the Phase 2B scope. Parsing performs no network request.
+- malformed entries are skipped without crashing an otherwise usable playlist. Fatal invalid UTF-8
+  and no-playable-entry errors, skipped counts and bounded warning summaries are explicit and contain
+  no raw playlist lines or URL values.
+- the `Library` import service writes through an asynchronous transactional sink in bounded batches
+  of 256 by default. Cancellation and sink/parser failures roll back staged work instead of returning
+  partial success. No production persistence implementation was added.
+- stable imported IDs are SHA-256 digests scoped to the source ID. A non-empty `tvg-id` is preferred;
+  the exact media URL is the fallback. Duplicate anchors are preserved with deterministic occurrence
+  identities and reported rather than aggressively deduplicated. ADR-0006 records the decision.
+- normalized output contains title, media URL, optional group/artwork/TVG metadata and optional
+  duration. Unknown raw attributes and extracted credential fields are not retained, and default item
+  diagnostics redact media/artwork URLs.
+
 ## Validation evidence
 
-- shared package tests: 30 passed, 0 failed (`swift test`), including catalog completeness checks
-  for English, German and Arabic and critical synthetic-preview coverage.
+- shared package tests: 43 passed, 0 failed (`swift test`), including M3U parsing/import,
+  cancellation, stable identity, duplicate policy, catalog completeness checks for English, German
+  and Arabic, and critical synthetic-preview coverage.
 - generic tvOS Simulator build: passed.
 - generic iOS Simulator build: passed.
 - tvOS and iOS Xcode static analysis: passed.
@@ -107,6 +132,11 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   shell was smoke-inspected in Arabic RTL with the same content-direction behavior.
 - the 10k-address-space stress launch passed UI automation with stable initial focus; cache
   bounds and cancellation passed deterministic shared tests.
+- Phase 2B release-mode synthetic line-stream imports on a MacBook Air (M2, 8 GB), macOS 26.6.2,
+  Swift 6.3.3 completed 10,000 entries in 0.083 s, 50,000 in 0.410 s and 100,000 in 0.839 s.
+  The reproducible command was `swift test -c release --filter M3UImportPerformanceTests`.
+  These are local parser/import-boundary measurements, not Apple TV or production-database claims.
+  Peak memory was not measured; tests instead verify that sink batches never exceed 256 items.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No
   physical build, install, launch, focus, accessibility or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
@@ -131,7 +161,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
 - Phase 1 remains physically **PENDING**. Phase 2A has started in parallel; Phase 2 is not
-  complete, and Phase 3 has not started.
+  complete. Phase 2B has local validation on its feature branch; hosted Pull Request CI is recorded
+  separately when run. Phase 3 has not started.
 
 ## Repository state
 
@@ -185,9 +216,10 @@ a long stress-mode browsing session with Instruments. Resolve findings before ma
 complete.
 
 In parallel, complete the remaining Phase 2 work: source validation flows, provider adapters,
-M3U parsing, benchmark-driven local catalog persistence, refresh/import behavior, categories,
-search and large-catalog performance evidence. These items remain outside Phase 2A. Do not begin
-Phase 3 playback implementation before its approved phase gate.
+the Xtream-compatible adapter, benchmark-driven local catalog persistence, durable refresh/import
+behavior, categories, search and production query evidence. M3U network/file acquisition remains a
+future source-adapter responsibility. Do not begin Phase 3 playback implementation before its
+approved phase gate.
 
 ## Active blockers
 

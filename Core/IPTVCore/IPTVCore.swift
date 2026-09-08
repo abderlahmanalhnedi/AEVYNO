@@ -1,1 +1,1 @@
-// Phase 0 establishes this importable boundary without provider or networking logic.
+// Provider parsing implementations live in focused files in this module.
