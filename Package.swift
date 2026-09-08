@@ -16,7 +16,7 @@ let package = Package(
     .library(name: "Playback", targets: ["Playback"]),
     .library(name: "Persistence", targets: ["Persistence"]),
     .library(name: "CloudSync", targets: ["CloudSync"]),
-    .library(name: "Security", targets: ["Security"]),
+    .library(name: "AEVYNOSecurity", targets: ["AEVYNOSecurity"]),
     .library(name: "DesignSystem", targets: ["DesignSystem"]),
   ],
   targets: [
@@ -26,7 +26,7 @@ let package = Package(
     .target(name: "Playback", dependencies: ["Domain"], path: "Core/Playback"),
     .target(name: "Persistence", dependencies: ["Domain"], path: "Core/Persistence"),
     .target(name: "CloudSync", dependencies: ["Domain"], path: "Core/CloudSync"),
-    .target(name: "Security", path: "Core/Security"),
+    .target(name: "AEVYNOSecurity", dependencies: ["Domain"], path: "Core/Security"),
     .target(name: "DesignSystem", dependencies: ["Domain"], path: "DesignSystem"),
     .testTarget(
       name: "LibraryTests",
@@ -37,7 +37,7 @@ let package = Package(
         "Playback",
         "Persistence",
         "CloudSync",
-        "Security",
+        "AEVYNOSecurity",
         "DesignSystem",
       ],
       path: "Tests/LibraryTests"
