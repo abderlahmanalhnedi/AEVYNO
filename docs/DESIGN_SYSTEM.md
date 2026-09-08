@@ -4,7 +4,13 @@
 
 The app should feel like a premium Apple TV application, not a ported phone interface and not a generic IPTV utility.
 
-The visual language must be original. Inspiration may come from Apple TV, Netflix and high-quality media apps, but copying proprietary screens/assets is prohibited.
+The visual language must be original. Inspiration may come from Apple TV, Netflix, IPTVX and other
+high-quality media apps, but copying proprietary screens/assets is prohibited.
+
+The explicit competitive goal is not merely to match IPTVX. AEVYNO should exceed its perceived
+quality bar by a clear margin in the areas under our control: visual polish, compositional coherence,
+focus behavior, motion restraint, responsiveness, Arabic RTL, accessibility, loading/error states
+and consistency across Apple devices. This is a quality target, not permission to imitate its UI.
 
 ## 2. Principles
 
@@ -16,6 +22,9 @@ The visual language must be original. Inspiration may come from Apple TV, Netfli
 - predictable navigation.
 - motion that explains spatial relationships.
 - graceful empty/loading/error states.
+- every screen should look intentionally designed rather than framework-default or utility-like.
+- polish must survive English, German and Arabic RTL, not only the base locale.
+- visual novelty is valuable only when navigation remains obvious and fast.
 
 ## 3. tvOS focus
 
@@ -141,7 +150,22 @@ Touch UI may use:
 - context menus.
 - drag/scroll patterns that are inappropriate on tvOS.
 
-## 14. Accessibility
+## 14. Competitive design review
+
+For milestone-critical screens, perform an explicit design review that asks:
+
+- does this feel unmistakably like AEVYNO rather than a clone of another IPTV app?
+- is the hierarchy more refined and less utility-like than common IPTV clients?
+- is tvOS focus clearer and more predictable?
+- is the interface at least as polished in Arabic RTL as in English?
+- are loading, empty and error states premium rather than afterthoughts?
+- does the experience remain fast and calm under large-catalog stress?
+- are motion, spacing, typography and artwork treatment coherent as one system?
+
+IPTVX may be included in internal competitive review only as a quality benchmark. Never reproduce
+its exact screen composition, visual tokens or proprietary assets.
+
+## 15. Accessibility
 
 Support platform accessibility semantics from the beginning:
 - meaningful labels.
