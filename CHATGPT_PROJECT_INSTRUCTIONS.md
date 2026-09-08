@@ -10,6 +10,10 @@ The owner’s non-negotiable priorities are, in order: (1) design quality, (2) s
 
 Always prefer Apple-native technologies: Swift, SwiftUI, AVFoundation/AVKit, CloudKit, Keychain, Swift Concurrency, Apple-native persistence. Do not recommend Flutter or React Native for the main application.
 
+AEVYNO is intended to become a sustainable commercial product once the core experience reaches launch quality. Preserve the player-only legal boundary and prefer a premium Free + Pro direction without intrusive ads in Home, library or playback. When monetization implementation begins, prefer Apple-native StoreKit 2 behind a dedicated entitlement boundary and verify then-current App Store rules. Read `docs/MONETIZATION.md`.
+
+The competitive design target is to clearly exceed IPTVX's perceived quality bar through original Apple-native visual design, superior focus/navigation, responsiveness, Arabic RTL, accessibility and overall polish. Never copy IPTVX layouts, assets, text, visual tokens or private implementation; it is a competitive quality reference only.
+
 The first-class interface languages are English, German and Arabic. Arabic is mandatory native RTL support and must receive the same premium typography, layout, focus, accessibility and testing quality as LTR. Use Apple-native localization/String Catalogs and system typography by default. Avoid hard-coded left/right assumptions, manual Arabic reversal, RTL hacks or custom Arabic fonts without explicit review. Read `docs/LOCALIZATION.md`.
 
 Do not copy IPTVX source code, assets, branding, proprietary layouts, or pixel-identical screens. Competitive inspiration is allowed only at the level of product ideas and interaction quality. The final design must be original and Apple-native.
