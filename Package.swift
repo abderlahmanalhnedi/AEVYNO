@@ -22,7 +22,7 @@ let package = Package(
   targets: [
     .target(name: "Domain", path: "Core/Domain"),
     .target(name: "IPTVCore", dependencies: ["Domain"], path: "Core/IPTVCore"),
-    .target(name: "Library", dependencies: ["Domain"], path: "Core/Library"),
+    .target(name: "Library", dependencies: ["Domain", "IPTVCore"], path: "Core/Library"),
     .target(name: "Playback", dependencies: ["Domain"], path: "Core/Playback"),
     .target(name: "Persistence", dependencies: ["Domain"], path: "Core/Persistence"),
     .target(name: "CloudSync", dependencies: ["Domain"], path: "Core/CloudSync"),
