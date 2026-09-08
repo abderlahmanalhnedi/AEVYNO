@@ -1,3 +1,4 @@
+import AEVYNOSecurity
 import CloudSync
 import DesignSystem
 import Domain
@@ -5,7 +6,6 @@ import IPTVCore
 import Library
 import Persistence
 import Playback
-import Security
 import Testing
 
 @Test("All Phase 0 module boundaries compile and import")
