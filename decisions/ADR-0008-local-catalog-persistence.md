@@ -43,9 +43,11 @@ until that final `COMMIT` atomically publishes catalog B. Staging uses `synchron
 it is disposable after a crash; the final live replacement switches to `synchronous=FULL` before
 `BEGIN IMMEDIATE`. Schema creation and migration are also transactional.
 
-Only one logical staging operation may be active per store. A concurrent begin or source deletion
-returns `busy`; no hidden queue holds full catalogs. This logical ownership does not retain a SQLite
-writer lock. UUID staging IDs prevent another operation's discard from touching an active import.
+Phase 2D initially allowed one logical staging operation per store. Phase 2E, under ADR-0009, permits
+independent staging IDs for different sources and one multi-partition staging ID for Xtream's three
+kinds. Overlapping work for the same source and deletion of an actively staged source return `busy`;
+no hidden queue holds full catalogs. This logical ownership does not retain a SQLite writer lock.
+UUID staging IDs prevent another operation's discard from touching an active import.
 Construct one sink per service invocation. The owner must commit/discard each successful staging
 begin; `close()` discards unfinished staging. Startup removes invisible staging left by a prior
 process crash; abrupt power loss during final commit is not locally simulated.
@@ -119,9 +121,10 @@ The real Keychain entitlement/device runtime and physical Apple TV cache lifecyc
 
 ### Evolution
 
-`PRAGMA user_version=2` and an application ID identify the current schema. Version 1 migrates
-transactionally by adding the staging tables without changing committed catalogs, with an automated
-migration fixture. New stores are created atomically; unknown versions, unidentified existing stores
+Phase 2D introduced `PRAGMA user_version=2`. Phase 2E schema version 3 changes the staging catalog
+key for multi-partition sessions and adds local refresh metadata; v1 and v2 migrations are covered by
+automated fixtures and do not change committed catalog rows. New stores are created atomically;
+unknown versions, unidentified existing stores
 and corrupt files fail without reset. Future versions must add an explicit transactional migration
 (with old/new fixture tests) or a reviewed cache-rebuild flow; do not open a newer schema
 optimistically. No speculative migration ladder is added.

@@ -55,8 +55,25 @@ public protocol CatalogQueryRepository: Sendable {
 /// Staging is invisible to queries and does not hold the live catalog writer transaction open.
 public protocol CatalogImportRepository: Sendable {
   func beginStaging(in scope: CatalogScope) async throws -> UUID
+  func beginStaging(in scopes: [CatalogScope]) async throws -> UUID
   func stage(items: [CatalogItem], categories: [CatalogCategory], in stagingID: UUID) async throws
   func commitStagedReplacement(_ stagingID: UUID) async throws
+  func commitStagedReplacement(
+    _ stagingID: UUID, successfulRefresh metadata: CatalogRefreshMetadata
+  ) async throws -> Int
   func discardStaging(_ stagingID: UUID) async
   func deleteCatalog(sourceID: SourceConfiguration.ID) async throws
 }
+
+public protocol CatalogRefreshMetadataRepository: Sendable {
+  func recordRefreshAttempt(
+    sourceID: SourceConfiguration.ID,
+    attemptedAt: Date,
+    result: CatalogRefreshResultCategory
+  ) async throws
+  func refreshMetadata(for sourceID: SourceConfiguration.ID) async throws
+    -> CatalogRefreshMetadata?
+}
+
+public typealias CatalogRefreshRepository = CatalogImportRepository
+  & CatalogRefreshMetadataRepository

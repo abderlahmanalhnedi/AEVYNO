@@ -128,11 +128,17 @@ or raw engine diagnostics. The sole storage log reports rollback failure without
 
 ## Known limitations and follow-up
 
+Phase 2E follow-up extends the same staging architecture to concurrent different-source sessions and
+one multi-partition Xtream commit, and adds schema-v3 refresh metadata. The live transaction boundary
+remains unchanged. See [ADR-0009](../decisions/ADR-0009-durable-source-refresh.md) and
+[Phase 2E evidence](PHASE_2E_REFRESH.md).
+
 - Physical Apple TV and physical iPhone/iPad storage/Keychain/performance validation: not run.
 - Phase 1 physical LTR and Arabic RTL UX review: pending; simulator success does not complete it.
 - Caches can be purged on tvOS; future source flows must handle missing/expired caches and key loss.
-- One active import owns a logical staging slot; concurrent refreshes must retry `busy`. It does not
-  hold a SQLite writer transaction between staging batches or during network waits. The actor
+- One source owns one logical staging session; Phase 2E permits separate sessions for different
+  sources and rejects overlapping work for the same source. No session holds a SQLite writer
+  transaction between staging batches or during network waits. The actor
   serializes SQL calls, so the final copy/delete/commit can delay queued queries even though their
   reader snapshot remains unchanged. Profile this during real-device refresh.
 - Staging temporarily requires additional encrypted local disk space and is cleaned on rollback,

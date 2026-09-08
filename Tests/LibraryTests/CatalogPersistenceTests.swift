@@ -95,9 +95,11 @@ struct CatalogPersistenceTests {
     try await store.stage(items: [fixture.item(1)], categories: [], in: stagingID)
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
     #expect(try await store.item(id: fixture.item(1).id) == nil)
+    let independentStagingID = try await store.beginStaging(in: otherScope)
     await #expect(throws: CatalogStoreError.busy) {
-      try await store.beginStaging(in: otherScope)
+      try await store.beginStaging(in: fixture.scope)
     }
+    await store.discardStaging(independentStagingID)
     await store.discardStaging(UUID())
     try await store.commitStagedReplacement(stagingID)
     #expect(try await store.item(id: fixture.item(0).id) == nil)
@@ -317,7 +319,7 @@ struct CatalogPersistenceTests {
     }
   }
 
-  @Test("Version 1 catalogs migrate to version 2 staging without losing committed items")
+  @Test("Version 1 catalogs migrate to version 3 staging and metadata without data loss")
   func version1Migration() async throws {
     let fixture = try CatalogFixture()
     defer { try? fixture.remove() }
@@ -334,10 +336,66 @@ struct CatalogPersistenceTests {
     let migrated = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
     #expect(try await migrated.item(id: fixture.item(0).id)?.title == "Catalog A")
     let inspection = try CatalogDatabase(url: fixture.url, readOnly: true)
-    #expect(try inspection.scalar("PRAGMA user_version") == 2)
+    #expect(try inspection.scalar("PRAGMA user_version") == 3)
     #expect(
       try inspection.scalar(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='staged_catalogs'") == 1)
+    #expect(
+      try inspection.scalar(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='refresh_metadata'") == 1)
+    await migrated.close()
+  }
+
+  @Test("Version 2 staging migrates to multi-partition schema without losing committed items")
+  func version2Migration() async throws {
+    let fixture = try CatalogFixture()
+    defer { try? fixture.remove() }
+    let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
+    try await fixture.seed(store)
+    await store.close()
+
+    let version2 = try CatalogDatabase(url: fixture.url)
+    try version2.execute("DROP TABLE staged_items")
+    try version2.execute("DROP TABLE staged_categories")
+    try version2.execute("DROP TABLE staged_catalogs")
+    try version2.execute("DROP TABLE refresh_metadata")
+    try version2.execute(
+      """
+      CREATE TABLE staged_catalogs (
+        staging_id TEXT PRIMARY KEY, source TEXT NOT NULL, origin TEXT NOT NULL, kind TEXT NOT NULL,
+        UNIQUE(staging_id, source, origin, kind))
+      """)
+    try version2.execute(
+      """
+      CREATE TABLE staged_categories (
+        sequence INTEGER PRIMARY KEY, staging_id TEXT NOT NULL, id TEXT NOT NULL,
+        source TEXT NOT NULL, origin TEXT NOT NULL, kind TEXT NOT NULL,
+        title TEXT NOT NULL CHECK(length(title)>0), search_title TEXT NOT NULL,
+        UNIQUE(staging_id, id),
+        FOREIGN KEY(staging_id, source, origin, kind)
+          REFERENCES staged_catalogs(staging_id, source, origin, kind) ON DELETE CASCADE)
+      """)
+    try version2.execute(
+      """
+      CREATE TABLE staged_items (
+        sequence INTEGER PRIMARY KEY, staging_id TEXT NOT NULL, id TEXT NOT NULL,
+        source TEXT NOT NULL, origin TEXT NOT NULL, kind TEXT NOT NULL,
+        title TEXT NOT NULL CHECK(length(title)>0), search_title TEXT NOT NULL,
+        category TEXT, sealed_references TEXT NOT NULL, UNIQUE(staging_id, id),
+        FOREIGN KEY(staging_id, source, origin, kind)
+          REFERENCES staged_catalogs(staging_id, source, origin, kind) ON DELETE CASCADE)
+      """)
+    try version2.execute("PRAGMA user_version = 2")
+
+    let migrated = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
+    #expect(try await migrated.item(id: fixture.item(0).id)?.title == "Catalog A")
+    let scopes = [
+      CatalogScope(sourceID: fixture.sourceID, origin: .xtream, kind: .live),
+      CatalogScope(sourceID: fixture.sourceID, origin: .xtream, kind: .vod),
+    ]
+    let stagingID = try await migrated.beginStaging(in: scopes)
+    await migrated.discardStaging(stagingID)
+    #expect(try version2.scalar("PRAGMA user_version") == 3)
     await migrated.close()
   }
 }
