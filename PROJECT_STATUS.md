@@ -1,16 +1,18 @@
 # Project Status
 
-Last updated: 2026-09-07
+Last updated: 2026-09-08
 
 ## Current phase
 
-**Phase 1 — Premium tvOS shell active; localization/Arabic RTL foundation pending**
+**Phase 1 open; Phase 2 source/security foundation started in parallel**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
 deferral. The existing Phase 1 LTR shell has completed simulator hardening. A newly approved localization
 foundation for English, German and Arabic RTL must now be implemented and simulator-validated.
 Phase 1 remains incomplete until localization requirements and the real Apple TV UX review pass.
+By explicit owner direction, Phase 2 work that does not depend on physical Apple TV validation
+has started in parallel. Phase 3 playback work has not started.
 
 ## Verified development environment
 
@@ -27,7 +29,7 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 
 - `AEVYNO.xcworkspace` and native `AEVYNO.xcodeproj`.
 - `AEVYNOTV` and `AEVYNOiOS` shared schemes.
-- Domain, IPTVCore, Library, Playback, Persistence, CloudSync, Security and DesignSystem
+- Domain, IPTVCore, Library, Playback, Persistence, CloudSync, AEVYNOSecurity and DesignSystem
   local Swift package products.
 - deterministic synthetic Home sections for Continue Watching, Movies, Series, Live TV
   and Favorites.
@@ -63,9 +65,25 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   deterministic LRU, cost, oversized-image, purge, malformed-data, full address-space ID
   uniqueness and simulator accessibility coverage.
 
+## Phase 2A source/security foundation
+
+- Phase 2 development has started in parallel while Phase 1 remains open.
+- source configuration models provide stable IDs, Xtream-compatible and M3U kinds,
+  non-credential endpoint metadata, indirect credential references and enabled state.
+- source configurations are value-semantic, Codable and Sendable, with no plaintext password
+  or token fields and no dependency on SwiftUI or Keychain APIs.
+- the `AEVYNOSecurity` package boundary provides an async credential-store protocol and an
+  actor-isolated Apple Keychain implementation for username plus password/token-like material.
+- Keychain items are device-local generic-password records using
+  `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`; raw Keychain status values and secrets are
+  excluded from safe diagnostics.
+- reusable exact-value and URL sanitization helpers redact sensitive diagnostic content.
+- no provider networking, M3U parsing, catalog persistence, source-management UI or playback
+  implementation is included in Phase 2A.
+
 ## Validation evidence
 
-- shared package tests: 15 passed, 0 failed (`swift test`).
+- shared package tests: 27 passed, 0 failed (`swift test`) on the Phase 2A branch.
 - generic tvOS Simulator build: passed.
 - generic iOS Simulator build: passed.
 - tvOS and iOS Xcode static analysis: passed.
@@ -90,19 +108,21 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - Blocking checks cover shared Swift tests, independent tvOS and iOS Simulator builds,
   tvOS and iOS static analysis, and the tvOS UI suite on an Apple TV 4K (3rd generation)
   tvOS 26.5 Simulator.
-- A repository-wide Swift formatting baseline covers all 29 tracked Swift source and test
-  files. Strict `swift format lint` is clean locally and CI enforces it for Pull Requests,
-  pushes to `main` and manual dispatches.
+- A repository-wide Swift formatting baseline covers all 36 tracked Swift/package source and
+  test files after Phase 2A. Strict `swift format lint` is clean locally and CI enforces it
+  for Pull Requests, pushes to `main` and manual dispatches.
 - Hosted CI health is reported only from actual GitHub Actions results. Main run
-  `34155548727` confirmed the CI foundation green before this formatting-baseline change.
+  `34158813184` confirmed the synchronized Phase 2A base green before implementation.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
-- Phase 1 remains physically **PENDING**, and Phase 2 has not started.
+- Phase 1 remains physically **PENDING**. Phase 2A has started in parallel; Phase 2 is not
+  complete, and Phase 3 has not started.
 
 ## Repository state
 
-- The GitHub Actions CI foundation is defined in `.github/workflows/ci.yml`; its focused
-  implementation branch was created from synchronized `main` at `19396a2`.
+- The GitHub Actions CI foundation is defined in `.github/workflows/ci.yml`. Phase 2A branch
+  `feature/phase-2a-source-security-foundation` was created from synchronized `main` at
+  `33088a4`.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
 - Phase 0 is recorded in coherent source-of-truth, shared-foundation and
@@ -142,15 +162,20 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Next milestone
 
-Add the Phase 1 localization foundation for English, German and Arabic using Apple-native String
-Catalogs, then validate Home, Detail, loading, empty and error states in Arabic RTL, including
-automated focus movement and Detail/back restoration.
+Continue the Phase 1 localization foundation for English, German and Arabic using Apple-native
+String Catalogs, then validate Home, Detail, loading, empty and error states in Arabic RTL,
+including automated focus movement and Detail/back restoration.
 
 After that, run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
 on a physical Apple TV in both the base LTR experience and Arabic RTL. Include rapid directional
 navigation, repeated open/back cycles and
-a long stress-mode browsing session with Instruments. Resolve findings before marking Phase
-1 complete. Do not start Phase 2 until the Phase 1 exit gate passes.
+a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
+complete.
+
+In parallel, complete the remaining Phase 2 work: source validation flows, provider adapters,
+M3U parsing, benchmark-driven local catalog persistence, refresh/import behavior, categories,
+search and large-catalog performance evidence. These items remain outside Phase 2A. Do not begin
+Phase 3 playback implementation before its approved phase gate.
 
 ## Active blockers
 
