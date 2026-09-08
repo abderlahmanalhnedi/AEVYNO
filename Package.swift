@@ -21,7 +21,11 @@ let package = Package(
   ],
   targets: [
     .target(name: "Domain", path: "Core/Domain"),
-    .target(name: "IPTVCore", dependencies: ["Domain"], path: "Core/IPTVCore"),
+    .target(
+      name: "IPTVCore",
+      dependencies: ["Domain", "AEVYNOSecurity"],
+      path: "Core/IPTVCore"
+    ),
     .target(name: "Library", dependencies: ["Domain", "IPTVCore"], path: "Core/Library"),
     .target(name: "Playback", dependencies: ["Domain"], path: "Core/Playback"),
     .target(name: "Persistence", dependencies: ["Domain"], path: "Core/Persistence"),
@@ -40,7 +44,8 @@ let package = Package(
         "AEVYNOSecurity",
         "DesignSystem",
       ],
-      path: "Tests/LibraryTests"
+      path: "Tests/LibraryTests",
+      resources: [.process("Fixtures")]
     ),
   ]
 )

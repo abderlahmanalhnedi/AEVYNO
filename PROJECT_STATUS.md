@@ -4,7 +4,7 @@ Last updated: 2026-09-08
 
 ## Current phase
 
-**Phase 1 open with localization simulator foundation delivered; Phase 2A intact; Phase 2B parser/import foundation implemented**
+**Phase 1 open with localization simulator foundation delivered; Phase 2A and Phase 2B merged; Phase 2C provider adapter foundation implemented**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -112,11 +112,35 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   duration. Unknown raw attributes and extracted credential fields are not retained, and default item
   diagnostics redact media/artwork URLs.
 
+## Phase 2C Xtream-compatible provider adapter foundation
+
+- `IPTVCore` defines a provider adapter boundary and an Xtream-compatible implementation for
+  authentication/account discovery, live/VOD/series categories, live streams, VOD streams and the
+  series list. EPG and playback URL generation are intentionally excluded.
+- credentials are resolved through the Phase 2A `CredentialStore` boundary. The centralized request
+  builder uses `URLComponents`, an explicit 15-second default timeout and credential-bearing query
+  items only for the request lifecycle; normalized models and errors contain no credentials or raw
+  response bodies.
+- the production Foundation transport uses async `URLSession` with an ephemeral, cacheless and
+  cookieless configuration. It adds no retry, certificate-pinning or transport-security relaxation.
+- provider-private DTOs tolerate common string/numeric/null/missing optional variations. Invalid
+  required IDs or titles are skipped and counted, invalid top-level JSON is a safe normalized error,
+  and an empty provider array is accepted as an empty catalog.
+- domain-safe categories and catalog items include source-scoped SHA-256 identity, title, media kind,
+  optional category/artwork references and the provider item ID needed for a future resolver. They do
+  not contain stream URLs, usernames, passwords or tokens.
+- `Library` consumes normalized items through a transactional sink in bounded batches of 256 by
+  default. Cancellation and adapter/sink failures roll back staged work; no production persistence
+  implementation was added.
+- ADR-0007 records the Xtream adapter, import boundary and deterministic source/kind/provider-ID
+  identity decisions.
+
 ## Validation evidence
 
-- shared package tests: 43 passed, 0 failed (`swift test`), including M3U parsing/import,
-  cancellation, stable identity, duplicate policy, catalog completeness checks for English, German
-  and Arabic, and critical synthetic-preview coverage.
+- shared package tests: 57 passed, 0 failed (`swift test`), including Xtream request construction,
+  authentication, tolerant live/VOD/series decoding, normalized errors, security redaction,
+  cancellation, deterministic identity and transactional import, plus all existing M3U,
+  localization and synthetic-preview coverage.
 - generic tvOS Simulator build: passed.
 - generic iOS Simulator build: passed.
 - tvOS and iOS Xcode static analysis: passed.
@@ -137,6 +161,15 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   The reproducible command was `swift test -c release --filter M3UImportPerformanceTests`.
   These are local parser/import-boundary measurements, not Apple TV or production-database claims.
   Peak memory was not measured; tests instead verify that sink batches never exceed 256 items.
+- Phase 2C release-mode synthetic JSON decode, normalization and transactional test-sink imports on
+  the same MacBook Air completed 10,000 entries in 0.078 s, 50,000 in 0.360 s and 100,000 in
+  0.704 s. The reproducible command was
+  `swift test -c release --filter XtreamProviderPerformanceTests`. These are local adapter/import
+  boundary measurements without network or production-database work. Peak memory was not measured;
+  tests verify a maximum sink batch of 256.
+- Phase 2C Pull Request #11 hosted run `34211142740` passed the Core/Build/Analyze job and tvOS UI
+  Tests job at implementation commit `048f9a0`; any follow-up commit remains subject to current-head
+  CI before merge.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No
   physical build, install, launch, focus, accessibility or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
@@ -152,22 +185,26 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - Blocking checks cover shared Swift tests, independent tvOS and iOS Simulator builds,
   tvOS and iOS static analysis, and the tvOS UI suite on an Apple TV 4K (3rd generation)
   tvOS 26.5 Simulator.
-- A repository-wide Swift formatting baseline covers all 36 tracked Swift/package source and
-  test files after Phase 2A. Strict `swift format lint` is clean locally and CI enforces it
+- A repository-wide Swift formatting baseline covers all tracked Swift/package source and test
+  files. Strict `swift format lint` is clean locally and CI enforces it
   for Pull Requests, pushes to `main` and manual dispatches.
-- Hosted CI health is reported only from actual GitHub Actions results. Main run `34200518183`
-  confirmed the synchronized Phase 2A base at `c53ff99` green before localization implementation.
-  Localization branch CI is recorded only after its Pull Request run.
+- Hosted CI health is reported only from actual GitHub Actions results. Main run `34207942745`
+  confirmed the synchronized Phase 2B merge commit `112a8a0` green before Phase 2C implementation.
+  Phase 2C Pull Request #11 initial hosted run `34211142740` also passed both required jobs.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
-- Phase 1 remains physically **PENDING**. Phase 2A has started in parallel; Phase 2 is not
-  complete. Phase 2B has local validation on its feature branch; hosted Pull Request CI is recorded
-  separately when run. Phase 3 has not started.
+- Phase 1 remains physically **PENDING**. Phase 2A and Phase 2B are merged; Phase 2 is not complete.
+  Phase 2C has local validation and a green initial hosted Pull Request run on its feature branch.
+  Phase 3 has not started.
 
 ## Repository state
 
 - The GitHub Actions CI foundation is defined in `.github/workflows/ci.yml`. Phase 2A was merged
   into `main` through PR #8 at `c53ff99`; the source/security foundation remains intact.
+- Phase 2B was merged into `main` through PR #10 at `112a8a0`; the M3U parser/import foundation
+  remains intact.
+- Phase 2C is isolated on `feature/phase-2c-xtream-provider-adapter`, created from synchronized,
+  hosted-CI-green `112a8a0`.
 - Phase 1 localization work is isolated on `feature/phase-1-localization-rtl`, created from the
   synchronized and hosted-CI-green `c53ff99` base.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
@@ -215,11 +252,10 @@ navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
 complete.
 
-In parallel, complete the remaining Phase 2 work: source validation flows, provider adapters,
-the Xtream-compatible adapter, benchmark-driven local catalog persistence, durable refresh/import
-behavior, categories, search and production query evidence. M3U network/file acquisition remains a
-future source-adapter responsibility. Do not begin Phase 3 playback implementation before its
-approved phase gate.
+In parallel, complete the remaining Phase 2 work: source validation flows, benchmark-driven local
+catalog persistence, durable refresh/import behavior, production category/search queries and query
+evidence. M3U network/file acquisition remains a future source-adapter responsibility. Do not begin
+Phase 3 playback implementation before its approved phase gate.
 
 ## Active blockers
 
