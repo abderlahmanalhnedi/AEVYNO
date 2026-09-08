@@ -94,22 +94,29 @@ fi
 ./svc.sh status
 
 echo
-echo "Repository runner status:"
-runner_status="$(
-  gh api "repos/$REPO/actions/runners" \
-    --jq ".runners[] | select(.name == \"$RUNNER_NAME\") | .status"
-)"
+echo "Waiting for GitHub to report the runner online..."
+runner_status=""
+for _ in {1..15}; do
+  runner_status="$(
+    gh api "repos/$REPO/actions/runners" \
+      --jq ".runners[] | select(.name == \"$RUNNER_NAME\") | .status"
+  )"
 
+  [[ "$runner_status" == "online" ]] && break
+  sleep 2
+done
+
+echo
+echo "Repository runner status:"
 gh api "repos/$REPO/actions/runners" \
   --jq ".runners[] | select(.name == \"$RUNNER_NAME\") | {name, status, busy, labels: [.labels[].name]}"
 
 if [[ "$runner_status" != "online" ]]; then
   echo
-  echo "The runner is registered but not online yet."
+  echo "The runner is registered but GitHub still reports it offline."
   echo "Inspect launchd state with:"
   echo "  cat .service"
   echo "  ./svc.sh status"
-  echo "  launchctl print gui/$(id -u)/$(basename \"$(cat .service)\" .plist)"
   exit 1
 fi
 
