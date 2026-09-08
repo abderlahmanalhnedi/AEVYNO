@@ -20,6 +20,7 @@ func repeatedImportsProduceStableIdentities() async throws {
 
   let firstSink = RecordingM3UImportSink()
   let secondSink = RecordingM3UImportSink()
+  let rotatedURLSink = RecordingM3UImportSink()
   let otherSourceSink = RecordingM3UImportSink()
   let service = M3UImportService()
 
@@ -34,6 +35,13 @@ func repeatedImportsProduceStableIdentities() async throws {
     sink: secondSink
   )
   _ = try await service.importPlaylist(
+    lines: dataLines(
+      playlist.replacingOccurrences(of: "synthetic-one", with: "synthetic-two")
+    ),
+    sourceID: sourceID,
+    sink: rotatedURLSink
+  )
+  _ = try await service.importPlaylist(
     lines: dataLines(playlist),
     sourceID: otherSourceID,
     sink: otherSourceSink
@@ -41,11 +49,46 @@ func repeatedImportsProduceStableIdentities() async throws {
 
   let firstItems = await firstSink.committedItems
   let secondItems = await secondSink.committedItems
+  let rotatedURLItems = await rotatedURLSink.committedItems
   let otherSourceItems = await otherSourceSink.committedItems
   #expect(firstItems.map(\.id) == secondItems.map(\.id))
+  #expect(firstItems.map(\.id) == rotatedURLItems.map(\.id))
+  #expect(firstItems[0].mediaURL != rotatedURLItems[0].mediaURL)
   #expect(firstItems.map(\.id) != otherSourceItems.map(\.id))
   #expect(!firstItems[0].description.contains("signature"))
   #expect(!firstItems[0].description.contains("synthetic-one"))
+}
+
+@Test("Duplicate anchors use tvg-id first, URL second, and never title alone")
+func duplicateAnchorPrecedenceIsDeterministic() async throws {
+  let sourceID = SourceConfiguration.ID(
+    rawValue: try #require(UUID(uuidString: "65000000-0000-0000-0000-000000000006"))
+  )
+  let playlist = """
+    #EXTM3U
+    #EXTINF:-1 tvg-id="shared-id",Same Name
+    https://example.invalid/live/one.ts
+    #EXTINF:-1 tvg-id="shared-id",Different Name
+    https://example.invalid/live/two.ts
+    #EXTINF:-1,Same Name
+    https://example.invalid/live/three.ts
+    #EXTINF:-1,Same Name
+    https://example.invalid/live/four.ts
+    #EXTINF:-1,Another Name
+    https://example.invalid/live/three.ts
+    """
+  let sink = RecordingM3UImportSink()
+
+  let report = try await M3UImportService().importPlaylist(
+    lines: dataLines(playlist),
+    sourceID: sourceID,
+    sink: sink
+  )
+
+  let items = await sink.committedItems
+  #expect(items.count == 5)
+  #expect(Set(items.map(\.id)).count == 5)
+  #expect(report.duplicateCount == 2)
 }
 
 @Test("Duplicate entries are preserved with unique deterministic occurrence identities")
