@@ -167,6 +167,9 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   `swift test -c release --filter XtreamProviderPerformanceTests`. These are local adapter/import
   boundary measurements without network or production-database work. Peak memory was not measured;
   tests verify a maximum sink batch of 256.
+- Phase 2C Pull Request #11 hosted run `34211142740` passed the Core/Build/Analyze job and tvOS UI
+  Tests job at implementation commit `048f9a0`; any follow-up commit remains subject to current-head
+  CI before merge.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No
   physical build, install, launch, focus, accessibility or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
@@ -187,12 +190,12 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   for Pull Requests, pushes to `main` and manual dispatches.
 - Hosted CI health is reported only from actual GitHub Actions results. Main run `34207942745`
   confirmed the synchronized Phase 2B merge commit `112a8a0` green before Phase 2C implementation.
-  Phase 2C Pull Request CI remains to be recorded after the branch is pushed.
+  Phase 2C Pull Request #11 initial hosted run `34211142740` also passed both required jobs.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
 - Phase 1 remains physically **PENDING**. Phase 2A and Phase 2B are merged; Phase 2 is not complete.
-  Phase 2C has local package validation on its feature branch and hosted Pull Request CI remains to
-  be recorded. Phase 3 has not started.
+  Phase 2C has local validation and a green initial hosted Pull Request run on its feature branch.
+  Phase 3 has not started.
 
 ## Repository state
 
