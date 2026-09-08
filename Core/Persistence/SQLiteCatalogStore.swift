@@ -4,14 +4,14 @@ import Domain
 import Foundation
 import OSLog
 
-/// One actor owns independent reader/writer handles. Reads see only committed WAL snapshots.
-/// One replacement may run at a time; callers must commit/rollback every successful begin.
+/// Acquisition writes only invisible staging rows. The live writer transaction starts at commit.
+/// One actor owns independent reader/writer handles; readers see only committed catalog snapshots.
 public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository {
   private let logger = Logger(subsystem: "com.aevyno", category: "catalog-persistence")
   private var writer: CatalogDatabase?
   private var reader: CatalogDatabase?
   private let cipher: CatalogReferenceCipher
-  private var active: (token: UUID, scope: CatalogScope)?
+  private var active: (id: UUID, scope: CatalogScope)?
 
   public init(url: URL, encryptionKey: SymmetricKey) async throws {
     cipher = CatalogReferenceCipher(key: encryptionKey)
@@ -21,8 +21,11 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
     try database.execute("PRAGMA foreign_keys = ON")
     try CatalogSchema.prepare(database)
     try database.execute("PRAGMA journal_mode = WAL")
-    try database.execute("PRAGMA synchronous = FULL")
+    // Staging is disposable after a crash. The final live replacement switches to FULL.
+    try database.execute("PRAGMA synchronous = NORMAL")
     try database.execute("PRAGMA cache_size = -4096")
+    // Staging belongs to the importing process. A prior crash can leave only invisible rows.
+    try database.execute("DELETE FROM staged_catalogs")
     // Initialize the WAL shared-memory files before opening the read-only connection.
     try database.execute("SELECT 1 FROM catalogs LIMIT 1")
     writer = database
@@ -49,44 +52,39 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
     } catch { throw CatalogStoreError.unavailable }
   }
 
-  public func beginReplacement(in scope: CatalogScope) throws -> UUID {
+  public func beginStaging(in scope: CatalogScope) throws -> UUID {
     try Task.checkCancellation()
     guard active == nil else { throw CatalogStoreError.busy }
     guard (scope.origin == .m3u) == (scope.kind == .unspecified) else {
       throw CatalogStoreError.invalidInput
     }
     let database = try writeDatabase()
-    try database.execute("BEGIN IMMEDIATE")
-    do {
-      try database.execute(
-        "DELETE FROM catalogs WHERE source=? AND origin=? AND kind=?", scope.values)
-      try database.execute("INSERT INTO catalogs VALUES(?,?,?)", scope.values)
-      let token = UUID()
-      active = (token, scope)
-      return token
-    } catch {
-      rollbackAfterFailure()
-      throw error
-    }
+    let stagingID = UUID()
+    try database.execute(
+      "INSERT INTO staged_catalogs VALUES(?,?,?,?)", [stagingID.databaseValue] + scope.values)
+    active = (stagingID, scope)
+    return stagingID
   }
 
-  public func write(
-    items: [CatalogItem], categories: [CatalogCategory], transaction: UUID
+  public func stage(
+    items: [CatalogItem], categories: [CatalogCategory], in stagingID: UUID
   ) throws {
-    let scope = try requireTransaction(transaction)
+    let scope = try requireStaging(stagingID)
+    let database = try writeDatabase()
     do {
       try Task.checkCancellation()
       guard items.count <= CatalogPage.maximumSize, categories.count <= CatalogPage.maximumSize
       else {
         throw CatalogStoreError.invalidInput
       }
-      let database = try writeDatabase()
+      // Each bounded staging batch is its own short transaction. No network wait occurs inside it.
+      try database.execute("BEGIN IMMEDIATE")
       let categoryStatement = try database.statement(
         """
-        INSERT INTO categories VALUES(?,?,?,?,?,?)
-        ON CONFLICT(id) DO UPDATE SET title=excluded.title, search_title=excluded.search_title
-        WHERE categories.source=excluded.source AND categories.origin=excluded.origin
-          AND categories.kind=excluded.kind
+        INSERT INTO staged_categories(staging_id,id,source,origin,kind,title,search_title)
+        VALUES(?,?,?,?,?,?,?)
+        ON CONFLICT(staging_id,id) DO UPDATE SET title=excluded.title,
+          search_title=excluded.search_title
         """)
       for category in categories {
         try Task.checkCancellation()
@@ -94,47 +92,66 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
         try validateText(category.id)
         try validateText(category.title)
         try categoryStatement.bind(
-          [category.id] + scope.values + [category.title, Self.searchTitle(category.title)])
+          [stagingID.databaseValue, category.id] + scope.values
+            + [category.title, Self.searchTitle(category.title)])
         _ = try categoryStatement.step()
-        try categoryStatement.requireChangedRow()
+        try categoryStatement.requireChangedRows()
       }
       let itemStatement = try database.statement(
         """
-        INSERT INTO items VALUES(?,?,?,?,?,?,?,?)
-        ON CONFLICT(id) DO UPDATE SET title=excluded.title, search_title=excluded.search_title,
+        INSERT INTO staged_items(
+          staging_id,id,source,origin,kind,title,search_title,category,sealed_references)
+        VALUES(?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(staging_id,id) DO UPDATE SET title=excluded.title,
+          search_title=excluded.search_title,
           category=excluded.category, sealed_references=excluded.sealed_references
-        WHERE items.source=excluded.source AND items.origin=excluded.origin AND items.kind=excluded.kind
         """)
       for item in items {
         try Task.checkCancellation()
         try validate(item, scope: scope)
         try itemStatement.bind(
-          [item.id] + scope.values
+          [stagingID.databaseValue, item.id] + scope.values
             + [item.title, Self.searchTitle(item.title), item.categoryID, try cipher.seal(item)])
         _ = try itemStatement.step()
-        try itemStatement.requireChangedRow()
+        try itemStatement.requireChangedRows()
       }
+      try database.execute("COMMIT")
     } catch {
-      rollbackAfterFailure()
+      if rollbackAfterSQLFailure(database) { discardAfterFailure(stagingID) }
       throw error
     }
   }
 
-  public func commit(transaction: UUID) throws {
-    _ = try requireTransaction(transaction)
+  public func commitStagedReplacement(_ stagingID: UUID) throws {
+    let scope = try requireStaging(stagingID)
+    let database = try writeDatabase()
     do {
       try Task.checkCancellation()
-      try writeDatabase().execute("COMMIT")
+      // This is the only live-catalog transaction. Acquisition and validation are complete.
+      try database.execute("PRAGMA synchronous = FULL")
+      try database.execute("BEGIN IMMEDIATE")
+      try database.execute(
+        "DELETE FROM catalogs WHERE source=? AND origin=? AND kind=?", scope.values)
+      try database.execute("INSERT INTO catalogs VALUES(?,?,?)", scope.values)
+      try copyStagedCategories(stagingID, database: database)
+      try copyStagedItems(stagingID, database: database)
+      try database.execute(
+        "DELETE FROM staged_catalogs WHERE staging_id=?", [stagingID.databaseValue])
+      try database.execute("COMMIT")
       active = nil
+      restoreStagingSynchronousMode(database)
     } catch {
-      rollbackAfterFailure()
+      if rollbackAfterSQLFailure(database) {
+        discardAfterFailure(stagingID)
+        restoreStagingSynchronousMode(database)
+      }
       throw error
     }
   }
 
-  public func rollback(transaction: UUID) {
-    guard active?.token == transaction else { return }
-    rollbackAfterFailure()
+  public func discardStaging(_ stagingID: UUID) {
+    guard active?.id == stagingID else { return }
+    discardAfterFailure(stagingID)
   }
 
   public func deleteCatalog(sourceID: SourceConfiguration.ID) throws {
@@ -143,25 +160,109 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
     try writeDatabase().execute("DELETE FROM catalogs WHERE source=?", [sourceID.databaseValue])
   }
 
-  /// Explicit lifecycle release also rolls back an unfinished refresh through SQLite close.
+  /// Explicit lifecycle release also discards an unfinished invisible staging set.
   public func close() {
-    rollbackAfterFailure()
+    if let stagingID = active?.id { discardAfterFailure(stagingID) }
     reader = nil
     writer = nil
   }
 
-  private func requireTransaction(_ token: UUID) throws -> CatalogScope {
-    guard let active, active.token == token else { throw CatalogStoreError.invalidTransaction }
+  private func requireStaging(_ stagingID: UUID) throws -> CatalogScope {
+    guard let active, active.id == stagingID else { throw CatalogStoreError.invalidTransaction }
     return active.scope
   }
 
-  private func rollbackAfterFailure() {
-    do { try writer?.rollback() } catch {
-      logger.error("Catalog rollback failed; closing the writer to prevent further changes.")
-      // Closing a failed writer prevents reuse of uncertain transaction state; SQLite discards it.
+  private func discardAfterFailure(_ stagingID: UUID) {
+    do {
+      try writer?.executeIgnoringCancellation(
+        "DELETE FROM staged_catalogs WHERE staging_id=?", [stagingID.databaseValue])
+    } catch {
+      logger.error("Catalog staging cleanup failed; closing the writer to prevent further changes.")
       writer = nil
     }
     active = nil
+  }
+
+  private func rollbackAfterSQLFailure(_ database: CatalogDatabase) -> Bool {
+    do {
+      try database.rollback()
+      return true
+    } catch {
+      logger.error("Catalog transaction rollback failed; closing the writer.")
+      writer = nil
+      active = nil
+      return false
+    }
+  }
+
+  private func restoreStagingSynchronousMode(_ database: CatalogDatabase) {
+    do {
+      try database.executeIgnoringCancellation("PRAGMA synchronous = NORMAL")
+    } catch {
+      // Keeping FULL is safe; it only makes later staging batches more expensive.
+      logger.error("Catalog writer could not restore staging durability mode.")
+    }
+  }
+
+  private func copyStagedCategories(_ stagingID: UUID, database: CatalogDatabase) throws {
+    var lowerBound = 0
+    while let page = try stagedPageBoundary(
+      table: "staged_categories", stagingID: stagingID, after: lowerBound, database: database)
+    {
+      try Task.checkCancellation()
+      let statement = try database.statement(
+        """
+        INSERT INTO categories(id,source,origin,kind,title,search_title)
+        SELECT id,source,origin,kind,title,search_title FROM staged_categories
+        WHERE staging_id=? AND sequence>? AND sequence<=? ORDER BY sequence
+        ON CONFLICT(id) DO UPDATE SET title=excluded.title, search_title=excluded.search_title
+        WHERE categories.source=excluded.source AND categories.origin=excluded.origin
+          AND categories.kind=excluded.kind
+        """, [stagingID.databaseValue, String(lowerBound), String(page.upperBound)])
+      _ = try statement.step()
+      try statement.requireChangedRows(page.count)
+      lowerBound = page.upperBound
+    }
+  }
+
+  private func copyStagedItems(_ stagingID: UUID, database: CatalogDatabase) throws {
+    var lowerBound = 0
+    while let page = try stagedPageBoundary(
+      table: "staged_items", stagingID: stagingID, after: lowerBound, database: database)
+    {
+      try Task.checkCancellation()
+      let statement = try database.statement(
+        """
+        INSERT INTO items(id,source,origin,kind,title,search_title,category,sealed_references)
+        SELECT id,source,origin,kind,title,search_title,category,sealed_references
+        FROM staged_items WHERE staging_id=? AND sequence>? AND sequence<=? ORDER BY sequence
+        ON CONFLICT(id) DO UPDATE SET title=excluded.title, search_title=excluded.search_title,
+          category=excluded.category, sealed_references=excluded.sealed_references
+        WHERE items.source=excluded.source AND items.origin=excluded.origin
+          AND items.kind=excluded.kind
+        """, [stagingID.databaseValue, String(lowerBound), String(page.upperBound)])
+      _ = try statement.step()
+      try statement.requireChangedRows(page.count)
+      lowerBound = page.upperBound
+    }
+  }
+
+  private func stagedPageBoundary(
+    table: String, stagingID: UUID, after lowerBound: Int, database: CatalogDatabase
+  ) throws -> (upperBound: Int, count: Int)? {
+    // `table` is supplied only by the two fixed internal callers above.
+    let statement = try database.statement(
+      """
+      SELECT sequence FROM \(table) WHERE staging_id=? AND sequence>? ORDER BY sequence
+      LIMIT \(CatalogPage.maximumSize)
+      """, [stagingID.databaseValue, String(lowerBound)])
+    var upperBound: Int?
+    var count = 0
+    while try statement.step() {
+      upperBound = statement.integer(0)
+      count += 1
+    }
+    return upperBound.map { ($0, count) }
   }
 
   private func writeDatabase() throws -> CatalogDatabase {
@@ -246,4 +347,8 @@ extension CatalogScope {
 
 extension SourceConfiguration.ID {
   var databaseValue: String { rawValue.uuidString.lowercased() }
+}
+
+extension UUID {
+  var databaseValue: String { uuidString.lowercased() }
 }
