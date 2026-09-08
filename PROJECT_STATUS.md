@@ -114,7 +114,7 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 
 ## Validation evidence
 
-- shared package tests: 42 passed, 0 failed (`swift test`), including M3U parsing/import,
+- shared package tests: 43 passed, 0 failed (`swift test`), including M3U parsing/import,
   cancellation, stable identity, duplicate policy, catalog completeness checks for English, German
   and Arabic, and critical synthetic-preview coverage.
 - generic tvOS Simulator build: passed.

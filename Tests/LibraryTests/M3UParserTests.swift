@@ -37,20 +37,27 @@ func basicM3UAndMissingMetadataAreParsed() async throws {
     # a plain M3U comment
 
     https://example.invalid/live/plain-channel.ts
-    #EXTINF:-1 tvg-name="Fallback Name",   
+    #EXTINF:-1 tvg-name="Fallback Name",
     https://example.invalid/live/fallback.ts
     #EXTINF:0,Explicit Name
     https://example.invalid/vod/movie.m3u8
+    #EXTINF:30 group-title=Synthetic,HTTP Item
+    http://example.invalid/vod/http-item.ts
     """
 
   let result = try await parse(playlist)
 
-  #expect(result.entries.map(\.title) == ["plain-channel.ts", "Fallback Name", "Explicit Name"])
+  #expect(
+    result.entries.map(\.title)
+      == ["plain-channel.ts", "Fallback Name", "Explicit Name", "HTTP Item"]
+  )
   #expect(result.entries[0].duration == nil)
   #expect(result.entries[1].duration == nil)
   #expect(result.entries[2].duration == 0)
-  #expect(result.entries.allSatisfy { $0.groupTitle == nil && $0.tvgID == nil })
-  #expect(result.report == M3UParseReport(parsedCount: 3, skippedCount: 0, warningCounts: [:]))
+  #expect(result.entries[3].duration == 30)
+  #expect(result.entries[3].groupTitle == "Synthetic")
+  #expect(result.entries.allSatisfy { $0.tvgID == nil })
+  #expect(result.report == M3UParseReport(parsedCount: 4, skippedCount: 0, warningCounts: [:]))
 }
 
 @Test("Malformed entries are skipped with bounded warning summaries")
