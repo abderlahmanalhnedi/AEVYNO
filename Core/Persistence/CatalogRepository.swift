@@ -52,11 +52,11 @@ public protocol CatalogQueryRepository: Sendable {
   func sourceCatalogCount(sourceID: SourceConfiguration.ID?) async throws -> Int
 }
 
-/// Tokens prevent a failed concurrent begin/rollback from affecting another import.
+/// Staging is invisible to queries and does not hold the live catalog writer transaction open.
 public protocol CatalogImportRepository: Sendable {
-  func beginReplacement(in scope: CatalogScope) async throws -> UUID
-  func write(items: [CatalogItem], categories: [CatalogCategory], transaction: UUID) async throws
-  func commit(transaction: UUID) async throws
-  func rollback(transaction: UUID) async
+  func beginStaging(in scope: CatalogScope) async throws -> UUID
+  func stage(items: [CatalogItem], categories: [CatalogCategory], in stagingID: UUID) async throws
+  func commitStagedReplacement(_ stagingID: UUID) async throws
+  func discardStaging(_ stagingID: UUID) async
   func deleteCatalog(sourceID: SourceConfiguration.ID) async throws
 }

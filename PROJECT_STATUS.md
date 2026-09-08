@@ -139,12 +139,15 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 
 - Apple system SQLite (SDK `SQLite3`, no third-party package) implements actor-isolated local
   catalog storage behind `CatalogImportRepository` and `CatalogQueryRepository`.
-- Schema v1 persists catalog partitions, exact stable item IDs, source-scoped categories, original
+- Schema v2 persists catalog partitions, exact stable item IDs, source-scoped categories, original
   titles, indexed normalized titles and encrypted opaque media/artwork/provider references.
-  ADR-0008 records the technology comparison, schema boundary and encrypted-reference design for PR review.
-- A writer transaction replaces one source/origin/kind partition in batches of at most 256. An
-  independent WAL reader keeps the previous committed catalog visible until successful commit.
-  Parser/transport/write/commit failure and cancellation preserve the previous catalog.
+  ADR-0008 records the technology comparison, schema boundary and encrypted-reference design.
+- Acquisition/parsing writes to invisible encrypted staging in short batches and holds no SQLite
+  writer transaction across network waits. After validation, one final transaction copies staged
+  rows in bounded batches and atomically replaces the source/origin/kind partition. An independent
+  WAL reader keeps the previous committed catalog visible until commit. Parser/transport/write/
+  commit failure and cancellation preserve the previous catalog. Version 1 migrates to version 2
+  transactionally without changing committed items.
 - `PersistentCatalogImportSink` supports the existing M3U and Xtream services. The Xtream service
   stages categories with items when the sink supports categories; M3U group IDs remain source-scoped,
   and M3U media kind is explicitly unspecified rather than guessed.
@@ -162,7 +165,7 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 
 ## Validation evidence
 
-- Phase 2D shared package tests: 73 passed, 0 failed (`swift test`), including production persistence,
+- Phase 2D shared package tests: 75 passed, 0 failed (`swift test`), including production persistence,
   rollback, query bounds, encrypted references and key storage, plus Xtream request construction,
   authentication, tolerant live/VOD/series decoding, normalized errors, security redaction,
   cancellation, deterministic identity and transactional import, plus all existing M3U,
@@ -196,12 +199,14 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - Phase 2C Pull Request #11 hosted run `34211142740` passed the Core/Build/Analyze job and tvOS UI
   Tests job at implementation commit `048f9a0`; any follow-up commit remains subject to current-head
   CI before merge.
-- Phase 2D release-mode disk-backed encrypted provider-model import: 10k **0.244 s**, 50k
-  **1.354 s**, 100k **2.904 s**; full replacements **0.269 / 2.749 / 5.054 s** respectively.
-  M3U parser through production persistence: **0.301 / 1.563 / 5.186 s** imports and
-  **0.385 / 3.548 / 6.539 s** replacements. On the same MacBook Air, measured 64-item pages
-  were **0.589 / 0.629 / 0.565 ms**; 100k category page **0.594 ms**, ID lookup **0.057 ms**,
-  source count **7.901 ms**. Reproduce with
+- Corrected Phase 2D release-mode disk-backed encrypted provider-model import: 10k **0.460 s**,
+  50k **2.743 s**, 100k **7.661 s**; full replacements **0.496 / 3.025 / 8.677 s** respectively.
+  M3U parser through production persistence: **0.601 / 3.269 / 7.796 s** imports and
+  **0.489 / 4.233 / 7.778 s** replacements. At 100k, provider staging took **5.713 s** and the
+  final live transaction **1.949 s**. Median-of-five 64-item pages were
+  **0.436 / 0.464 / 0.485 ms**; 100k category page **2.850 ms**, ID lookup **0.478 ms**,
+  source count **12.716 ms**. Repeat distributions and physical-device profiling remain required.
+  Reproduce with
   `swift test -c release --filter CatalogPersistencePerformanceTests`.
   These are single local observations; peak memory and physical-device performance were not measured.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No

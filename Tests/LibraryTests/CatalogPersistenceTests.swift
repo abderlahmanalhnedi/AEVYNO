@@ -36,9 +36,9 @@ struct CatalogFixture {
   }
 
   func seed(_ store: SQLiteCatalogStore) async throws {
-    let token = try await store.beginReplacement(in: scope)
-    try await store.write(items: [item(0, title: "Catalog A")], categories: [], transaction: token)
-    try await store.commit(transaction: token)
+    let stagingID = try await store.beginStaging(in: scope)
+    try await store.stage(items: [item(0, title: "Catalog A")], categories: [], in: stagingID)
+    try await store.commitStagedReplacement(stagingID)
   }
 }
 
@@ -86,20 +86,20 @@ struct CatalogPersistenceTests {
     let otherScope = CatalogScope(sourceID: .init(rawValue: UUID()), origin: .xtream, kind: .live)
     let vodScope = CatalogScope(sourceID: fixture.sourceID, origin: .xtream, kind: .vod)
     for scope in [otherScope, vodScope] {
-      let token = try await store.beginReplacement(in: scope)
-      try await store.write(
-        items: [fixture.item(0, scope: scope)], categories: [], transaction: token)
-      try await store.commit(transaction: token)
+      let stagingID = try await store.beginStaging(in: scope)
+      try await store.stage(
+        items: [fixture.item(0, scope: scope)], categories: [], in: stagingID)
+      try await store.commitStagedReplacement(stagingID)
     }
-    let token = try await store.beginReplacement(in: fixture.scope)
-    try await store.write(items: [fixture.item(1)], categories: [], transaction: token)
+    let stagingID = try await store.beginStaging(in: fixture.scope)
+    try await store.stage(items: [fixture.item(1)], categories: [], in: stagingID)
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
     #expect(try await store.item(id: fixture.item(1).id) == nil)
     await #expect(throws: CatalogStoreError.busy) {
-      try await store.beginReplacement(in: otherScope)
+      try await store.beginStaging(in: otherScope)
     }
-    await store.rollback(transaction: UUID())
-    try await store.commit(transaction: token)
+    await store.discardStaging(UUID())
+    try await store.commitStagedReplacement(stagingID)
     #expect(try await store.item(id: fixture.item(0).id) == nil)
     #expect(try await store.itemCount(matching: CatalogFilter()) == 3)
     #expect(try await store.sourceCatalogCount(sourceID: fixture.sourceID) == 2)
@@ -109,8 +109,8 @@ struct CatalogPersistenceTests {
     await store.close()
   }
 
-  @Test("SQLite write failure discards earlier batches and preserves A")
-  func databaseWriteFailure() async throws {
+  @Test("SQLite staging and final-copy failures discard staging and preserve A")
+  func databaseWriteFailures() async throws {
     let fixture = try CatalogFixture()
     defer { try? fixture.remove() }
     let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
@@ -119,16 +119,30 @@ struct CatalogPersistenceTests {
     try database.execute(
       "CREATE TRIGGER fail_write BEFORE INSERT ON items WHEN NEW.title='fail' BEGIN SELECT RAISE(FAIL,'synthetic'); END"
     )
-    let token = try await store.beginReplacement(in: fixture.scope)
-    try await store.write(items: [fixture.item(1)], categories: [], transaction: token)
+    let stagingID = try await store.beginStaging(in: fixture.scope)
+    try await store.stage(items: [fixture.item(1)], categories: [], in: stagingID)
+    try await store.stage(
+      items: [fixture.item(2, title: "fail")], categories: [], in: stagingID)
     await #expect(throws: CatalogStoreError.writeFailed) {
-      try await store.write(
-        items: [fixture.item(2, title: "fail")], categories: [], transaction: token)
+      try await store.commitStagedReplacement(stagingID)
     }
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
     #expect(try await store.itemCount(matching: CatalogFilter()) == 1)
-    let next = try await store.beginReplacement(in: fixture.scope)
-    await store.rollback(transaction: next)
+    let next = try await store.beginStaging(in: fixture.scope)
+    await store.discardStaging(next)
+
+    try database.execute(
+      "CREATE TRIGGER fail_stage BEFORE INSERT ON staged_items WHEN NEW.title='stage-fail' BEGIN SELECT RAISE(FAIL,'synthetic'); END"
+    )
+    let failedStage = try await store.beginStaging(in: fixture.scope)
+    try await store.stage(items: [fixture.item(3)], categories: [], in: failedStage)
+    await #expect(throws: CatalogStoreError.writeFailed) {
+      try await store.stage(
+        items: [fixture.item(4, title: "stage-fail")], categories: [], in: failedStage)
+    }
+    #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
+    let afterStageFailure = try await store.beginStaging(in: fixture.scope)
+    await store.discardStaging(afterStageFailure)
     await store.close()
   }
 
@@ -138,16 +152,16 @@ struct CatalogPersistenceTests {
     defer { try? fixture.remove() }
     let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
     try await fixture.seed(store)
-    let token = try await store.beginReplacement(in: fixture.scope)
-    try await store.write(items: [fixture.item(1)], categories: [], transaction: token)
+    let stagingID = try await store.beginStaging(in: fixture.scope)
+    try await store.stage(items: [fixture.item(1)], categories: [], in: stagingID)
     let task = Task {
       withUnsafeCurrentTask { $0?.cancel() }
-      try await store.commit(transaction: token)
+      try await store.commitStagedReplacement(stagingID)
     }
     await #expect(throws: CancellationError.self) { try await task.value }
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
-    let abandoned = try await store.beginReplacement(in: fixture.scope)
-    try await store.write(items: [fixture.item(2)], categories: [], transaction: abandoned)
+    let abandoned = try await store.beginStaging(in: fixture.scope)
+    try await store.stage(items: [fixture.item(2)], categories: [], in: abandoned)
     await store.close()
     let reopened = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
     #expect(try await reopened.item(id: fixture.item(0).id)?.title == "Catalog A")
@@ -160,27 +174,27 @@ struct CatalogPersistenceTests {
     let fixture = try CatalogFixture()
     defer { try? fixture.remove() }
     let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
-    let token = try await store.beginReplacement(in: fixture.scope)
+    let stagingID = try await store.beginStaging(in: fixture.scope)
     let category = CatalogCategory(
       id: "synthetic-category", scope: fixture.scope, title: "Category")
-    try await store.write(
-      items: [fixture.item(0, category: category.id)], categories: [category], transaction: token)
-    try await store.write(
+    try await store.stage(
+      items: [fixture.item(0, category: category.id)], categories: [category], in: stagingID)
+    try await store.stage(
       items: [fixture.item(0, title: "Last", category: category.id)], categories: [],
-      transaction: token)
-    try await store.commit(transaction: token)
+      in: stagingID)
+    try await store.commitStagedReplacement(stagingID)
     #expect(try await store.itemCount(matching: CatalogFilter()) == 1)
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Last")
-    let invalid = try await store.beginReplacement(in: fixture.scope)
-    try await store.write(
-      items: [fixture.item(1, category: "missing")], categories: [], transaction: invalid)
+    let invalid = try await store.beginStaging(in: fixture.scope)
+    try await store.stage(
+      items: [fixture.item(1, category: "missing")], categories: [], in: invalid)
     await #expect(throws: CatalogStoreError.writeFailed) {
-      try await store.commit(transaction: invalid)
+      try await store.commitStagedReplacement(invalid)
     }
     #expect(try await store.categories(matching: CatalogFilter(), page: CatalogPage()).count == 1)
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Last")
-    let empty = try await store.beginReplacement(in: fixture.scope)
-    try await store.commit(transaction: empty)
+    let empty = try await store.beginStaging(in: fixture.scope)
+    try await store.commitStagedReplacement(empty)
     #expect(try await store.itemCount(matching: CatalogFilter()) == 0)
     #expect(try await store.categories(matching: CatalogFilter(), page: CatalogPage()).isEmpty)
     #expect(try await store.sourceCatalogCount(sourceID: fixture.sourceID) == 1)
@@ -193,20 +207,20 @@ struct CatalogPersistenceTests {
     defer { try? fixture.remove() }
     let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
     try await fixture.seed(store)
-    let token = try await store.beginReplacement(in: fixture.scope)
+    let stagingID = try await store.beginStaging(in: fixture.scope)
     await #expect(throws: CatalogStoreError.invalidInput) {
-      try await store.write(
-        items: (0...256).map { fixture.item($0) }, categories: [], transaction: token)
+      try await store.stage(
+        items: (0...256).map { fixture.item($0) }, categories: [], in: stagingID)
     }
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
     for limit in [-1, 0, 257, Int.max] {
       #expect(throws: CatalogStoreError.invalidPage) { try CatalogPage(limit: limit) }
     }
     #expect(throws: CatalogStoreError.invalidPage) { try CatalogPage(offset: -1) }
-    let invalid = try await store.beginReplacement(in: fixture.scope)
+    let invalid = try await store.beginStaging(in: fixture.scope)
     await #expect(throws: CatalogStoreError.invalidInput) {
-      try await store.write(
-        items: [fixture.item(1, title: "\0")], categories: [], transaction: invalid)
+      try await store.stage(
+        items: [fixture.item(1, title: "\0")], categories: [], in: invalid)
     }
     let cancelled = Task {
       withUnsafeCurrentTask { $0?.cancel() }
@@ -227,9 +241,9 @@ struct CatalogPersistenceTests {
     ]
     var expected: [CatalogItem] = []
     for values in [items, Array(items.reversed())] {
-      let token = try await store.beginReplacement(in: fixture.scope)
-      try await store.write(items: values, categories: [], transaction: token)
-      try await store.commit(transaction: token)
+      let stagingID = try await store.beginStaging(in: fixture.scope)
+      try await store.stage(items: values, categories: [], in: stagingID)
+      try await store.commitStagedReplacement(stagingID)
       let page = try await store.items(matching: CatalogFilter(), page: CatalogPage())
       if expected.isEmpty { expected = page } else { #expect(page == expected) }
       #expect(page[0].id == min(items[0].id, items[1].id))
@@ -243,6 +257,17 @@ struct CatalogPersistenceTests {
     while try row.step() { plans.append(row.text(3) ?? "") }
     #expect(plans.contains { $0.contains("items_source_kind") })
     #expect(!plans.contains { $0.contains("TEMP B-TREE") })
+
+    let stagingID = try await store.beginStaging(in: fixture.scope)
+    try await store.stage(items: items, categories: [], in: stagingID)
+    let stagingPlan = try database.statement(
+      "EXPLAIN QUERY PLAN SELECT sequence FROM staged_items WHERE staging_id=? AND sequence>? ORDER BY sequence LIMIT 256",
+      [stagingID.databaseValue, "0"])
+    var stagingPlans: [String] = []
+    while try stagingPlan.step() { stagingPlans.append(stagingPlan.text(3) ?? "") }
+    #expect(stagingPlans.contains { $0.contains("staged_items_order") })
+    #expect(!stagingPlans.contains { $0.contains("TEMP B-TREE") })
+    await store.discardStaging(stagingID)
     await store.close()
   }
 
@@ -253,12 +278,13 @@ struct CatalogPersistenceTests {
     let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
     try await fixture.seed(store)
     let scope = CatalogScope(sourceID: .init(rawValue: UUID()), origin: .xtream, kind: .live)
-    let token = try await store.beginReplacement(in: scope)
+    let stagingID = try await store.beginStaging(in: scope)
     let collision = CatalogItem(
       id: fixture.item(0).id, scope: scope, title: "Collision",
       providerReference: ProviderItemReference(kind: .live, providerID: "0"))
+    try await store.stage(items: [collision], categories: [], in: stagingID)
     await #expect(throws: CatalogStoreError.invalidInput) {
-      try await store.write(items: [collision], categories: [], transaction: token)
+      try await store.commitStagedReplacement(stagingID)
     }
     #expect(try await store.item(id: collision.id)?.title == "Catalog A")
     #expect(try await store.sourceCatalogCount(sourceID: scope.sourceID) == 0)
@@ -289,5 +315,29 @@ struct CatalogPersistenceTests {
     await #expect(throws: CatalogStoreError.corruptedStore) {
       try await SQLiteCatalogStore(url: corruptURL, encryptionKey: fixture.key)
     }
+  }
+
+  @Test("Version 1 catalogs migrate to version 2 staging without losing committed items")
+  func version1Migration() async throws {
+    let fixture = try CatalogFixture()
+    defer { try? fixture.remove() }
+    let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
+    try await fixture.seed(store)
+    await store.close()
+
+    let version1 = try CatalogDatabase(url: fixture.url)
+    try version1.execute("DROP TABLE staged_items")
+    try version1.execute("DROP TABLE staged_categories")
+    try version1.execute("DROP TABLE staged_catalogs")
+    try version1.execute("PRAGMA user_version = 1")
+
+    let migrated = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
+    #expect(try await migrated.item(id: fixture.item(0).id)?.title == "Catalog A")
+    let inspection = try CatalogDatabase(url: fixture.url, readOnly: true)
+    #expect(try inspection.scalar("PRAGMA user_version") == 2)
+    #expect(
+      try inspection.scalar(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='staged_catalogs'") == 1)
+    await migrated.close()
   }
 }

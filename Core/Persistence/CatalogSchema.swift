@@ -1,14 +1,16 @@
 import Foundation
 
-/// Version 1 is created atomically. Unknown versions are refused without deleting user data.
+/// Version 2 adds durable, invisible staging so acquisition never holds the live writer transaction.
 enum CatalogSchema {
   static func prepare(_ database: CatalogDatabase) throws {
     let version = try database.scalar("PRAGMA user_version")
-    guard version == 0 || version == 1 else { throw CatalogStoreError.unsupportedSchema }
-    if version == 1 {
+    guard (0...2).contains(version) else { throw CatalogStoreError.unsupportedSchema }
+    if version > 0 {
       guard try database.scalar("PRAGMA application_id") == 1_094_014_553 else {
         throw CatalogStoreError.corruptedStore
       }
+      if version == 2 { return }
+      try migrateVersion1(database)
       return
     }
     // Do not adopt arbitrary existing databases as a new catalog.
@@ -17,9 +19,9 @@ enum CatalogSchema {
     else { throw CatalogStoreError.corruptedStore }
     try database.execute("BEGIN IMMEDIATE")
     do {
-      for sql in statements { try database.execute(sql) }
+      for sql in liveStatements + stagingStatements { try database.execute(sql) }
       try database.execute("PRAGMA application_id = 1094014553")
-      try database.execute("PRAGMA user_version = 1")
+      try database.execute("PRAGMA user_version = 2")
       try database.execute("COMMIT")
     } catch {
       try database.rollback()
@@ -27,7 +29,19 @@ enum CatalogSchema {
     }
   }
 
-  private static let statements = [
+  private static func migrateVersion1(_ database: CatalogDatabase) throws {
+    try database.execute("BEGIN IMMEDIATE")
+    do {
+      for sql in stagingStatements { try database.execute(sql) }
+      try database.execute("PRAGMA user_version = 2")
+      try database.execute("COMMIT")
+    } catch {
+      try database.rollback()
+      throw error
+    }
+  }
+
+  private static let liveStatements = [
     """
     CREATE TABLE catalogs (
       source TEXT NOT NULL, origin TEXT NOT NULL, kind TEXT NOT NULL,
@@ -57,5 +71,34 @@ enum CatalogSchema {
     "CREATE INDEX categories_source_kind ON categories(source, kind, search_title, id)",
     "CREATE INDEX categories_title ON categories(search_title, id)",
     "CREATE INDEX categories_kind ON categories(kind, search_title, id)",
+  ]
+
+  private static let stagingStatements = [
+    """
+    CREATE TABLE staged_catalogs (
+      staging_id TEXT PRIMARY KEY, source TEXT NOT NULL, origin TEXT NOT NULL, kind TEXT NOT NULL,
+      UNIQUE(staging_id, source, origin, kind))
+    """,
+    """
+    CREATE TABLE staged_categories (
+      sequence INTEGER PRIMARY KEY, staging_id TEXT NOT NULL, id TEXT NOT NULL,
+      source TEXT NOT NULL, origin TEXT NOT NULL,
+      kind TEXT NOT NULL, title TEXT NOT NULL CHECK(length(title)>0), search_title TEXT NOT NULL,
+      UNIQUE(staging_id, id),
+      FOREIGN KEY(staging_id, source, origin, kind)
+        REFERENCES staged_catalogs(staging_id, source, origin, kind) ON DELETE CASCADE)
+    """,
+    """
+    CREATE TABLE staged_items (
+      sequence INTEGER PRIMARY KEY, staging_id TEXT NOT NULL, id TEXT NOT NULL,
+      source TEXT NOT NULL, origin TEXT NOT NULL,
+      kind TEXT NOT NULL, title TEXT NOT NULL CHECK(length(title)>0), search_title TEXT NOT NULL,
+      category TEXT, sealed_references TEXT NOT NULL,
+      UNIQUE(staging_id, id),
+      FOREIGN KEY(staging_id, source, origin, kind)
+        REFERENCES staged_catalogs(staging_id, source, origin, kind) ON DELETE CASCADE)
+    """,
+    "CREATE INDEX staged_categories_order ON staged_categories(staging_id, sequence)",
+    "CREATE INDEX staged_items_order ON staged_items(staging_id, sequence)",
   ]
 }

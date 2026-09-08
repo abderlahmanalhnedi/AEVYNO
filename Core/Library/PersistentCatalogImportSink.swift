@@ -7,7 +7,7 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
   ProviderCategoryImportSink
 {
   private let repository: any CatalogImportRepository
-  private var transaction: UUID?
+  private var stagingID: UUID?
   private var scope: CatalogScope?
   private var starting = false
 
@@ -24,15 +24,15 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
   }
 
   private func begin(_ scope: CatalogScope) async throws {
-    guard transaction == nil, !starting else { throw CatalogStoreError.busy }
+    guard stagingID == nil, !starting else { throw CatalogStoreError.busy }
     starting = true
     defer { starting = false }
-    transaction = try await repository.beginReplacement(in: scope)
+    stagingID = try await repository.beginStaging(in: scope)
     self.scope = scope
   }
 
   public func write(_ items: [ImportedMediaItem]) async throws {
-    let (transaction, scope) = try session()
+    let (stagingID, scope) = try session()
     guard items.count <= CatalogPage.maximumSize else { throw CatalogStoreError.invalidInput }
     var categories: [String: CatalogCategory] = [:]
     let values = items.map { item in
@@ -50,14 +50,14 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
         title: item.title, categoryID: categoryID, artworkURL: item.artworkURL,
         mediaURL: item.mediaURL)
     }
-    try await repository.write(
-      items: values, categories: Array(categories.values), transaction: transaction)
+    try await repository.stage(
+      items: values, categories: Array(categories.values), in: stagingID)
   }
 
   public func write(_ items: [ProviderCatalogItem]) async throws {
-    let (transaction, _) = try session()
+    let (stagingID, _) = try session()
     guard items.count <= CatalogPage.maximumSize else { throw CatalogStoreError.invalidInput }
-    try await repository.write(
+    try await repository.stage(
       items: items.map { item in
         CatalogItem(
           id: item.id.rawValue,
@@ -66,13 +66,13 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
             kind: CatalogMediaKind(item.providerReference.kind)),
           title: item.title, categoryID: item.categoryID?.rawValue, artworkURL: item.artworkURL,
           providerReference: item.providerReference)
-      }, categories: [], transaction: transaction)
+      }, categories: [], in: stagingID)
   }
 
   public func writeCategories(_ categories: [ProviderCategory]) async throws {
-    let (transaction, _) = try session()
+    let (stagingID, _) = try session()
     guard categories.count <= CatalogPage.maximumSize else { throw CatalogStoreError.invalidInput }
-    try await repository.write(
+    try await repository.stage(
       items: [],
       categories: categories.map { category in
         CatalogCategory(
@@ -80,25 +80,25 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
           scope: CatalogScope(
             sourceID: category.sourceID, origin: .xtream, kind: CatalogMediaKind(category.kind)),
           title: category.title)
-      }, transaction: transaction)
+      }, in: stagingID)
   }
 
   public func commitImport() async throws {
-    let (transaction, _) = try session()
-    try await repository.commit(transaction: transaction)
-    self.transaction = nil
+    let (stagingID, _) = try session()
+    try await repository.commitStagedReplacement(stagingID)
+    self.stagingID = nil
     scope = nil
   }
 
   public func rollbackImport() async {
-    guard let transaction else { return }
-    await repository.rollback(transaction: transaction)
-    self.transaction = nil
+    guard let stagingID else { return }
+    await repository.discardStaging(stagingID)
+    self.stagingID = nil
     scope = nil
   }
 
   private func session() throws -> (UUID, CatalogScope) {
-    guard let transaction, let scope else { throw CatalogStoreError.invalidTransaction }
-    return (transaction, scope)
+    guard let stagingID, let scope else { throw CatalogStoreError.invalidTransaction }
+    return (stagingID, scope)
   }
 }

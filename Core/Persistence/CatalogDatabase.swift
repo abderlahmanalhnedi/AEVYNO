@@ -50,6 +50,15 @@ final class CatalogDatabase {
     if sqlite3_get_autocommit(handle) == 0 { try execute("ROLLBACK") }
   }
 
+  func executeIgnoringCancellation(_ sql: String, _ values: [String?] = []) throws {
+    sqlite3_progress_handler(handle, 0, nil, nil)
+    defer {
+      sqlite3_progress_handler(
+        handle, 1000, { _ in Task<Never, Never>.isCancelled ? 1 : 0 }, nil)
+    }
+    try execute(sql, values)
+  }
+
   private func failure() -> any Error {
     catalogDatabaseError(sqlite3_errcode(handle))
   }
@@ -87,8 +96,8 @@ final class CatalogStatement {
     return false
   }
 
-  func requireChangedRow() throws {
-    guard sqlite3_changes(sqlite3_db_handle(pointer)) == 1 else {
+  func requireChangedRows(_ expected: Int = 1) throws {
+    guard sqlite3_changes(sqlite3_db_handle(pointer)) == expected else {
       throw CatalogStoreError.invalidInput
     }
   }

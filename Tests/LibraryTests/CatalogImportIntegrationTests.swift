@@ -2,10 +2,37 @@ import Domain
 import Foundation
 import IPTVCore
 import Library
-import Persistence
 import Testing
 
+@testable import Persistence
+
 struct CatalogImportIntegrationTests {
+  @Test("Network acquisition waits with no live SQLite writer transaction")
+  func acquisitionDoesNotHoldWriterTransaction() async throws {
+    let fixture = try CatalogFixture()
+    defer { try? fixture.remove() }
+    let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
+    try await fixture.seed(store)
+    let source = try makeXtreamSource(id: fixture.sourceID)
+    let adapter = SuspendingAcquisitionAdapter()
+    let task = Task {
+      try await ProviderCatalogImportService(batchSize: 1).importCatalog(
+        for: .live, from: source, using: adapter,
+        into: PersistentCatalogImportSink(repository: store))
+    }
+
+    await adapter.waitUntilItemIsStaged()
+    let independentWriter = try CatalogDatabase(url: fixture.url)
+    try independentWriter.execute("BEGIN IMMEDIATE")
+    #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
+    try independentWriter.rollback()
+
+    await adapter.finishAcquisition()
+    #expect(try await task.value.importedCount == 1)
+    #expect(try await store.item(id: fixture.item(0).id) == nil)
+    await store.close()
+  }
+
   @Test("Xtream adapter categories and items commit together into production persistence")
   func xtreamIntegration() async throws {
     let fixture = try CatalogFixture()
@@ -112,4 +139,55 @@ private struct FailingCatalogAdapter: ProviderAdapter {
     }
     throw ProviderAdapterError.transportUnavailable
   }
+}
+
+private struct SuspendingAcquisitionAdapter: ProviderAdapter {
+  private let state = SuspendingAcquisitionState()
+
+  func discover(source: SourceConfiguration) async throws -> ProviderAccountSnapshot {
+    ProviderAccountSnapshot()
+  }
+
+  func categories(for kind: ProviderMediaKind, source: SourceConfiguration) async throws
+    -> ProviderCategoryResult
+  {
+    ProviderCategoryResult(categories: [], receivedCount: 0, skippedCount: 0)
+  }
+
+  func fetchCatalog(
+    for kind: ProviderMediaKind, source: SourceConfiguration,
+    onItem: (ProviderCatalogItem) async throws -> Void
+  ) async throws -> ProviderCatalogReport {
+    let reference = ProviderItemReference(kind: kind, providerID: "staged")
+    try await onItem(
+      ProviderCatalogItem(
+        id: .init(sourceID: source.id, reference: reference), sourceID: source.id,
+        providerReference: reference, title: "Staged while network waits"))
+    await state.markItemStaged()
+    await state.waitUntilMayFinish()
+    return ProviderCatalogReport(receivedCount: 1, normalizedCount: 1, skippedCount: 0)
+  }
+
+  func waitUntilItemIsStaged() async {
+    await state.waitUntilItemIsStaged()
+  }
+
+  func finishAcquisition() async { await state.finishAcquisition() }
+}
+
+private actor SuspendingAcquisitionState {
+  private var itemIsStaged = false
+  private var mayFinish = false
+
+  func markItemStaged() { itemIsStaged = true }
+
+  func waitUntilItemIsStaged() async {
+    while !itemIsStaged { await Task.yield() }
+  }
+
+  func waitUntilMayFinish() async {
+    while !mayFinish { await Task.yield() }
+  }
+
+  func finishAcquisition() { mayFinish = true }
 }
