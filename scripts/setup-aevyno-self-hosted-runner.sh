@@ -80,20 +80,39 @@ else
 fi
 
 echo "Installing the runner as a per-user macOS launchd service..."
-if ./svc.sh status >/dev/null 2>&1; then
+
+# svc.sh status can report "not installed" while still exiting successfully on macOS.
+# Use the runner's .service marker instead of status exit code to decide whether an
+# existing launchd service must be removed first.
+if [[ -f .service ]]; then
   ./svc.sh stop >/dev/null 2>&1 || true
-else
-  ./svc.sh install
+  ./svc.sh uninstall >/dev/null 2>&1 || true
 fi
 
+./svc.sh install
 ./svc.sh start
 ./svc.sh status
 
 echo
 echo "Repository runner status:"
+runner_status="$(
+  gh api "repos/$REPO/actions/runners" \
+    --jq ".runners[] | select(.name == \"$RUNNER_NAME\") | .status"
+)"
+
 gh api "repos/$REPO/actions/runners" \
   --jq ".runners[] | select(.name == \"$RUNNER_NAME\") | {name, status, busy, labels: [.labels[].name]}"
 
+if [[ "$runner_status" != "online" ]]; then
+  echo
+  echo "The runner is registered but not online yet."
+  echo "Inspect launchd state with:"
+  echo "  cat .service"
+  echo "  ./svc.sh status"
+  echo "  launchctl print gui/$(id -u)/$(basename \"$(cat .service)\" .plist)"
+  exit 1
+fi
+
 echo
-echo "AEVYNO self-hosted runner setup is complete."
+echo "AEVYNO self-hosted runner setup is complete and online."
 echo "The Mac must be powered on and logged into this user account for CI jobs to run."
