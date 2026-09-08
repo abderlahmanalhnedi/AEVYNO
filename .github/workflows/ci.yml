@@ -19,7 +19,8 @@ permissions:
 jobs:
   core-build-analyze:
     name: Core / Build / Analyze
-    runs-on: macos-26
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: [self-hosted, macOS, ARM64, aevyno]
     timeout-minutes: 45
 
     steps:
@@ -29,20 +30,42 @@ jobs:
           persist-credentials: false
 
       - name: Select Xcode 26.6
+        shell: bash
         run: |
           set -euo pipefail
-          xcode_path=/Applications/Xcode_26.6.app/Contents/Developer
-          if [[ ! -d "$xcode_path" ]]; then
-            echo "::error title=Xcode 26.6 unavailable::Expected $xcode_path on the macos-26 runner."
-            find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
-            exit 1
-          fi
-          sudo xcode-select -s "$xcode_path"
+
+          candidates=(
+            "/Applications/Xcode_26.6.app/Contents/Developer"
+            "/Applications/Xcode.app/Contents/Developer"
+          )
+
+          for candidate in "${candidates[@]}"; do
+            [[ -d "$candidate" ]] || continue
+
+            if ! xcode_version="$(DEVELOPER_DIR="$candidate" xcodebuild -version 2>&1)"; then
+              echo "Unable to query Xcode at $candidate:"
+              printf '%s\n' "$xcode_version"
+              continue
+            fi
+
+            first_line="${xcode_version%%$'\n'*}"
+            if [[ "$first_line" == "Xcode 26.6" ]]; then
+              echo "DEVELOPER_DIR=$candidate" >> "$GITHUB_ENV"
+              echo "Using $candidate"
+              printf '%s\n' "$xcode_version"
+              exit 0
+            fi
+          done
+
+          echo "::error title=Xcode 26.6 unavailable::Expected Xcode 26.6 at /Applications/Xcode_26.6.app or /Applications/Xcode.app."
+          find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
+          exit 1
 
       - name: Print toolchain diagnostics
+        shell: bash
         run: |
           set -euo pipefail
-          xcode-select -p
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR"
           xcodebuild -version
           swift --version
           xcodebuild -showsdks
@@ -53,6 +76,7 @@ jobs:
         run: swift test
 
       - name: Build tvOS Simulator app
+        shell: bash
         run: |
           set -euo pipefail
           xcodebuild \
@@ -65,6 +89,7 @@ jobs:
             build
 
       - name: Build iOS Simulator app
+        shell: bash
         run: |
           set -euo pipefail
           xcodebuild \
@@ -77,6 +102,7 @@ jobs:
             build
 
       - name: Analyze tvOS app
+        shell: bash
         run: |
           set -euo pipefail
           xcodebuild \
@@ -89,6 +115,7 @@ jobs:
             analyze
 
       - name: Analyze iOS app
+        shell: bash
         run: |
           set -euo pipefail
           xcodebuild \
@@ -101,6 +128,7 @@ jobs:
             analyze
 
       - name: Lint all tracked Swift files
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -119,7 +147,8 @@ jobs:
 
   tvos-ui-tests:
     name: tvOS UI Tests
-    runs-on: macos-26
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: [self-hosted, macOS, ARM64, aevyno]
     timeout-minutes: 45
 
     steps:
@@ -129,17 +158,39 @@ jobs:
           persist-credentials: false
 
       - name: Select Xcode 26.6
+        shell: bash
         run: |
           set -euo pipefail
-          xcode_path=/Applications/Xcode_26.6.app/Contents/Developer
-          if [[ ! -d "$xcode_path" ]]; then
-            echo "::error title=Xcode 26.6 unavailable::Expected $xcode_path on the macos-26 runner."
-            find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
-            exit 1
-          fi
-          sudo xcode-select -s "$xcode_path"
+
+          candidates=(
+            "/Applications/Xcode_26.6.app/Contents/Developer"
+            "/Applications/Xcode.app/Contents/Developer"
+          )
+
+          for candidate in "${candidates[@]}"; do
+            [[ -d "$candidate" ]] || continue
+
+            if ! xcode_version="$(DEVELOPER_DIR="$candidate" xcodebuild -version 2>&1)"; then
+              echo "Unable to query Xcode at $candidate:"
+              printf '%s\n' "$xcode_version"
+              continue
+            fi
+
+            first_line="${xcode_version%%$'\n'*}"
+            if [[ "$first_line" == "Xcode 26.6" ]]; then
+              echo "DEVELOPER_DIR=$candidate" >> "$GITHUB_ENV"
+              echo "Using $candidate"
+              printf '%s\n' "$xcode_version"
+              exit 0
+            fi
+          done
+
+          echo "::error title=Xcode 26.6 unavailable::Expected Xcode 26.6 at /Applications/Xcode_26.6.app or /Applications/Xcode.app."
+          find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
+          exit 1
 
       - name: Discover and boot tvOS Simulator
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -179,6 +230,7 @@ jobs:
           xcrun simctl bootstatus "$simulator_id" -b
 
       - name: Run tvOS UI tests
+        shell: bash
         run: |
           set -euo pipefail
           xcodebuild \
