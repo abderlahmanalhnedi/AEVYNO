@@ -71,3 +71,16 @@ No feature whose primary purpose is unauthorized access to paid content.
 Do not add third-party analytics SDKs by default.
 
 If analytics is later desired, create an ADR covering privacy, data minimization, opt-in/consent as applicable, and performance impact.
+
+## 9. Local catalog references
+
+Phase 2D stores exact opaque media/artwork references as AES-256-GCM ciphertext, using a separate
+256-bit, nonsynchronizing `WhenUnlockedThisDeviceOnly` Keychain key. This narrow field-encryption
+design is recorded for review in [ADR-0008](../decisions/ADR-0008-local-catalog-persistence.md).
+It does not authorize plaintext provider credentials in catalog fields. No password/token fields,
+raw responses or diagnostics are serialized. Titles/category metadata remain local plaintext.
+
+The default catalog lives in a backup-excluded Caches directory and may be purged by tvOS. Key loss
+requires a future explicit reset/re-import flow; source deletion never deletes provider credentials
+or the shared encryption key. No full-database encryption, secure erasure or real-device backup/
+Keychain behavior is claimed. There is no CloudKit catalog integration.
