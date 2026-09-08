@@ -4,13 +4,25 @@
 
 A premium Apple-native IPTV/media client for lawful user-provided sources. The app should feel purpose-built for Apple TV, remain fast with large catalogs, play legitimate streams reliably, and synchronize viewing continuity across Apple devices.
 
-## 2. Primary users
+## 2. Business objective
+
+AEVYNO is intended to become a sustainable paid product after the core experience reaches the
+required quality bar. Revenue should come from the software experience and premium functionality,
+not from selling or bundling media content.
+
+The preferred commercialization direction is Free + AEVYNO Pro, with recurring plans and an
+optional lifetime purchase subject to pre-launch economic and App Store review. Intrusive advertising
+inside the core media experience is not part of the product strategy.
+
+Read `docs/MONETIZATION.md`.
+
+## 3. Primary users
 
 - A household user with one or more Apple TVs and iPhone/iPad devices.
 - A user who already has a lawful IPTV/media source and wants a better client.
 - A user who expects premium streaming-app quality rather than a utility-style playlist viewer.
 
-## 3. Primary platforms
+## 4. Primary platforms
 
 ### P0
 - tvOS — primary interaction and quality bar.
@@ -20,7 +32,7 @@ A premium Apple-native IPTV/media client for lawful user-provided sources. The a
 - macOS.
 - Other Apple platforms only after core quality is stable.
 
-## 4. Primary jobs to be done
+## 5. Primary jobs to be done
 
 1. Add a lawful media/IPTV source.
 2. Browse live channels, movies and series quickly.
@@ -30,7 +42,7 @@ A premium Apple-native IPTV/media client for lawful user-provided sources. The a
 6. Keep favorites and selected preferences synchronized.
 7. Recover gracefully from provider/network failures.
 
-## 5. Localization and language support
+## 6. Localization and language support
 
 The MVP interface languages are:
 
@@ -47,7 +59,7 @@ provider-supplied media metadata may remain in any source language.
 
 Read `docs/LOCALIZATION.md`.
 
-## 6. MVP feature set
+## 7. MVP feature set
 
 ### Source management
 - Xtream-compatible API/source support.
@@ -79,7 +91,7 @@ Read `docs/LOCALIZATION.md`.
 - selected non-secret settings.
 - conflict resolution for changes from multiple devices.
 
-## 7. Explicitly not MVP
+## 8. Explicitly not MVP
 
 - built-in content provider.
 - account/password backend owned by us.
@@ -91,10 +103,14 @@ Read `docs/LOCALIZATION.md`.
 - second playback engine unless compatibility evidence requires it.
 - macOS app.
 
-## 8. Quality requirements
+## 9. Quality requirements
 
 ### Design
 - tvOS must feel native, calm and cinematic.
+- the competitive quality target is to clearly exceed IPTVX in perceived polish, focus/navigation,
+  responsiveness, Arabic RTL, accessibility and overall coherence while remaining fully original.
+- competitive references are quality bars only; copied layouts, assets, typography systems,
+  proprietary text and reverse-engineered implementation are prohibited.
 - English, German and Arabic RTL must preserve the same premium visual hierarchy.
 - Arabic text must render with correct shaping, alignment and wrapping without clipped or broken layouts.
 - reusable UI must avoid hard-coded left/right assumptions.
@@ -115,11 +131,11 @@ Read `docs/LOCALIZATION.md`.
 - playback progress should survive app interruption.
 - CloudKit being unavailable must not make local playback unusable.
 
-## 9. Legal/content boundary
+## 10. Legal/content boundary
 
 The app is a player. It does not provide media, subscriptions, playlists, copyrighted catalogs, provider accounts, DRM bypass or unauthorized scraping.
 
-## 10. Success metrics
+## 11. Success metrics
 
 Track during development:
 - cold/warm launch to interactive UI.
@@ -131,3 +147,6 @@ Track during development:
 - memory stability while scrolling large poster grids.
 - watch-progress resume error in seconds.
 - CloudKit sync convergence time under normal network conditions.
+- qualitative design review against premium Apple media apps and IPTVX as a non-copying competitive reference.
+- Free -> Pro conversion, trial-to-paid conversion and paid retention once monetization launches.
+- entitlement/purchase restore reliability once StoreKit is introduced.
