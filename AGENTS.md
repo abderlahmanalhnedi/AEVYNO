@@ -32,6 +32,9 @@ Non-negotiable priority order:
 
 A feature that damages a higher priority must not ship merely to increase feature count.
 
+AEVYNO is intended to become a commercial product. Monetization must not reduce design quality,
+performance, compatibility, privacy or the lawful player-only product boundary.
+
 ## 3. Mandatory startup protocol for every engineering task
 
 Before editing code:
@@ -160,6 +163,11 @@ Forbidden:
 - reverse-engineered private implementation.
 
 Use the project design system and Apple interaction conventions.
+
+The competitive design target is to clearly exceed the perceived IPTVX quality bar while remaining
+fully original. Never treat IPTVX as a screen specification. Do not copy its layout, visual tokens,
+assets, text or private implementation. Prefer measurable improvements in focus, responsiveness,
+RTL, accessibility, state design and coherence.
 
 Read `docs/DESIGN_SYSTEM.md`.
 
@@ -301,7 +309,24 @@ Before declaring completion:
 
 Read `docs/DEFINITION_OF_DONE.md`.
 
-## 18. Documentation discipline
+## 18. Monetization rules
+
+The preferred direction is a premium freemium product with AEVYNO Pro and possible recurring and
+lifetime purchase options.
+
+Engineering rules:
+- no intrusive advertising in Home, library or playback.
+- commerce logic must sit behind a dedicated entitlement/service boundary.
+- prefer StoreKit 2 when commerce implementation begins.
+- do not hard-code product prices into UI copy.
+- purchase/restore states must be localizable and testable.
+- do not start monetization implementation merely because documentation exists; follow the roadmap gate.
+- verify then-current App Store policy before shipping paid features.
+- never sell or bundle IPTV channels, copyrighted catalogs, provider accounts or piracy access.
+
+Read `docs/MONETIZATION.md`.
+
+## 19. Documentation discipline
 
 Architecture changes require an ADR.
 
@@ -309,7 +334,7 @@ Behavioral assumptions must not live only in chat history. Put durable decisions
 
 When a documented rule becomes obsolete, update the document in the same change that replaces it.
 
-## 19. Codex communication style
+## 20. Codex communication style
 
 For each task, return a concise engineering summary containing:
 - what changed.
