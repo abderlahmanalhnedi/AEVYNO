@@ -10,8 +10,25 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
   private var stagingID: UUID?
   private var scope: CatalogScope?
   private var starting = false
+  private let deferredScope: CatalogScope?
+  private let deferredStagingID: UUID?
 
-  public init(repository: any CatalogImportRepository) { self.repository = repository }
+  public init(repository: any CatalogImportRepository) {
+    self.repository = repository
+    deferredScope = nil
+    deferredStagingID = nil
+  }
+
+  /// A deferred sink stages into a refresh-wide session; its commit is finalized by the owner.
+  public init(
+    repository: any CatalogImportRepository,
+    deferredStagingID: UUID,
+    scope: CatalogScope
+  ) {
+    self.repository = repository
+    self.deferredStagingID = deferredStagingID
+    deferredScope = scope
+  }
 
   public func beginImport(for sourceID: SourceConfiguration.ID) async throws {
     try await begin(CatalogScope(sourceID: sourceID, origin: .m3u, kind: .unspecified))
@@ -25,6 +42,12 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
 
   private func begin(_ scope: CatalogScope) async throws {
     guard stagingID == nil, !starting else { throw CatalogStoreError.busy }
+    if let deferredScope, let deferredStagingID {
+      guard scope == deferredScope else { throw CatalogStoreError.invalidInput }
+      stagingID = deferredStagingID
+      self.scope = scope
+      return
+    }
     starting = true
     defer { starting = false }
     stagingID = try await repository.beginStaging(in: scope)
@@ -85,7 +108,9 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
 
   public func commitImport() async throws {
     let (stagingID, _) = try session()
-    try await repository.commitStagedReplacement(stagingID)
+    if deferredStagingID == nil {
+      try await repository.commitStagedReplacement(stagingID)
+    }
     self.stagingID = nil
     scope = nil
   }

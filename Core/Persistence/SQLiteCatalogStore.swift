@@ -6,12 +6,14 @@ import OSLog
 
 /// Acquisition writes only invisible staging rows. The live writer transaction starts at commit.
 /// One actor owns independent reader/writer handles; readers see only committed catalog snapshots.
-public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository {
+public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository,
+  CatalogRefreshMetadataRepository
+{
   private let logger = Logger(subsystem: "com.aevyno", category: "catalog-persistence")
   private var writer: CatalogDatabase?
   private var reader: CatalogDatabase?
   private let cipher: CatalogReferenceCipher
-  private var active: (id: UUID, scope: CatalogScope)?
+  private var activeScopesByStagingID: [UUID: Set<CatalogScope>] = [:]
 
   public init(url: URL, encryptionKey: SymmetricKey) async throws {
     cipher = CatalogReferenceCipher(key: encryptionKey)
@@ -53,23 +55,50 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
   }
 
   public func beginStaging(in scope: CatalogScope) throws -> UUID {
+    try beginStaging(in: [scope])
+  }
+
+  public func beginStaging(in scopes: [CatalogScope]) throws -> UUID {
     try Task.checkCancellation()
-    guard active == nil else { throw CatalogStoreError.busy }
-    guard (scope.origin == .m3u) == (scope.kind == .unspecified) else {
+    let uniqueScopes = Set(scopes)
+    guard !uniqueScopes.isEmpty, uniqueScopes.count == scopes.count else {
       throw CatalogStoreError.invalidInput
     }
+    for scope in uniqueScopes {
+      guard (scope.origin == .m3u) == (scope.kind == .unspecified) else {
+        throw CatalogStoreError.invalidInput
+      }
+    }
+    let sourceIDs = Set(uniqueScopes.map(\.sourceID))
+    guard sourceIDs.count == 1 else { throw CatalogStoreError.invalidInput }
+    guard
+      activeScopesByStagingID.values.allSatisfy({ activeScopes in
+        activeScopes.isDisjoint(with: uniqueScopes)
+          && Set(activeScopes.map(\.sourceID)).isDisjoint(with: sourceIDs)
+      })
+    else { throw CatalogStoreError.busy }
+
     let database = try writeDatabase()
     let stagingID = UUID()
-    try database.execute(
-      "INSERT INTO staged_catalogs VALUES(?,?,?,?)", [stagingID.databaseValue] + scope.values)
-    active = (stagingID, scope)
+    do {
+      try database.execute("BEGIN IMMEDIATE")
+      for scope in uniqueScopes.sorted(by: { $0.kind.rawValue < $1.kind.rawValue }) {
+        try database.execute(
+          "INSERT INTO staged_catalogs VALUES(?,?,?,?)", [stagingID.databaseValue] + scope.values)
+      }
+      try database.execute("COMMIT")
+    } catch {
+      _ = rollbackAfterSQLFailure(database)
+      throw error
+    }
+    activeScopesByStagingID[stagingID] = uniqueScopes
     return stagingID
   }
 
   public func stage(
     items: [CatalogItem], categories: [CatalogCategory], in stagingID: UUID
   ) throws {
-    let scope = try requireStaging(stagingID)
+    let scopes = try requireStaging(stagingID)
     let database = try writeDatabase()
     do {
       try Task.checkCancellation()
@@ -88,11 +117,11 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
         """)
       for category in categories {
         try Task.checkCancellation()
-        guard category.scope == scope else { throw CatalogStoreError.invalidInput }
+        guard scopes.contains(category.scope) else { throw CatalogStoreError.invalidInput }
         try validateText(category.id)
         try validateText(category.title)
         try categoryStatement.bind(
-          [stagingID.databaseValue, category.id] + scope.values
+          [stagingID.databaseValue, category.id] + category.scope.values
             + [category.title, Self.searchTitle(category.title)])
         _ = try categoryStatement.step()
         try categoryStatement.requireChangedRows()
@@ -108,9 +137,10 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
         """)
       for item in items {
         try Task.checkCancellation()
-        try validate(item, scope: scope)
+        guard scopes.contains(item.scope) else { throw CatalogStoreError.invalidInput }
+        try validate(item, scope: item.scope)
         try itemStatement.bind(
-          [stagingID.databaseValue, item.id] + scope.values
+          [stagingID.databaseValue, item.id] + item.scope.values
             + [item.title, Self.searchTitle(item.title), item.categoryID, try cipher.seal(item)])
         _ = try itemStatement.step()
         try itemStatement.requireChangedRows()
@@ -123,23 +153,58 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
   }
 
   public func commitStagedReplacement(_ stagingID: UUID) throws {
-    let scope = try requireStaging(stagingID)
+    _ = try performStagedReplacementCommit(stagingID, successfulRefresh: nil)
+  }
+
+  public func commitStagedReplacement(
+    _ stagingID: UUID, successfulRefresh metadata: CatalogRefreshMetadata
+  ) throws -> Int {
+    try performStagedReplacementCommit(stagingID, successfulRefresh: metadata)
+  }
+
+  private func performStagedReplacementCommit(
+    _ stagingID: UUID, successfulRefresh metadata: CatalogRefreshMetadata?
+  ) throws -> Int {
+    let scopes = try requireStaging(stagingID)
+    if let metadata {
+      guard Set(scopes.map(\.sourceID)) == Set([metadata.sourceID]),
+        metadata.lastResult == .success, metadata.lastSuccessfulAt != nil,
+        metadata.lastCommittedItemCount >= 0
+      else { throw CatalogStoreError.invalidInput }
+    }
     let database = try writeDatabase()
     do {
       try Task.checkCancellation()
       // This is the only live-catalog transaction. Acquisition and validation are complete.
       try database.execute("PRAGMA synchronous = FULL")
       try database.execute("BEGIN IMMEDIATE")
-      try database.execute(
-        "DELETE FROM catalogs WHERE source=? AND origin=? AND kind=?", scope.values)
-      try database.execute("INSERT INTO catalogs VALUES(?,?,?)", scope.values)
+      let committedItemCount = try database.scalar(
+        "SELECT COUNT(*) FROM staged_items WHERE staging_id=?", [stagingID.databaseValue])
+      for scope in scopes.sorted(by: { $0.kind.rawValue < $1.kind.rawValue }) {
+        try database.execute(
+          "DELETE FROM catalogs WHERE source=? AND origin=? AND kind=?", scope.values)
+        try database.execute("INSERT INTO catalogs VALUES(?,?,?)", scope.values)
+      }
       try copyStagedCategories(stagingID, database: database)
       try copyStagedItems(stagingID, database: database)
+      if let metadata {
+        try writeSuccessfulRefreshMetadata(
+          CatalogRefreshMetadata(
+            sourceID: metadata.sourceID,
+            lastAttemptedAt: metadata.lastAttemptedAt,
+            lastSuccessfulAt: metadata.lastSuccessfulAt,
+            lastCommittedItemCount: committedItemCount,
+            lastResult: metadata.lastResult
+          ),
+          database: database
+        )
+      }
       try database.execute(
         "DELETE FROM staged_catalogs WHERE staging_id=?", [stagingID.databaseValue])
       try database.execute("COMMIT")
-      active = nil
+      activeScopesByStagingID[stagingID] = nil
       restoreStagingSynchronousMode(database)
+      return committedItemCount
     } catch {
       if rollbackAfterSQLFailure(database) {
         discardAfterFailure(stagingID)
@@ -150,26 +215,32 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
   }
 
   public func discardStaging(_ stagingID: UUID) {
-    guard active?.id == stagingID else { return }
+    guard activeScopesByStagingID[stagingID] != nil else { return }
     discardAfterFailure(stagingID)
   }
 
   public func deleteCatalog(sourceID: SourceConfiguration.ID) throws {
     try Task.checkCancellation()
-    guard active == nil else { throw CatalogStoreError.busy }
+    guard
+      activeScopesByStagingID.values.allSatisfy({ scopes in
+        !scopes.contains(where: { $0.sourceID == sourceID })
+      })
+    else { throw CatalogStoreError.busy }
     try writeDatabase().execute("DELETE FROM catalogs WHERE source=?", [sourceID.databaseValue])
   }
 
   /// Explicit lifecycle release also discards an unfinished invisible staging set.
   public func close() {
-    if let stagingID = active?.id { discardAfterFailure(stagingID) }
+    for stagingID in Array(activeScopesByStagingID.keys) { discardAfterFailure(stagingID) }
     reader = nil
     writer = nil
   }
 
-  private func requireStaging(_ stagingID: UUID) throws -> CatalogScope {
-    guard let active, active.id == stagingID else { throw CatalogStoreError.invalidTransaction }
-    return active.scope
+  private func requireStaging(_ stagingID: UUID) throws -> Set<CatalogScope> {
+    guard let scopes = activeScopesByStagingID[stagingID] else {
+      throw CatalogStoreError.invalidTransaction
+    }
+    return scopes
   }
 
   private func discardAfterFailure(_ stagingID: UUID) {
@@ -180,7 +251,7 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
       logger.error("Catalog staging cleanup failed; closing the writer to prevent further changes.")
       writer = nil
     }
-    active = nil
+    activeScopesByStagingID[stagingID] = nil
   }
 
   private func rollbackAfterSQLFailure(_ database: CatalogDatabase) -> Bool {
@@ -190,9 +261,77 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
     } catch {
       logger.error("Catalog transaction rollback failed; closing the writer.")
       writer = nil
-      active = nil
+      activeScopesByStagingID.removeAll()
       return false
     }
+  }
+
+  public func recordRefreshAttempt(
+    sourceID: SourceConfiguration.ID,
+    attemptedAt: Date,
+    result: CatalogRefreshResultCategory
+  ) throws {
+    guard result != .success, attemptedAt.timeIntervalSince1970.isFinite else {
+      throw CatalogStoreError.invalidInput
+    }
+    let database = try writeDatabase()
+    try database.executeIgnoringCancellation(
+      """
+      INSERT INTO refresh_metadata(
+        source,last_attempt,last_success,committed_item_count,last_result)
+      VALUES(?,?,NULL,0,?)
+      ON CONFLICT(source) DO UPDATE SET
+        last_attempt=excluded.last_attempt,last_result=excluded.last_result
+      """,
+      [sourceID.databaseValue, String(attemptedAt.timeIntervalSince1970), result.rawValue])
+  }
+
+  public func refreshMetadata(for sourceID: SourceConfiguration.ID) throws
+    -> CatalogRefreshMetadata?
+  {
+    let row = try readDatabase().statement(
+      """
+      SELECT last_attempt,last_success,committed_item_count,last_result
+      FROM refresh_metadata WHERE source=?
+      """, [sourceID.databaseValue])
+    guard try row.step() else { return nil }
+    guard let resultValue = row.text(3),
+      let result = CatalogRefreshResultCategory(rawValue: resultValue)
+    else { throw CatalogStoreError.corruptedStore }
+    let successInterval = row.isNull(1) ? nil : row.double(1)
+    return CatalogRefreshMetadata(
+      sourceID: sourceID,
+      lastAttemptedAt: Date(timeIntervalSince1970: row.double(0)),
+      lastSuccessfulAt: successInterval.map(Date.init(timeIntervalSince1970:)),
+      lastCommittedItemCount: row.integer(2),
+      lastResult: result)
+  }
+
+  private func writeSuccessfulRefreshMetadata(
+    _ metadata: CatalogRefreshMetadata, database: CatalogDatabase
+  ) throws {
+    guard let successfulAt = metadata.lastSuccessfulAt else {
+      throw CatalogStoreError.invalidInput
+    }
+    guard metadata.lastAttemptedAt.timeIntervalSince1970.isFinite,
+      successfulAt.timeIntervalSince1970.isFinite
+    else { throw CatalogStoreError.invalidInput }
+    try database.execute(
+      """
+      INSERT INTO refresh_metadata(
+        source,last_attempt,last_success,committed_item_count,last_result)
+      VALUES(?,?,?,?,?)
+      ON CONFLICT(source) DO UPDATE SET
+        last_attempt=excluded.last_attempt,last_success=excluded.last_success,
+        committed_item_count=excluded.committed_item_count,last_result=excluded.last_result
+      """,
+      [
+        metadata.sourceID.databaseValue,
+        String(metadata.lastAttemptedAt.timeIntervalSince1970),
+        String(successfulAt.timeIntervalSince1970),
+        String(metadata.lastCommittedItemCount),
+        metadata.lastResult.rawValue,
+      ])
   }
 
   private func restoreStagingSynchronousMode(_ database: CatalogDatabase) {

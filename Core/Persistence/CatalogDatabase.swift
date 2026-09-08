@@ -111,6 +111,8 @@ final class CatalogStatement {
   }
 
   func integer(_ column: Int32) -> Int { Int(sqlite3_column_int64(pointer, column)) }
+  func double(_ column: Int32) -> Double { sqlite3_column_double(pointer, column) }
+  func isNull(_ column: Int32) -> Bool { sqlite3_column_type(pointer, column) == SQLITE_NULL }
 }
 
 private func catalogDatabaseError(_ code: Int32) -> any Error {
