@@ -24,16 +24,20 @@ struct TVMediaCard: View {
   let isFocused: Bool
   let artworkPipeline: ArtworkImagePipeline
 
+  private var presentation: MediaPresentation {
+    AppText.mediaPresentation(for: item)
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
       artwork
 
-      Text(item.title)
+      Text(presentation.title)
         .aevynoTypography(.cardTitle)
         .foregroundStyle(AEVYNOColor.primaryText)
         .lineLimit(1)
 
-      Text(item.subtitle)
+      Text(presentation.subtitle)
         .aevynoTypography(.metadata)
         .foregroundStyle(isFocused ? Color.white.opacity(0.82) : AEVYNOColor.secondaryText)
         .lineLimit(1)
@@ -43,7 +47,7 @@ struct TVMediaCard: View {
     .aevynoCardSurface()
     .aevynoTVFocusTreatment(isFocused: isFocused, reduceMotion: reduceMotion)
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(item.title)
+    .accessibilityLabel(presentation.title)
     .accessibilityValue(accessibilityValue)
   }
 
@@ -62,7 +66,7 @@ struct TVMediaCard: View {
     .clipShape(RoundedRectangle(cornerRadius: AEVYNOCornerRadius.card, style: .continuous))
     .overlay(alignment: .topLeading) {
       if family == .live {
-        Text("LIVE")
+        Text(AppText.liveBadge)
           .aevynoTypography(.eyebrow)
           .foregroundStyle(.white)
           .padding(.horizontal, AEVYNOSpacing.sm)
@@ -85,10 +89,10 @@ struct TVMediaCard: View {
   }
 
   private var accessibilityValue: String {
-    var values = [item.subtitle]
-    if family == .live { values.append("Live") }
+    var values = [presentation.subtitle]
+    if family == .live { values.append(AppText.live) }
     if let progress = item.progress {
-      values.append("\(Int(progress * 100)) percent complete")
+      values.append(AppText.progressAccessibilityValue(progress))
     }
     return values.joined(separator: ", ")
   }

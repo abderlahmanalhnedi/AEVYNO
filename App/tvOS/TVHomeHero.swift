@@ -5,16 +5,16 @@ struct TVHomeHero: View {
   var body: some View {
     HStack(alignment: .bottom, spacing: AEVYNOSpacing.xl) {
       VStack(alignment: .leading, spacing: AEVYNOSpacing.md) {
-        Text("AEVYNO")
+        Text(AppText.appName)
           .aevynoTypography(.eyebrow)
           .tracking(4)
           .foregroundStyle(AEVYNOColor.accent)
 
-        Text("Your media,\nbeautifully in focus.")
+        Text(AppText.homeHeroTitle)
           .aevynoTypography(.hero)
           .foregroundStyle(AEVYNOColor.primaryText)
 
-        Text("A calm, synthetic preview of the browsing experience.")
+        Text(AppText.homeHeroSubtitle)
           .aevynoTypography(.status)
           .foregroundStyle(AEVYNOColor.secondaryText)
       }
@@ -61,6 +61,6 @@ struct TVHomeHero: View {
         .stroke(AEVYNOColor.hairline, lineWidth: 1)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("AEVYNO. Your media, beautifully in focus. A synthetic browsing preview.")
+    .accessibilityLabel(AppText.homeHeroAccessibilityLabel)
   }
 }
