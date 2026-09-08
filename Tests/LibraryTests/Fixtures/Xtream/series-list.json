@@ -1,0 +1,15 @@
+[
+  {
+    "series_id": "3001",
+    "name": "Synthetic Drama",
+    "category_id": 30,
+    "cover": "https://example.invalid/art/series.jpg"
+  },
+  {
+    "series_id": 3002,
+    "name": "Synthetic Comedy",
+    "category_id": "31",
+    "cover": null,
+    "cover_big": "https://example.invalid/art/series-large.jpg"
+  }
+]

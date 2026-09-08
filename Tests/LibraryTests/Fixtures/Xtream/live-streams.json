@@ -1,0 +1,11 @@
+[
+  {
+    "stream_id": "1001",
+    "name": "Synthetic News",
+    "category_id": 10,
+    "stream_icon": "https://example.invalid/art/live-news.png",
+    "epg_channel_id": null
+  },
+  {"stream_id": 1002, "name": "Synthetic Sports", "category_id": "11"},
+  {"stream_id": "", "name": "Malformed ID", "category_id": "10"}
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "stream_id": 2001,
+    "name": "Synthetic Film",
+    "category_id": "20",
+    "stream_icon": "https://example.invalid/art/film.jpg"
+  },
+  {"stream_id": "2002", "name": "Synthetic Documentary", "category_id": 21, "stream_icon": null}
+]
