@@ -15,8 +15,8 @@ until the real Apple TV UX review passes in both LTR and Arabic RTL.
 Phase 2 is complete on `main` at `b557347` through merged PR #17. Its approved roadmap deliverables
 and exit gate are satisfied by the documented 50k/100k import, refresh and query benchmarks, atomic
 last-known-good catalog behavior, and successful post-merge CI run `34321067413` on that exact
-commit. The post-Phase-2 Source Management & Validation Flows follow-up is implemented on
-`feature/source-management-validation-flows` and is undergoing final validation/review. Phase 3
+commit. The post-Phase-2 Source Management & Validation Flows follow-up is **COMPLETE**, merged
+through PR #19 at merge commit `1c94236`; post-merge CI run `34386676789` succeeded. Phase 3
 playback work has not started.
 
 ## Verified development environment
@@ -225,8 +225,8 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 
 ## Post-Phase-2 Source Management & Validation Flows
 
-Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW** on
-`feature/source-management-validation-flows`. Phase 2 remains complete.
+Status: **COMPLETE**. Merged through PR #19 at merge commit `1c94236`; post-merge CI run
+`34386676789` succeeded. Phase 2 remains complete.
 
 - `FileSourceRepository` keeps the version 1 durable source registry at
   `Application Support/AEVYNO/sources.json`, outside the rebuildable catalog cache. Actor isolation,
@@ -348,6 +348,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   for Pull Requests, pushes to `main` and manual dispatches.
 - CI health is reported only from actual GitHub Actions results. Phase 2F merged through PR #17 at
   `b557347`; post-merge push run `34321067413` completed successfully on that exact `main` commit.
+- Source Management & Validation Flows merged through PR #19 at `1c94236`; post-merge CI run
+  `34386676789` completed successfully, including Core / Build / Analyze and tvOS UI Tests.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
 - Phase 1 remains physically **PENDING**. Phase 2A/B/C/D/E/F are merged and the approved Phase 2
@@ -364,8 +366,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - Phase 2E merged through PR #16 at `49d4f1c`.
 - Phase 2F merged into `main` through PR #17 at `b557347`; successful post-merge CI run
   `34321067413` validated that exact commit.
-- Post-Phase-2 Source Management & Validation Flows is implemented on
-  `feature/source-management-validation-flows`; local final validation and PR review are in progress.
+- Post-Phase-2 Source Management & Validation Flows is complete, merged through PR #19 at
+  `1c94236`; successful post-merge CI run `34386676789` validated the merge commit.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -422,11 +424,11 @@ navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
 complete.
 
-The post-Phase-2 source and library application-integration follow-up has started with Source
-Management & Validation Flows. Refresh scheduling and final app query/UI composition remain
-unstarted. These items are not part of the approved Phase 2 deliverables or exit gate. M3U file
-acquisition remains outside the completed remote-acquisition slice. Do not begin Phase 3 playback
-implementation before its approved phase gate.
+The post-Phase-2 source and library application-integration follow-up has completed Source Management
+& Validation Flows. Refresh scheduling and final app query/UI composition remain unstarted. These
+items are not part of the approved Phase 2 deliverables or exit gate. M3U file acquisition remains
+outside the completed remote-acquisition slice. Do not begin Phase 3 playback implementation before
+its approved phase gate.
 
 ## Active blockers
 
