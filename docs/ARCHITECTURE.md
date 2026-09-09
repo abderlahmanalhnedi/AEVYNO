@@ -81,6 +81,10 @@ Phase 2E adds the provider-neutral `CatalogRefreshService`, multi-partition sour
 refresh metadata. Xtream live/VOD/series and success metadata publish in one final transaction after
 all network/normalization work succeeds. See [ADR-0009](../decisions/ADR-0009-durable-source-refresh.md)
 and [Phase 2E evidence](PHASE_2E_REFRESH.md).
+Phase 2F extends the same repository with bounded literal substring search, origin/source/kind/category
+filters and committed category counts. The injected `CatalogLibraryService` is the provider-neutral
+query boundary for future app UI. Search and browse never read staging tables. See
+[Phase 2F evidence](PHASE_2F_LIBRARY_SEARCH.md).
 
 ### Playback
 Define a playback abstraction, for example conceptually:

@@ -1,10 +1,10 @@
 # Project Status
 
-Last updated: 2026-09-08
+Last updated: 2026-09-09
 
 ## Current phase
 
-**Phase 1 physical validation open; Phase 2A/B/C/D merged; Phase 2E durable refresh implemented for review**
+**Phase 1 physical validation open; Phase 2A/B/C/D/E merged; Phase 2F library search implemented for review**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -194,8 +194,37 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - no source-management UI, scheduling, Phase 2F search/application integration, CloudKit catalog sync
   or Phase 3 playback work is included.
 
+## Phase 2F production library search foundation
+
+- `CatalogQueryRepository` and the production SQLite store now provide bounded literal substring
+  search, origin/source/media-kind/category filters, deterministic ordering, exact lookup, counts and
+  committed category summaries without materializing a catalog-wide Swift array.
+- deterministic search normalization uses fixed POSIX case/diacritic folding and Unicode-whitespace
+  term separation. All terms are literal unordered AND-substrings; punctuation, numbers, emoji and
+  Arabic script are preserved. There is no transliteration, fuzzy matching or relevance ranking.
+- the provider-neutral, injected `CatalogLibraryService` exposes async browse, search, category,
+  lookup and count operations for future tvOS/iOS composition without SwiftUI, `MainActor`, provider
+  networking or CloudKit dependencies.
+- search input is limited to 16 KiB and 32 terms; pages remain limited to 256. Results use binary
+  normalized-title plus stable-ID ordering, and invalid page/query/filter input fails explicitly.
+- deterministic tests cover empty/edge states, English/German/Arabic/mixed-language titles,
+  punctuation/emoji, duplicate-title pagination, source/origin/kind/category isolation,
+  cancellation, deletion and a paused Phase 2E refresh proving staged catalog B remains invisible
+  until its atomic commit replaces catalog A.
+- [Phase 2F evidence](docs/PHASE_2F_LIBRARY_SEARCH.md) records exact semantics, architecture,
+  security limits, 10k/50k/100k release measurements and remaining device/UI limitations.
+- no final Search/browse UI, source-management UI, refresh scheduler, CloudKit catalog sync or Phase 3
+  playback work is included.
+
 ## Validation evidence
 
+- Phase 2F shared package validation: 98 tests in 10 suites passed, zero failed (`swift test`).
+  This includes all prior Phase 2A/B/C/D/E tests plus production search/category semantics,
+  Arabic and mixed-language matching, combined-filter isolation, pagination, cancellation,
+  edge states, refresh staging invisibility and the 10k/50k/100k query benchmark cases.
+- Phase 2F strict tracked-Swift formatting lint and `git diff --check` passed. Generic tvOS and iOS
+  Simulator Debug builds and both static analyzers passed. The existing tvOS 26.5 Apple TV 4K
+  (3rd generation) Simulator UI suite passed 11 tests with zero failures. No Phase 2F UI was added.
 - Phase 2D shared package tests: 75 passed, 0 failed (`swift test`), including production persistence,
   rollback, query bounds, encrypted references and key storage, plus Xtream request construction,
   authentication, tolerant live/VOD/series decoding, normalized errors, security redaction,
@@ -247,6 +276,14 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   **0.145 / 0.869 / 2.091 s**. Synthetic response/generator preparation was outside the timer;
   M3U acquisition numbers represent in-memory handoff, not network throughput. Reproduce with
   `swift test -c release --filter CatalogRefreshPerformanceTests`. Peak memory was not measured.
+- Phase 2F release-mode 64-item first pages completed at 10k/50k/100k in
+  **0.346 / 0.347 / 0.373 ms**; middle pages in **0.416 / 0.737 / 2.351 ms**; 64 category
+  summaries with counts in **0.229 / 0.840 / 3.502 ms**; exact item lookup in
+  **0.019 / 0.020 / 0.023 ms**; common search in **0.347 / 0.366 / 0.368 ms**; rare search in
+  **0.547 / 3.349 / 8.179 ms**; no-result search in **0.512 / 3.309 / 8.308 ms**; and source
+  item count in **0.226 / 2.532 / 5.332 ms**. Reproduce with
+  `swift test -c release --filter CatalogLibrarySearchPerformanceTests`. These are median-of-five
+  warm local samples on the documented M2 system, not physical Apple TV or peak-memory claims.
 - physical Apple TV: **PENDING** because the owner is currently away from the device. No
   physical build, install, launch, focus, accessibility or UX observation was performed.
 - physical iPhone/iPad: **NOT RUN**.
@@ -267,13 +304,13 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - A repository-wide Swift formatting baseline covers all tracked Swift/package source and test
   files. Strict `swift format lint` is clean locally and CI enforces it
   for Pull Requests, pushes to `main` and manual dispatches.
-- CI health is reported only from actual GitHub Actions results. Main run `34256599979` passed on the
-  repository-scoped self-hosted runner before the Phase 2E branch was created. The Phase 2E PR head
-  remains subject to its own real CI run before this work is declared complete.
+- CI health is reported only from actual GitHub Actions results. Phase 2E merged through PR #16 at
+  `49d4f1c`; the Phase 2F PR head remains subject to its own real CI run before this work is declared
+  complete.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
-- Phase 1 remains physically **PENDING**. Phase 2A/B/C/D are merged; Phase 2E is implemented for review.
-  Phase 2 is not complete. Phase 3 has not started.
+- Phase 1 remains physically **PENDING**. Phase 2A/B/C/D/E are merged; Phase 2F is implemented for
+  review. Phase 2 is not complete. Phase 3 has not started.
 
 ## Repository state
 
@@ -283,7 +320,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   remains intact.
 - Phase 2C merged through PR #11 at `6835219`; the provider adapter foundation remains intact.
 - Phase 2D and its transaction-lifetime correction merged through PR #14 at `07a0ccc`.
-- Phase 2E is isolated on `feature/phase-2e-refresh-acquisition`, created from clean `07a0ccc`.
+- Phase 2E merged through PR #16 at `49d4f1c`.
+- Phase 2F is isolated on `feature/phase-2f-search-library-query`, created from clean `49d4f1c`.
   No rebase, force push, history rewrite or automatic merge was performed.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
@@ -341,10 +379,10 @@ navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
 complete.
 
-In parallel, complete the remaining Phase 2 work after Phase 2E review: source-management UI/flows,
-refresh scheduling, production search and app query integration. M3U file acquisition is not part of
-the current remote-acquisition slice. Do not begin Phase 3 playback implementation before its
-approved phase gate.
+In parallel, complete the remaining Phase 2 work after Phase 2F review: source-management UI/flows,
+refresh scheduling and final app query/UI composition. M3U file acquisition is not part of the
+current remote-acquisition slice. Do not begin Phase 3 playback implementation before its approved
+phase gate.
 
 ## Active blockers
 
