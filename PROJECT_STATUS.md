@@ -15,7 +15,9 @@ until the real Apple TV UX review passes in both LTR and Arabic RTL.
 Phase 2 is complete on `main` at `b557347` through merged PR #17. Its approved roadmap deliverables
 and exit gate are satisfied by the documented 50k/100k import, refresh and query benchmarks, atomic
 last-known-good catalog behavior, and successful post-merge CI run `34321067413` on that exact
-commit. Phase 3 playback work has not started.
+commit. The post-Phase-2 Source Management & Validation Flows follow-up is implemented on
+`feature/source-management-validation-flows` and is undergoing final validation/review. Phase 3
+playback work has not started.
 
 ## Verified development environment
 
@@ -221,6 +223,38 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   post-Phase 2 source and library application-integration follow-up in `docs/ROADMAP.md`; they are not
   Phase 2 exit requirements.
 
+## Post-Phase-2 Source Management & Validation Flows
+
+Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW** on
+`feature/source-management-validation-flows`. Phase 2 remains complete.
+
+- `FileSourceRepository` keeps the version 1 durable source registry at
+  `Application Support/AEVYNO/sources.json`, outside the rebuildable catalog cache. Actor isolation,
+  deterministic array ordering, atomic JSON replacement and explicit corrupt/unsupported-schema
+  failures are covered. [ADR-0010](decisions/ADR-0010-local-source-registry.md) records the decision.
+- `SourceManagementService` owns local validation, create/edit/delete compensation, enabled state,
+  Test Connection and manual Refresh Now across the source repository, Keychain boundary and durable
+  refresh/catalog services. Source metadata contains only an opaque `CredentialReference`; provider
+  credentials remain device-local in Keychain.
+- delete now reads existing state, deletes durable source metadata, deletes its credential when
+  present, then transactionally deletes catalog and refresh metadata last. Earlier failures preserve
+  the last-known-good catalog; catalog failure restores credential and source metadata; restoration
+  failure is surfaced as `compensationFailure`.
+- Test Connection uses a temporary Keychain reference for new/replacement Xtream credentials and
+  removes it on success, provider failure and cancellation. M3U testing acquires and parses without
+  catalog publication. Credential-bearing M3U URL user information, queries and fragments remain
+  unsupported.
+- the tvOS source-management UI provides loading/empty/error states, add/edit, secure credential
+  replacement, validation focus restoration, enable/disable, manual refresh and confirmed delete.
+  Stable source IDs restore list focus after returning from the editor, and operation status does
+  not steal focus.
+- English, German and Arabic strings, native Arabic RTL layout, localized accessibility labels and
+  deterministic simulator UI flows are included. Physical Apple TV LTR/RTL focus and visual review
+  remains **PENDING**.
+- [Source Management and Validation](docs/SOURCE_MANAGEMENT.md) documents the workflows and current
+  limitations. Refresh scheduling and final production tvOS/iOS library/search composition remain
+  **NOT STARTED**. Phase 3 playback remains **NOT STARTED**.
+
 ## Validation evidence
 
 - Phase 2F shared package validation: 98 tests in 10 suites passed, zero failed (`swift test`).
@@ -330,6 +364,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - Phase 2E merged through PR #16 at `49d4f1c`.
 - Phase 2F merged into `main` through PR #17 at `b557347`; successful post-merge CI run
   `34321067413` validated that exact commit.
+- Post-Phase-2 Source Management & Validation Flows is implemented on
+  `feature/source-management-validation-flows`; local final validation and PR review are in progress.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -386,11 +422,11 @@ navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
 complete.
 
-The planned post-Phase 2 source and library application-integration follow-up owns source-management
-UI/flows, refresh scheduling and final app query/UI composition. These items are not part of the
-approved Phase 2 deliverables or exit gate, and the follow-up has not started. M3U file acquisition
-remains outside the completed remote-acquisition slice. Do not begin Phase 3 playback implementation
-before its approved phase gate.
+The post-Phase-2 source and library application-integration follow-up has started with Source
+Management & Validation Flows. Refresh scheduling and final app query/UI composition remain
+unstarted. These items are not part of the approved Phase 2 deliverables or exit gate. M3U file
+acquisition remains outside the completed remote-acquisition slice. Do not begin Phase 3 playback
+implementation before its approved phase gate.
 
 ## Active blockers
 
