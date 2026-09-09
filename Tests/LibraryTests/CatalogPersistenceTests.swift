@@ -91,6 +91,17 @@ struct CatalogPersistenceTests {
         items: [fixture.item(0, scope: scope)], categories: [], in: stagingID)
       try await store.commitStagedReplacement(stagingID)
     }
+    let attemptedAt = Date(timeIntervalSince1970: 1_000)
+    try await store.recordRefreshAttempt(
+      sourceID: fixture.sourceID,
+      attemptedAt: attemptedAt,
+      result: .inProgress
+    )
+    try await store.recordRefreshAttempt(
+      sourceID: otherScope.sourceID,
+      attemptedAt: attemptedAt,
+      result: .inProgress
+    )
     let stagingID = try await store.beginStaging(in: fixture.scope)
     try await store.stage(items: [fixture.item(1)], categories: [], in: stagingID)
     #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
@@ -108,6 +119,34 @@ struct CatalogPersistenceTests {
     try await store.deleteCatalog(sourceID: fixture.sourceID)
     #expect(try await store.itemCount(matching: CatalogFilter()) == 1)
     #expect(try await store.item(id: fixture.item(0, scope: otherScope).id) != nil)
+    #expect(try await store.refreshMetadata(for: fixture.sourceID) == nil)
+    #expect(try await store.refreshMetadata(for: otherScope.sourceID) != nil)
+    await store.close()
+  }
+
+  @Test("Catalog and refresh metadata deletion rolls back as one transaction")
+  func catalogDeletionRollback() async throws {
+    let fixture = try CatalogFixture()
+    defer { try? fixture.remove() }
+    let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
+    try await fixture.seed(store)
+    try await store.recordRefreshAttempt(
+      sourceID: fixture.sourceID,
+      attemptedAt: Date(timeIntervalSince1970: 1_000),
+      result: .inProgress
+    )
+    let database = try CatalogDatabase(url: fixture.url)
+    try database.execute(
+      "CREATE TRIGGER fail_refresh_metadata_delete BEFORE DELETE ON refresh_metadata "
+        + "BEGIN SELECT RAISE(FAIL,'synthetic'); END"
+    )
+
+    await #expect(throws: CatalogStoreError.writeFailed) {
+      try await store.deleteCatalog(sourceID: fixture.sourceID)
+    }
+
+    #expect(try await store.item(id: fixture.item(0).id)?.title == "Catalog A")
+    #expect(try await store.refreshMetadata(for: fixture.sourceID) != nil)
     await store.close()
   }
 
