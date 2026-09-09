@@ -1,5 +1,6 @@
 import Domain
 import Foundation
+import Library
 
 enum AppText {
   static let appName = localized("app.name", defaultValue: "AEVYNO")
@@ -55,6 +56,201 @@ enum AppText {
   )
   static let live = localized("media.live", defaultValue: "Live")
   static let liveBadge = localized("media.live.badge", defaultValue: "LIVE")
+
+  static let sources = localized("sources.title", defaultValue: "Sources")
+  static let sourcesSubtitle = localized(
+    "sources.subtitle",
+    defaultValue: "Connect and maintain your private media sources."
+  )
+  static let sourcesLoading = localized("sources.loading", defaultValue: "Loading sources")
+  static let sourcesUnavailable = localized(
+    "sources.unavailable.title",
+    defaultValue: "Sources are unavailable"
+  )
+  static let sourcesUnavailableMessage = localized(
+    "sources.unavailable.message",
+    defaultValue: "Try again to open your saved source settings."
+  )
+  static let sourcesEmptyTitle = localized(
+    "sources.empty.title",
+    defaultValue: "No sources yet"
+  )
+  static let sourcesEmptyMessage = localized(
+    "sources.empty.message",
+    defaultValue: "Add an Xtream-compatible account or a secure, query-free M3U playlist."
+  )
+  static let addSource = localized("sources.action.add", defaultValue: "Add Source")
+  static let editSource = localized("sources.action.edit", defaultValue: "Edit Source")
+  static let sourceName = localized("sources.field.name", defaultValue: "Source name")
+  static let sourceType = localized("sources.field.type", defaultValue: "Source type")
+  static let serverAddress = localized("sources.field.server", defaultValue: "Server address")
+  static let username = localized("sources.field.username", defaultValue: "Username")
+  static let password = localized("sources.field.password", defaultValue: "Password")
+  static let xtreamCompatible = localized(
+    "sources.kind.xtream",
+    defaultValue: "Xtream-compatible"
+  )
+  static let m3uPlaylist = localized("sources.kind.m3u", defaultValue: "M3U playlist")
+  static let testConnection = localized(
+    "sources.action.test_connection",
+    defaultValue: "Test Connection"
+  )
+  static let save = localized("sources.action.save", defaultValue: "Save")
+  static let delete = localized("sources.action.delete", defaultValue: "Delete")
+  static let enable = localized("sources.action.enable", defaultValue: "Enable")
+  static let disable = localized("sources.action.disable", defaultValue: "Disable")
+  static let enabled = localized("sources.status.enabled", defaultValue: "Enabled")
+  static let disabled = localized("sources.status.disabled", defaultValue: "Disabled")
+  static let refreshNow = localized("sources.action.refresh", defaultValue: "Refresh Now")
+  static let cancel = localized("action.cancel", defaultValue: "Cancel")
+  static let credentialSaved = localized(
+    "sources.credential.saved",
+    defaultValue: "Credential saved securely"
+  )
+  static let replaceCredential = localized(
+    "sources.credential.replace",
+    defaultValue: "Replace Credential"
+  )
+  static let m3uQueryLimitation = localized(
+    "sources.m3u.query_limitation",
+    defaultValue:
+      "This version accepts M3U addresses without query parameters or embedded credentials."
+  )
+  static let deleteSourceConfirmationTitle = localized(
+    "sources.delete.confirmation.title",
+    defaultValue: "Delete this source?"
+  )
+  static let deleteSourceConfirmationMessage = localized(
+    "sources.delete.confirmation.message",
+    defaultValue: "Its saved credential, local catalog, and refresh status will be removed."
+  )
+  static let sourcesAccessibilityHint = localized(
+    "sources.accessibility.open_hint",
+    defaultValue: "Opens source management"
+  )
+  static let addSourceAccessibilityHint = localized(
+    "sources.accessibility.add_hint",
+    defaultValue: "Opens the new source form"
+  )
+  static let editSourceAccessibilityHint = localized(
+    "sources.accessibility.edit_hint",
+    defaultValue: "Opens source details and actions"
+  )
+  static let testConnectionAccessibilityHint = localized(
+    "sources.accessibility.test_hint",
+    defaultValue: "Checks the source without saving or importing its catalog"
+  )
+  static let passwordAccessibilityHint = localized(
+    "sources.accessibility.password_hint",
+    defaultValue: "Secure entry; the value is never spoken or displayed"
+  )
+  static let replaceCredentialAccessibilityHint = localized(
+    "sources.accessibility.replace_credential_hint",
+    defaultValue: "Shows secure fields for a replacement credential"
+  )
+  static let deleteAccessibilityHint = localized(
+    "sources.accessibility.delete_hint",
+    defaultValue: "Permanently removes this source after confirmation"
+  )
+
+  static func sourceKind(_ kind: SourceKind) -> String {
+    switch kind {
+    case .xtreamCompatible: xtreamCompatible
+    case .m3u: m3uPlaylist
+    }
+  }
+
+  static func sourceRowAccessibilityLabel(name: String, kind: String, status: String) -> String {
+    String.localizedStringWithFormat(
+      localized(
+        "sources.accessibility.row_label",
+        defaultValue: "%@, %@, %@"
+      ),
+      name,
+      kind,
+      status
+    )
+  }
+
+  static func sourceOperationState(_ state: SourceOperationState) -> String {
+    switch state {
+    case .testing:
+      return localized("sources.operation.testing", defaultValue: "Testing connection…")
+    case .connectionSucceeded:
+      return localized("sources.operation.connection_success", defaultValue: "Connection succeeded")
+    case .saving:
+      return localized("sources.operation.saving", defaultValue: "Saving…")
+    case .saved:
+      return localized("sources.operation.saved", defaultValue: "Source saved")
+    case .enabled:
+      return localized("sources.operation.enabled", defaultValue: "Source enabled")
+    case .disabled:
+      return localized("sources.operation.disabled", defaultValue: "Source disabled")
+    case .deleted:
+      return localized("sources.operation.deleted", defaultValue: "Source deleted")
+    case .cancelled:
+      return localized("sources.operation.cancelled", defaultValue: "Operation cancelled")
+    case .failed(let error):
+      return sourceError(error)
+    case .refreshing(let stage):
+      return refreshStage(stage)
+    }
+  }
+
+  private static func sourceError(_ error: SourceManagementError) -> String {
+    switch error {
+    case .invalidInput:
+      localized("sources.error.invalid_fields", defaultValue: "Check the highlighted fields.")
+    case .credentialUnavailable:
+      localized(
+        "sources.error.credential_unavailable", defaultValue: "The saved credential is unavailable."
+      )
+    case .authenticationRejected:
+      localized(
+        "sources.error.authentication", defaultValue: "The source rejected these credentials.")
+    case .timeout:
+      localized("sources.error.timeout", defaultValue: "The source took too long to respond.")
+    case .unreachableProvider:
+      localized("sources.error.unreachable", defaultValue: "The source could not be reached.")
+    case .malformedSource:
+      localized(
+        "sources.error.malformed", defaultValue: "The source returned an unreadable response.")
+    case .inProgress:
+      localized("sources.error.in_progress", defaultValue: "This source is already refreshing.")
+    case .sourceNotFound:
+      localized("sources.error.not_found", defaultValue: "This source is no longer available.")
+    case .secureStorageFailure:
+      localized(
+        "sources.error.secure_storage", defaultValue: "The credential could not be saved securely.")
+    case .persistenceFailure:
+      localized(
+        "sources.error.persistence", defaultValue: "The source settings could not be saved safely.")
+    case .compensationFailure, .cleanupFailure:
+      localized(
+        "sources.error.cleanup", defaultValue: "Cleanup did not finish. Try the action again.")
+    }
+  }
+
+  private static func refreshStage(_ stage: CatalogRefreshStage) -> String {
+    switch stage {
+    case .validating:
+      localized("sources.refresh.validating", defaultValue: "Validating source…")
+    case .acquiring:
+      localized("sources.refresh.acquiring", defaultValue: "Contacting source…")
+    case .parsingOrDecoding:
+      localized("sources.refresh.parsing", defaultValue: "Reading catalog…")
+    case .staging:
+      localized("sources.refresh.staging", defaultValue: "Preparing update…")
+    case .committing:
+      localized("sources.refresh.committing", defaultValue: "Saving catalog…")
+    case .completed:
+      localized("sources.refresh.completed", defaultValue: "Refresh completed")
+    case .failed:
+      localized("sources.refresh.failed", defaultValue: "Refresh failed")
+    case .cancelled:
+      localized("sources.operation.cancelled", defaultValue: "Operation cancelled")
+    }
+  }
 
   static let detailPlayPreview = localized(
     "detail.action.play_preview",

@@ -8,12 +8,22 @@ struct TVHomeView: View {
   @FocusState private var focusedItemID: MediaItem.ID?
   @State private var rememberedItemID: MediaItem.ID?
   @State private var selectedItem: MediaItem?
+  @State private var showsSources = false
 
   private let artworkPipeline: ArtworkImagePipeline
+  private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
+  private let sourceEditorDraft: SourceDraft?
 
-  init(viewModel: HomeViewModel, artworkPipeline: ArtworkImagePipeline) {
+  init(
+    viewModel: HomeViewModel,
+    artworkPipeline: ArtworkImagePipeline,
+    sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
+    sourceEditorDraft: SourceDraft? = nil
+  ) {
     _viewModel = State(initialValue: viewModel)
     self.artworkPipeline = artworkPipeline
+    self.sourceServiceFactory = sourceServiceFactory
+    self.sourceEditorDraft = sourceEditorDraft
   }
 
   var body: some View {
@@ -24,6 +34,12 @@ struct TVHomeView: View {
       }
       .navigationDestination(item: $selectedItem) { item in
         TVDetailView(item: item, artworkPipeline: artworkPipeline)
+      }
+      .navigationDestination(isPresented: $showsSources) {
+        TVSourcesView(
+          serviceFactory: sourceServiceFactory,
+          newSourceDraft: sourceEditorDraft
+        )
       }
     }
     .preferredColorScheme(.dark)
@@ -94,7 +110,7 @@ struct TVHomeView: View {
   private func loadedContent(_ sections: [HomeSection]) -> some View {
     ScrollView(.vertical) {
       LazyVStack(alignment: .leading, spacing: AEVYNOSpacing.xl) {
-        TVHomeHero()
+        TVHomeHero { showsSources = true }
 
         ForEach(sections) { section in
           TVMediaRail(
