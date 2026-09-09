@@ -46,6 +46,17 @@ public struct CatalogCategory: Identifiable, Equatable, Sendable {
   }
 }
 
+/// A committed category plus its committed item count.
+public struct CatalogCategorySummary: Equatable, Sendable {
+  public let category: CatalogCategory
+  public let itemCount: Int
+
+  public init(category: CatalogCategory, itemCount: Int) {
+    self.category = category
+    self.itemCount = itemCount
+  }
+}
+
 public struct CatalogItem: Identifiable, Equatable, Sendable, CustomStringConvertible,
   CustomDebugStringConvertible
 {

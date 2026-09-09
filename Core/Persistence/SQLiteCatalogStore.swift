@@ -473,10 +473,7 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
   }
 
   static func searchTitle(_ title: String) -> String {
-    title.folding(
-      options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX")
-    )
-    .precomposedStringWithCanonicalMapping
+    CatalogSearchNormalization.fold(title)
   }
 }
 
