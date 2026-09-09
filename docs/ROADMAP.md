@@ -66,12 +66,13 @@ Gate evidence:
 ## Post-Phase 2 follow-up — Source and library application integration
 
 Status: **STARTED**. This follow-up remains outside the approved Phase 2 deliverables and exit gate.
-The Source Management & Validation Flows slice is implemented on
-`feature/source-management-validation-flows` and is undergoing final validation/review.
+The Source Management & Validation Flows slice is **COMPLETE**, merged through PR #19 at merge
+commit `1c94236`; post-merge CI run `34386676789` succeeded.
 
 Planned scope:
 
-- Source Management & Validation Flows — **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**.
+- Source Management & Validation Flows — **COMPLETE**; merged through PR #19 at `1c94236`, with
+  successful post-merge CI run `34386676789`.
 - refresh scheduling and its user/system policy — **NOT STARTED**.
 - final tvOS/iOS browse and search UI composition over the production library query boundary —
   **NOT STARTED**.
