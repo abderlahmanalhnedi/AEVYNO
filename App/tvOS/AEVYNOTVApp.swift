@@ -1,4 +1,5 @@
 import DesignSystem
+import Domain
 import Library
 import SwiftUI
 import UIKit
@@ -7,25 +8,53 @@ import UIKit
 struct AEVYNOTVApp: App {
   private let viewModel: HomeViewModel
   private let artworkPipeline: ArtworkImagePipeline
+  private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
+  private let sourceEditorDraft: SourceDraft?
+  private let startsInSourceManagement: Bool
 
   init() {
-    let repository = TVDemoConfiguration.repository(
-      arguments: ProcessInfo.processInfo.arguments
-    )
+    let arguments = ProcessInfo.processInfo.arguments
+    startsInSourceManagement = arguments.contains("--ui-open-sources")
+    let repository = TVDemoConfiguration.repository(arguments: arguments)
     viewModel = HomeViewModel(
       loader: HomeLoader(
         fetchHomeSections: FetchHomeSections(repository: repository)
       )
     )
     artworkPipeline = ArtworkImagePipeline()
+    if arguments.contains("--ui-source-management") {
+      let fixture = TVSourceManagementFixture(
+        seeded: arguments.contains("--ui-source-seeded"),
+        connectionFails: arguments.contains("--ui-source-connection-failure")
+      )
+      sourceServiceFactory = { fixture }
+      sourceEditorDraft = TVSourceManagementFixture.editorDraft(arguments: arguments)
+    } else {
+      sourceServiceFactory = { try await SourceManagementService.openDefault() }
+      sourceEditorDraft = nil
+    }
   }
 
   var body: some Scene {
     WindowGroup {
-      TVHomeView(
-        viewModel: viewModel,
-        artworkPipeline: artworkPipeline
-      )
+      Group {
+        if startsInSourceManagement {
+          NavigationStack {
+            TVSourcesView(
+              serviceFactory: sourceServiceFactory,
+              newSourceDraft: sourceEditorDraft
+            )
+          }
+        } else {
+          TVHomeView(
+            viewModel: viewModel,
+            artworkPipeline: artworkPipeline,
+            sourceServiceFactory: sourceServiceFactory,
+            sourceEditorDraft: sourceEditorDraft
+          )
+        }
+      }
+      .preferredColorScheme(.dark)
       .onReceive(
         NotificationCenter.default.publisher(
           for: UIApplication.didReceiveMemoryWarningNotification

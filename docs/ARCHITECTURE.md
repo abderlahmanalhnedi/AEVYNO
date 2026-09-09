@@ -76,9 +76,9 @@ Phase 2D implements the SDK system SQLite library behind `CatalogImportRepositor
 `CatalogQueryRepository`, with actor-isolated transactions and bounded indexed pages.
 [ADR-0008](../decisions/ADR-0008-local-catalog-persistence.md) records the selection for review;
 [Phase 2D evidence](PHASE_2D_PERSISTENCE.md) records measured bulk imports and queries.
-The current app shell still consumes synthetic Phase 1 data. Production query/UI composition is
-assigned to the planned, unstarted post-Phase 2 source and library application-integration follow-up
-in [the roadmap](ROADMAP.md); it is not a Phase 2 exit requirement.
+The Home/library app shell still consumes synthetic Phase 1 data. Final production query/UI
+composition remains unstarted in the post-Phase-2 source and library application-integration
+follow-up in [the roadmap](ROADMAP.md); it is not a Phase 2 exit requirement.
 Phase 2E adds the provider-neutral `CatalogRefreshService`, multi-partition source staging and local
 refresh metadata. Xtream live/VOD/series and success metadata publish in one final transaction after
 all network/normalization work succeeds. See [ADR-0009](../decisions/ADR-0009-durable-source-refresh.md)
@@ -87,6 +87,14 @@ Phase 2F extends the same repository with bounded literal substring search, orig
 filters and committed category counts. The injected `CatalogLibraryService` is the provider-neutral
 query boundary for future app UI. Search and browse never read staging tables. See
 [Phase 2F evidence](PHASE_2F_LIBRARY_SEARCH.md).
+
+Post-Phase-2 source management stores small, user-authored `SourceConfiguration` records in a
+versioned, atomically replaced Application Support JSON registry. It keeps credentials in Keychain
+and rebuildable catalog/refresh state in SQLite. `SourceManagementService` owns validation and
+explicit compensation across those stores, with catalog deletion last. See
+[ADR-0010](../decisions/ADR-0010-local-source-registry.md) and
+[Source Management and Validation](SOURCE_MANAGEMENT.md). Refresh scheduling and final production
+library/search UI composition remain unstarted.
 
 ### Playback
 Define a playback abstraction, for example conceptually:

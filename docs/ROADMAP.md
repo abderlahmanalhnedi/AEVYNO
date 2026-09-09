@@ -65,14 +65,16 @@ Gate evidence:
 
 ## Post-Phase 2 follow-up — Source and library application integration
 
-Status: **PLANNED; NOT STARTED**. This follow-up is outside the approved Phase 2 deliverables and
-exit gate. Its implementation and acceptance criteria require a separately approved work slice.
+Status: **STARTED**. This follow-up remains outside the approved Phase 2 deliverables and exit gate.
+The Source Management & Validation Flows slice is implemented on
+`feature/source-management-validation-flows` and is undergoing final validation/review.
 
 Planned scope:
 
-- source-management UI and flows.
-- refresh scheduling and its user/system policy.
-- final tvOS/iOS browse and search UI composition over the production library query boundary.
+- Source Management & Validation Flows — **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**.
+- refresh scheduling and its user/system policy — **NOT STARTED**.
+- final tvOS/iOS browse and search UI composition over the production library query boundary —
+  **NOT STARTED**.
 
 This follow-up does not change the Phase 3 playback scope or count as Phase 3 implementation.
 

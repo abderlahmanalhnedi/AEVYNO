@@ -2,6 +2,8 @@ import DesignSystem
 import SwiftUI
 
 struct TVHomeHero: View {
+  let onOpenSources: () -> Void
+
   var body: some View {
     HStack(alignment: .bottom, spacing: AEVYNOSpacing.xl) {
       VStack(alignment: .leading, spacing: AEVYNOSpacing.md) {
@@ -17,7 +19,17 @@ struct TVHomeHero: View {
         Text(AppText.homeHeroSubtitle)
           .aevynoTypography(.status)
           .foregroundStyle(AEVYNOColor.secondaryText)
+
+        Button {
+          onOpenSources()
+        } label: {
+          Label(AppText.sources, systemImage: "externaldrive.connected.to.line.below")
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("home.sources")
+        .accessibilityHint(AppText.sourcesAccessibilityHint)
       }
+      .accessibilityElement(children: .contain)
 
       Spacer(minLength: AEVYNOSpacing.xl)
 
@@ -60,7 +72,5 @@ struct TVHomeHero: View {
       RoundedRectangle(cornerRadius: AEVYNOCornerRadius.hero, style: .continuous)
         .stroke(AEVYNOColor.hairline, lineWidth: 1)
     }
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(AppText.homeHeroAccessibilityLabel)
   }
 }

@@ -29,6 +29,23 @@ func criticalLocalizationCoverage() throws {
     "home.section.live_tv",
     "home.section.movies",
     "home.section.series",
+    "sources.accessibility.password_hint",
+    "sources.action.add",
+    "sources.action.delete",
+    "sources.action.refresh",
+    "sources.action.save",
+    "sources.action.test_connection",
+    "sources.delete.confirmation.message",
+    "sources.delete.confirmation.title",
+    "sources.error.authentication",
+    "sources.error.malformed",
+    "sources.error.timeout",
+    "sources.error.unreachable",
+    "sources.field.password",
+    "sources.field.server",
+    "sources.field.username",
+    "sources.m3u.query_limitation",
+    "sources.title",
   ]
 
   for key in criticalKeys {
