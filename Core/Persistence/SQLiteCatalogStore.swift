@@ -226,7 +226,16 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
         !scopes.contains(where: { $0.sourceID == sourceID })
       })
     else { throw CatalogStoreError.busy }
-    try writeDatabase().execute("DELETE FROM catalogs WHERE source=?", [sourceID.databaseValue])
+    let database = try writeDatabase()
+    do {
+      try database.execute("BEGIN IMMEDIATE")
+      try database.execute("DELETE FROM catalogs WHERE source=?", [sourceID.databaseValue])
+      try database.execute("DELETE FROM refresh_metadata WHERE source=?", [sourceID.databaseValue])
+      try database.execute("COMMIT")
+    } catch {
+      _ = rollbackAfterSQLFailure(database)
+      throw error
+    }
   }
 
   /// Explicit lifecycle release also discards an unfinished invisible staging set.
