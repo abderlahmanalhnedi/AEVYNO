@@ -4,7 +4,7 @@ Last updated: 2026-09-09
 
 ## Current phase
 
-**Phase 1 physical validation open; Phase 2A/B/C/D/E merged; Phase 2F library search implemented for review**
+**Phase 1 physical validation open; Phase 2 complete; Phase 3 not started**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -12,8 +12,10 @@ deferral. The existing Phase 1 shell has completed simulator hardening. Its Appl
 foundation for English, German and Arabic now covers the current tvOS and iOS surfaces, and the
 Arabic RTL Home, Detail and state flows have been simulator-validated. Phase 1 remains incomplete
 until the real Apple TV UX review passes in both LTR and Arabic RTL.
-By explicit owner direction, Phase 2 work that does not depend on physical Apple TV validation
-has started in parallel. Phase 3 playback work has not started.
+Phase 2 is complete on `main` at `b557347` through merged PR #17. Its approved roadmap deliverables
+and exit gate are satisfied by the documented 50k/100k import, refresh and query benchmarks, atomic
+last-known-good catalog behavior, and successful post-merge CI run `34321067413` on that exact
+commit. Phase 3 playback work has not started.
 
 ## Verified development environment
 
@@ -161,7 +163,8 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - [Phase 2D evidence](docs/PHASE_2D_PERSISTENCE.md) records synthetic 10k/50k/100k import, replacement,
   query and reopen measurements, failure tests, privacy limits and reproduction commands.
 - Physical Apple TV performance/cache/Keychain validation and Phase 1 LTR/Arabic RTL UX review remain
-  **PENDING**. Phase 2 is not complete; Phase 3 playback has not started.
+  **PENDING**. These device checks do not belong to the approved Phase 2 exit gate; Phase 3 playback
+  has not started.
 
 ## Phase 2E durable source refresh foundation
 
@@ -214,7 +217,9 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - [Phase 2F evidence](docs/PHASE_2F_LIBRARY_SEARCH.md) records exact semantics, architecture,
   security limits, 10k/50k/100k release measurements and remaining device/UI limitations.
 - no final Search/browse UI, source-management UI, refresh scheduler, CloudKit catalog sync or Phase 3
-  playback work is included.
+  playback work is included. The UI and scheduling items are assigned to the planned, unstarted
+  post-Phase 2 source and library application-integration follow-up in `docs/ROADMAP.md`; they are not
+  Phase 2 exit requirements.
 
 ## Validation evidence
 
@@ -225,6 +230,9 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - Phase 2F strict tracked-Swift formatting lint and `git diff --check` passed. Generic tvOS and iOS
   Simulator Debug builds and both static analyzers passed. The existing tvOS 26.5 Apple TV 4K
   (3rd generation) Simulator UI suite passed 11 tests with zero failures. No Phase 2F UI was added.
+- Phase 2F merged through PR #17 as `b557347`. Post-merge CI run `34321067413` succeeded on that
+  exact `main` commit: shared tests, tvOS/iOS Simulator builds, both static analyzers, tracked-Swift
+  formatting lint and 11 tvOS Simulator UI tests all passed.
 - Phase 2D shared package tests: 75 passed, 0 failed (`swift test`), including production persistence,
   rollback, query bounds, encrypted references and key storage, plus Xtream request construction,
   authentication, tolerant live/VOD/series decoding, normalized errors, security redaction,
@@ -304,13 +312,12 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - A repository-wide Swift formatting baseline covers all tracked Swift/package source and test
   files. Strict `swift format lint` is clean locally and CI enforces it
   for Pull Requests, pushes to `main` and manual dispatches.
-- CI health is reported only from actual GitHub Actions results. Phase 2E merged through PR #16 at
-  `49d4f1c`; the Phase 2F PR head remains subject to its own real CI run before this work is declared
-  complete.
+- CI health is reported only from actual GitHub Actions results. Phase 2F merged through PR #17 at
+  `b557347`; post-merge push run `34321067413` completed successfully on that exact `main` commit.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
-- Phase 1 remains physically **PENDING**. Phase 2A/B/C/D/E are merged; Phase 2F is implemented for
-  review. Phase 2 is not complete. Phase 3 has not started.
+- Phase 1 remains physically **PENDING**. Phase 2A/B/C/D/E/F are merged and the approved Phase 2
+  roadmap gate is complete. Phase 3 has not started.
 
 ## Repository state
 
@@ -321,8 +328,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 - Phase 2C merged through PR #11 at `6835219`; the provider adapter foundation remains intact.
 - Phase 2D and its transaction-lifetime correction merged through PR #14 at `07a0ccc`.
 - Phase 2E merged through PR #16 at `49d4f1c`.
-- Phase 2F is isolated on `feature/phase-2f-search-library-query`, created from clean `49d4f1c`.
-  No rebase, force push, history rewrite or automatic merge was performed.
+- Phase 2F merged into `main` through PR #17 at `b557347`; successful post-merge CI run
+  `34321067413` validated that exact commit.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -379,10 +386,11 @@ navigation, repeated open/back cycles and
 a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
 complete.
 
-In parallel, complete the remaining Phase 2 work after Phase 2F review: source-management UI/flows,
-refresh scheduling and final app query/UI composition. M3U file acquisition is not part of the
-current remote-acquisition slice. Do not begin Phase 3 playback implementation before its approved
-phase gate.
+The planned post-Phase 2 source and library application-integration follow-up owns source-management
+UI/flows, refresh scheduling and final app query/UI composition. These items are not part of the
+approved Phase 2 deliverables or exit gate, and the follow-up has not started. M3U file acquisition
+remains outside the completed remote-acquisition slice. Do not begin Phase 3 playback implementation
+before its approved phase gate.
 
 ## Active blockers
 

@@ -148,5 +148,7 @@ remains unchanged. See [ADR-0009](../decisions/ADR-0009-durable-source-refresh.m
   database compaction guarantee. Metadata such as titles stays plaintext; references are encrypted.
 - Offset paging is stable only within an unchanged catalog and scans skipped index entries.
 - M3U media kind remains unspecified until a future evidence-backed classification policy.
-- Full production search, source validation/management, acquisition and refresh scheduling remain
-  Phase 2 work. No Phase 3 playback work has started.
+- Phase 2F subsequently delivered production search. Source-management UI/flows, refresh scheduling
+  and final app query/UI composition are assigned to the planned, unstarted post-Phase 2 source and
+  library application-integration follow-up in [the roadmap](ROADMAP.md); they are not Phase 2 exit
+  requirements. No Phase 3 playback work has started.

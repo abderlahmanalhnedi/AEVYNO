@@ -37,6 +37,9 @@ Exit gate:
 
 ## Phase 2 — Sources and local library
 
+Status: **COMPLETE** on `main` at `b557347` through PR #17. Post-merge CI run `34321067413`
+passed on that exact commit.
+
 Deliver:
 - source model.
 - Keychain credential storage.
@@ -49,6 +52,29 @@ Deliver:
 Exit gate:
 - 50k+ synthetic item import/query benchmark documented.
 - failures preserve last usable catalog.
+
+Gate evidence:
+
+- [Phase 2D persistence evidence](PHASE_2D_PERSISTENCE.md),
+  [Phase 2E refresh evidence](PHASE_2E_REFRESH.md) and
+  [Phase 2F library/search evidence](PHASE_2F_LIBRARY_SEARCH.md) document 50k and 100k synthetic
+  import, refresh and query measurements.
+- Phase 2E failure and cancellation coverage verifies that unsuccessful refreshes preserve the
+  previously committed catalog. Phase 2F coverage verifies that staged replacement data remains
+  invisible until atomic publication.
+
+## Post-Phase 2 follow-up — Source and library application integration
+
+Status: **PLANNED; NOT STARTED**. This follow-up is outside the approved Phase 2 deliverables and
+exit gate. Its implementation and acceptance criteria require a separately approved work slice.
+
+Planned scope:
+
+- source-management UI and flows.
+- refresh scheduling and its user/system policy.
+- final tvOS/iOS browse and search UI composition over the production library query boundary.
+
+This follow-up does not change the Phase 3 playback scope or count as Phase 3 implementation.
 
 ## Phase 3 — Playback foundation
 

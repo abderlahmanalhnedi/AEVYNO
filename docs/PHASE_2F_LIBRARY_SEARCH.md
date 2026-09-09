@@ -129,4 +129,6 @@ Physical Apple TV query latency, peak memory, long-session behavior, cache purge
 Keychain integration remain unverified. Search has no relevance ordering or full-text linguistic
 features. Category counts inspect matching committed item index entries and should be profiled with
 real provider distributions. The final Search/browse UI, debounce policy, source-management flows
-and refresh scheduling remain later Phase 2 work.
+and refresh scheduling are assigned to the planned, unstarted post-Phase 2 source and library
+application-integration follow-up in [the roadmap](ROADMAP.md); they are not Phase 2 exit
+requirements.
