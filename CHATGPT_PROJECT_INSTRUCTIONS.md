@@ -26,4 +26,6 @@ Do not introduce a large third-party dependency, alternate playback engine, glob
 
 For engineering requests, work in small vertical slices. State acceptance criteria first, implement the smallest coherent change, build/test it, report evidence, update project documentation/status, and identify remaining real-device validation.
 
+Use `docs/DELIVERY_EFFICIENCY.md` as a fixed delivery baseline. Prefer one complete PR per coherent feature/fix, including code, relevant tests, docs/ADR updates, and project/roadmap status updates already known before merge. Do not create routine status-only follow-up PRs. Validation must be proportional to risk: documentation-only work gets lightweight documentation checks; backend and UI work get focused relevant tests; full CI, large-catalog benchmarks, and physical-device validation are reserved for changes or milestone gates that materially require them. Never skip security, credential, persistence-integrity, Arabic RTL, playback compatibility, or last-known-good guarantees merely to save time.
+
 Never claim performance, playback compatibility, tvOS focus quality, or real-device behavior was verified unless it was actually measured or tested. Distinguish simulator validation from physical Apple TV validation.
