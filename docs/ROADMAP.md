@@ -73,10 +73,10 @@ Planned scope:
 
 - Source Management & Validation Flows — **COMPLETE**; merged through PR #19 at `1c94236`, with
   successful post-merge CI run `34386676789`.
-- Refresh Scheduling & Policy — **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Per-source
-  manual/6-hour/12-hour/daily policy, schema migration, deterministic sequential scheduling,
-  active-app lifecycle integration and localized tvOS controls are implemented; merge and
-  post-merge reconciliation remain pending.
+- Refresh Scheduling & Policy — **COMPLETE**; merged through PR #21 at merge commit `18ba431`, with
+  successful post-merge CI run `34449661574`. Per-source manual/6-hour/12-hour/daily policy, schema
+  migration, deterministic sequential scheduling, active-app lifecycle integration and localized
+  tvOS controls are complete.
 - final tvOS/iOS browse and search UI composition over the production library query boundary —
   **NOT STARTED**.
 

@@ -95,12 +95,13 @@ explicit compensation across those stores, with catalog deletion last. See
 [ADR-0010](../decisions/ADR-0010-local-source-registry.md) and
 [Source Management and Validation](SOURCE_MANAGEMENT.md).
 
-Refresh Scheduling & Policy is **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Schema version 2 adds
-a non-secret per-source refresh policy, with explicit version 1 migration to manual-only. The pure
-domain evaluator derives due/cooldown state from local refresh metadata. The actor-isolated Library
-scheduler deterministically delegates at most one automatic source at a time to the existing durable
-refresh service. App composition owns one cancellable active-session loop using Swift Concurrency;
-it provides no suspended/terminated execution guarantee or background entitlement. See
+Refresh Scheduling & Policy is **COMPLETE**, merged through PR #21 at merge commit `18ba431`;
+post-merge CI run `34449661574` succeeded. Schema version 2 adds a non-secret per-source refresh
+policy, with explicit version 1 migration to manual-only. The pure domain evaluator derives
+due/cooldown state from local refresh metadata. The actor-isolated Library scheduler deterministically
+delegates at most one automatic source at a time to the existing durable refresh service. App
+composition owns one cancellable active-session loop using Swift Concurrency; it provides no
+suspended/terminated execution guarantee or background entitlement. See
 [ADR-0011](../decisions/ADR-0011-refresh-scheduling-policy.md) and
 [Refresh Scheduling and Policy](REFRESH_SCHEDULING.md). Final production library/search UI
 composition remains unstarted.
