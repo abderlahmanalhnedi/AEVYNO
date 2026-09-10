@@ -81,4 +81,3 @@ Tradeoffs:
   pressure.
 - Reimplementing provider refresh inside the scheduler was rejected because it would duplicate the
   validated Phase 2E path and weaken last-known-good behavior.
-
