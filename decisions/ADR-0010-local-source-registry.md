@@ -3,6 +3,9 @@
 Status: Accepted
 Date: 2026-09-09
 
+Amended by [ADR-0011](ADR-0011-refresh-scheduling-policy.md), which advances the registry to schema
+version 2 and explicitly migrates version 1 sources to the manual-only refresh policy.
+
 ## Context
 
 Source configurations are small, user-authored durable state. They must survive loss or purge of

@@ -2,7 +2,7 @@ import Domain
 import Foundation
 import Library
 
-actor TVSourceManagementFixture: SourceManaging {
+actor TVSourceManagementFixture: SourceManaging, RefreshScheduling {
   private static let seededID = SourceConfiguration.ID(
     rawValue: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1))
   )
@@ -32,12 +32,22 @@ actor TVSourceManagementFixture: SourceManaging {
     return nil
   }
 
-  init(seeded: Bool, connectionFails: Bool) {
-    self.connectionFails = connectionFails
-    if seeded,
+  init(arguments: [String]) {
+    connectionFails = arguments.contains("--ui-source-connection-failure")
+    if arguments.contains("--ui-source-seeded"),
       let url = URL(string: "https://example.invalid/provider"),
       let endpoint = try? SourceEndpoint(url: url)
     {
+      let policy: RefreshPolicy =
+        if arguments.contains("--ui-source-policy-6h") {
+          .automatic(.every6Hours)
+        } else if arguments.contains("--ui-source-policy-12h") {
+          .automatic(.every12Hours)
+        } else if arguments.contains("--ui-source-policy-daily") {
+          .automatic(.daily)
+        } else {
+          .manualOnly
+        }
       sources = [
         ManagedSource(
           configuration: SourceConfiguration(
@@ -47,7 +57,8 @@ actor TVSourceManagementFixture: SourceManaging {
             endpoint: endpoint,
             credentialReference: CredentialReference(
               rawValue: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1))),
-            isEnabled: true
+            isEnabled: !arguments.contains("--ui-source-disabled"),
+            refreshPolicy: policy
           ),
           refreshMetadata: nil
         )
@@ -134,7 +145,8 @@ actor TVSourceManagementFixture: SourceManaging {
         kind: configuration.kind,
         endpoint: configuration.endpoint,
         credentialReference: configuration.credentialReference,
-        isEnabled: isEnabled
+        isEnabled: isEnabled,
+        refreshPolicy: configuration.refreshPolicy
       ),
       refreshMetadata: source.refreshMetadata
     )
@@ -159,6 +171,12 @@ actor TVSourceManagementFixture: SourceManaging {
     return CatalogRefreshReport(sourceID: id, committedItemCount: 12, completedAt: Date())
   }
 
+  func evaluateAndRefreshDueSources() async throws -> RefreshSchedulingCycleReport {
+    RefreshSchedulingCycleReport(outcomes: [], nextEligibleAt: nil)
+  }
+
+  func nextEligibleDate() async throws -> Date? { nil }
+
   private func configuration(
     id: SourceConfiguration.ID,
     draft: SourceDraft,
@@ -178,7 +196,8 @@ actor TVSourceManagementFixture: SourceManaging {
       kind: draft.kind,
       endpoint: endpoint,
       credentialReference: reference,
-      isEnabled: draft.isEnabled
+      isEnabled: draft.isEnabled,
+      refreshPolicy: draft.refreshPolicy
     )
   }
 }

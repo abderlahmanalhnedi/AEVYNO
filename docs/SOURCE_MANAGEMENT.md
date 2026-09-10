@@ -3,9 +3,9 @@
 ## Scope
 
 This post-Phase-2 integration slice adds durable source CRUD, connection validation, explicit manual
-refresh and the tvOS source-management experience. It does not add refresh scheduling, background
-tasks, final production library/search UI composition, CloudKit source synchronization or Phase 3
-playback.
+refresh and the tvOS source-management experience. Refresh scheduling is documented separately in
+[Refresh Scheduling and Policy](REFRESH_SCHEDULING.md). Final production library/search UI
+composition, CloudKit source synchronization and Phase 3 playback remain outside this slice.
 
 ## Source registry
 
@@ -13,8 +13,10 @@ playback.
 `Application Support/AEVYNO/sources.json`, outside the purgeable SQLite catalog cache. The actor owns
 an ordered in-memory view and persists mutations with atomic file replacement.
 
-The current JSON schema version is 1. Each `SourceConfiguration` contains a stable UUID, display
-name, source kind, safe endpoint, enabled state and optional non-secret `CredentialReference`.
+The current JSON schema version is 2. Each `SourceConfiguration` contains a stable UUID, display
+name, source kind, safe endpoint, enabled state, refresh policy and optional non-secret
+`CredentialReference`. Version 1 records migrate explicitly to version 2 with `manualOnly` while
+preserving all existing source metadata.
 Sorted JSON keys make encoding stable, while array order preserves deterministic creation order.
 Duplicate IDs, invalid records, corrupted JSON and unsupported schema versions fail without an
 automatic destructive reset. See [ADR-0010](../decisions/ADR-0010-local-source-registry.md).
@@ -91,8 +93,7 @@ credential and committed catalog. Disabled sources cannot run a refresh.
 
 Refresh Now is an explicit user action that delegates the saved source to `CatalogRefreshService`
 and exposes its safe lifecycle stages. Phase 2E last-known-good publication and refresh metadata
-semantics remain unchanged. There is no timer, implicit retry, scheduler or background task in this
-slice.
+semantics remain unchanged. It is never blocked by the separate automatic cadence or retry cooldown.
 
 ## tvOS experience, localization and accessibility
 

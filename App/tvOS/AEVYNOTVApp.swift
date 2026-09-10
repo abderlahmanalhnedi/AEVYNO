@@ -6,11 +6,14 @@ import UIKit
 
 @main
 struct AEVYNOTVApp: App {
+  @Environment(\.scenePhase) private var scenePhase
+
   private let viewModel: HomeViewModel
   private let artworkPipeline: ArtworkImagePipeline
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
   private let sourceEditorDraft: SourceDraft?
   private let startsInSourceManagement: Bool
+  private let refreshLifecycle: RefreshSchedulingLifecycleController
 
   init() {
     let arguments = ProcessInfo.processInfo.arguments
@@ -23,15 +26,17 @@ struct AEVYNOTVApp: App {
     )
     artworkPipeline = ArtworkImagePipeline()
     if arguments.contains("--ui-source-management") {
-      let fixture = TVSourceManagementFixture(
-        seeded: arguments.contains("--ui-source-seeded"),
-        connectionFails: arguments.contains("--ui-source-connection-failure")
-      )
+      let fixture = TVSourceManagementFixture(arguments: arguments)
       sourceServiceFactory = { fixture }
       sourceEditorDraft = TVSourceManagementFixture.editorDraft(arguments: arguments)
+      refreshLifecycle = RefreshSchedulingLifecycleController { fixture }
     } else {
-      sourceServiceFactory = { try await SourceManagementService.openDefault() }
+      let serviceContainer = AppSourceServiceContainer()
+      sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
       sourceEditorDraft = nil
+      refreshLifecycle = RefreshSchedulingLifecycleController {
+        try await serviceContainer.services().refreshScheduling
+      }
     }
   }
 
@@ -55,6 +60,9 @@ struct AEVYNOTVApp: App {
         }
       }
       .preferredColorScheme(.dark)
+      .onChange(of: scenePhase, initial: true) { _, phase in
+        refreshLifecycle.transition(to: phase)
+      }
       .onReceive(
         NotificationCenter.default.publisher(
           for: UIApplication.didReceiveMemoryWarningNotification

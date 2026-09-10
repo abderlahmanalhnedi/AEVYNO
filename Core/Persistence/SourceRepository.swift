@@ -22,7 +22,7 @@ public protocol SourceRepository: Sendable {
 
 /// Durable user-authored source metadata. This store intentionally lives outside the catalog cache.
 public actor FileSourceRepository: SourceRepository {
-  public static let currentSchemaVersion = 1
+  public static let currentSchemaVersion = 2
 
   private let fileURL: URL
   private let fileManager: FileManager
@@ -98,7 +98,8 @@ public actor FileSourceRepository: SourceRepository {
       kind: existing.kind,
       endpoint: existing.endpoint,
       credentialReference: existing.credentialReference,
-      isEnabled: isEnabled
+      isEnabled: isEnabled,
+      refreshPolicy: existing.refreshPolicy
     )
     try persist(sources)
   }
@@ -113,16 +114,26 @@ public actor FileSourceRepository: SourceRepository {
     do {
       let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
       let header = try JSONDecoder().decode(SourceRegistryHeader.self, from: data)
-      guard header.schemaVersion == Self.currentSchemaVersion else {
+      let sources: [SourceConfiguration]
+      switch header.schemaVersion {
+      case 1:
+        let legacy = try JSONDecoder().decode(SourceRegistryV1.self, from: data)
+        sources = legacy.sources.map { $0.migratedConfiguration }
+      case Self.currentSchemaVersion:
+        sources = try JSONDecoder().decode(SourceRegistry.self, from: data).sources
+      default:
         throw SourceRepositoryError.unsupportedSchema
       }
-      let registry = try JSONDecoder().decode(SourceRegistry.self, from: data)
-      guard Set(registry.sources.map(\.id)).count == registry.sources.count else {
+      guard Set(sources.map(\.id)).count == sources.count else {
         throw SourceRepositoryError.corruptedStore
       }
-      for source in registry.sources { try validate(source) }
-      loadedSources = registry.sources
-      return registry.sources
+      for source in sources { try validate(source) }
+      if header.schemaVersion == 1 {
+        try persist(sources)
+      } else {
+        loadedSources = sources
+      }
+      return sources
     } catch let error as SourceRepositoryError {
       throw error
     } catch {
@@ -164,4 +175,30 @@ private struct SourceRegistryHeader: Decodable {
 private struct SourceRegistry: Codable {
   let schemaVersion: Int
   let sources: [SourceConfiguration]
+}
+
+private struct SourceRegistryV1: Decodable {
+  let schemaVersion: Int
+  let sources: [SourceConfigurationV1]
+}
+
+private struct SourceConfigurationV1: Decodable {
+  let id: SourceConfiguration.ID
+  let displayName: String
+  let kind: SourceKind
+  let endpoint: SourceEndpoint?
+  let credentialReference: CredentialReference?
+  let isEnabled: Bool
+
+  var migratedConfiguration: SourceConfiguration {
+    SourceConfiguration(
+      id: id,
+      displayName: displayName,
+      kind: kind,
+      endpoint: endpoint,
+      credentialReference: credentialReference,
+      isEnabled: isEnabled,
+      refreshPolicy: .manualOnly
+    )
+  }
 }

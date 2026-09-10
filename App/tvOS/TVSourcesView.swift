@@ -224,6 +224,7 @@ private struct TVSourceEditorView: View {
     case username
     case password
     case replaceCredential
+    case refreshPolicy
     case test
     case save
     case enable
@@ -241,6 +242,7 @@ private struct TVSourceEditorView: View {
   @State private var kind: SourceKind
   @State private var endpoint: String
   @State private var isEnabled: Bool
+  @State private var refreshPolicy: RefreshPolicy
   @State private var replacingCredential: Bool
   @State private var username = ""
   @State private var password = ""
@@ -269,6 +271,9 @@ private struct TVSourceEditorView: View {
         ?? "")
     _isEnabled = State(
       initialValue: source?.configuration.isEnabled ?? initialDraft?.isEnabled ?? true)
+    _refreshPolicy = State(
+      initialValue: source?.configuration.refreshPolicy ?? initialDraft?.refreshPolicy
+        ?? .manualOnly)
     _replacingCredential = State(initialValue: source == nil)
     if case .replace(let username, let secret) = initialDraft?.credential {
       _username = State(initialValue: username)
@@ -285,6 +290,8 @@ private struct TVSourceEditorView: View {
             .aevynoTypography(.detailTitle)
             .foregroundStyle(AEVYNOColor.primaryText)
           form
+          refreshPolicyPanel
+          schedulingStatus
           operationStatus
           actions
         }
@@ -313,6 +320,98 @@ private struct TVSourceEditorView: View {
       Text(AppText.deleteSourceConfirmationMessage)
     }
     .accessibilityIdentifier("source.editor")
+  }
+
+  private var refreshPolicyPanel: some View {
+    VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
+      Text(AppText.automaticRefresh)
+        .aevynoTypography(.sectionTitle)
+        .foregroundStyle(AEVYNOColor.primaryText)
+        .accessibilityIdentifier("source.refresh-policy-title")
+      Picker(AppText.automaticRefresh, selection: $refreshPolicy) {
+        Text(AppText.manualOnly).tag(RefreshPolicy.manualOnly)
+        Text(AppText.every6Hours).tag(RefreshPolicy.automatic(.every6Hours))
+        Text(AppText.every12Hours).tag(RefreshPolicy.automatic(.every12Hours))
+        Text(AppText.daily).tag(RefreshPolicy.automatic(.daily))
+      }
+      .pickerStyle(.segmented)
+      .focused($focusedField, equals: .refreshPolicy)
+      .accessibilityIdentifier("source.refresh-policy")
+      .accessibilityHint(AppText.automaticRefreshAccessibilityHint)
+
+      Text(AppText.automaticRefreshActiveExplanation)
+        .aevynoTypography(.metadata)
+        .foregroundStyle(AEVYNOColor.secondaryText)
+        .accessibilityIdentifier("source.refresh-policy-explanation")
+    }
+    .padding(AEVYNOSpacing.lg)
+    .background(AEVYNOColor.surface)
+    .clipShape(RoundedRectangle(cornerRadius: AEVYNOCornerRadius.panel, style: .continuous))
+  }
+
+  @ViewBuilder
+  private var schedulingStatus: some View {
+    if let source {
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.xs) {
+        Label(
+          AppText.refreshPolicy(refreshPolicy),
+          systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90"
+        )
+        .aevynoTypography(.status)
+        .foregroundStyle(AEVYNOColor.primaryText)
+        .accessibilityIdentifier("source.current-policy")
+
+        if !isEnabled, case .automatic = refreshPolicy {
+          Text(AppText.automaticRefreshPaused)
+            .accessibilityIdentifier("source.schedule-paused")
+        }
+
+        Text(AppText.lastRefreshed(source.refreshMetadata?.lastSuccessfulAt))
+          .accessibilityIdentifier("source.last-refreshed")
+
+        if let metadata = source.refreshMetadata {
+          Text(AppText.lastAttempt(metadata.lastAttemptedAt, result: metadata.lastResult))
+            .accessibilityIdentifier("source.last-attempt")
+        }
+
+        switch schedulingEvaluation(for: source) {
+        case .due:
+          Text(AppText.automaticRefreshEligibleNow)
+            .accessibilityIdentifier("source.next-eligible")
+        case .skipped(_, let nextEligibleAt):
+          if let nextEligibleAt {
+            Text(AppText.eligibleAfter(nextEligibleAt))
+              .accessibilityIdentifier("source.next-eligible")
+          }
+        }
+      }
+      .aevynoTypography(.metadata)
+      .foregroundStyle(AEVYNOColor.secondaryText)
+      .padding(AEVYNOSpacing.lg)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(AEVYNOColor.surface)
+      .clipShape(RoundedRectangle(cornerRadius: AEVYNOCornerRadius.panel, style: .continuous))
+      .accessibilityElement(children: .contain)
+      .accessibilityIdentifier("source.schedule-status")
+    }
+  }
+
+  private func schedulingEvaluation(for source: ManagedSource) -> AutomaticRefreshEvaluation {
+    let configuration = source.configuration
+    let displayedConfiguration = SourceConfiguration(
+      id: configuration.id,
+      displayName: configuration.displayName,
+      kind: configuration.kind,
+      endpoint: configuration.endpoint,
+      credentialReference: configuration.credentialReference,
+      isEnabled: isEnabled,
+      refreshPolicy: refreshPolicy
+    )
+    return RefreshPolicyEvaluator().evaluate(
+      source: displayedConfiguration,
+      metadata: source.refreshMetadata,
+      now: Date()
+    )
   }
 
   private var form: some View {
@@ -448,6 +547,7 @@ private struct TVSourceEditorView: View {
       kind: kind,
       endpoint: endpoint,
       isEnabled: isEnabled,
+      refreshPolicy: refreshPolicy,
       credential: credential
     )
   }

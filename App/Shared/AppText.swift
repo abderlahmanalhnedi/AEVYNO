@@ -102,6 +102,33 @@ enum AppText {
   static let enabled = localized("sources.status.enabled", defaultValue: "Enabled")
   static let disabled = localized("sources.status.disabled", defaultValue: "Disabled")
   static let refreshNow = localized("sources.action.refresh", defaultValue: "Refresh Now")
+  static let automaticRefresh = localized(
+    "sources.refresh_policy.title", defaultValue: "Automatic Refresh")
+  static let manualOnly = localized(
+    "sources.refresh_policy.manual_only", defaultValue: "Manual only")
+  static let every6Hours = localized(
+    "sources.refresh_policy.every_6_hours", defaultValue: "Every 6 hours")
+  static let every12Hours = localized(
+    "sources.refresh_policy.every_12_hours", defaultValue: "Every 12 hours")
+  static let daily = localized("sources.refresh_policy.daily", defaultValue: "Daily")
+  static let automaticRefreshActiveExplanation = localized(
+    "sources.refresh_policy.active_explanation",
+    defaultValue:
+      "Refreshes while AEVYNO is active. Missed opportunities resume the next time the app becomes active."
+  )
+  static let automaticRefreshPaused = localized(
+    "sources.refresh_policy.paused",
+    defaultValue: "Automatic refresh is paused while this source is disabled."
+  )
+  static let automaticRefreshAccessibilityHint = localized(
+    "sources.accessibility.refresh_policy_hint",
+    defaultValue: "Chooses how often this source becomes eligible while AEVYNO is active"
+  )
+  static let automaticRefreshEligibleNow = localized(
+    "sources.refresh_policy.eligible_now", defaultValue: "Eligible for automatic refresh now"
+  )
+  static let neverRefreshed = localized(
+    "sources.refresh_policy.never_refreshed", defaultValue: "Never refreshed")
   static let cancel = localized("action.cancel", defaultValue: "Cancel")
   static let credentialSaved = localized(
     "sources.credential.saved",
@@ -158,6 +185,40 @@ enum AppText {
     case .xtreamCompatible: xtreamCompatible
     case .m3u: m3uPlaylist
     }
+  }
+
+  static func refreshPolicy(_ policy: RefreshPolicy) -> String {
+    switch policy {
+    case .manualOnly: manualOnly
+    case .automatic(.every6Hours): every6Hours
+    case .automatic(.every12Hours): every12Hours
+    case .automatic(.daily): daily
+    }
+  }
+
+  static func lastRefreshed(_ date: Date?) -> String {
+    guard let date else { return neverRefreshed }
+    return String.localizedStringWithFormat(
+      localized("sources.refresh_policy.last_refreshed", defaultValue: "Last refreshed: %@"),
+      formatted(date)
+    )
+  }
+
+  static func lastAttempt(_ date: Date, result: CatalogRefreshResultCategory) -> String {
+    String.localizedStringWithFormat(
+      localized(
+        "sources.refresh_policy.last_attempt", defaultValue: "Last attempt: %@ — %@"
+      ),
+      formatted(date),
+      refreshResult(result)
+    )
+  }
+
+  static func eligibleAfter(_ date: Date) -> String {
+    String.localizedStringWithFormat(
+      localized("sources.refresh_policy.eligible_after", defaultValue: "Eligible after %@"),
+      formatted(date)
+    )
   }
 
   static func sourceRowAccessibilityLabel(name: String, kind: String, status: String) -> String {
@@ -250,6 +311,23 @@ enum AppText {
     case .cancelled:
       localized("sources.operation.cancelled", defaultValue: "Operation cancelled")
     }
+  }
+
+  private static func refreshResult(_ result: CatalogRefreshResultCategory) -> String {
+    switch result {
+    case .success:
+      localized("sources.refresh_result.success", defaultValue: "Succeeded")
+    case .cancelled:
+      localized("sources.refresh_result.cancelled", defaultValue: "Cancelled")
+    case .inProgress:
+      localized("sources.refresh_result.in_progress", defaultValue: "In progress")
+    default:
+      localized("sources.refresh_result.failed", defaultValue: "Needs attention")
+    }
+  }
+
+  private static func formatted(_ date: Date) -> String {
+    date.formatted(date: .abbreviated, time: .shortened)
   }
 
   static let detailPlayPreview = localized(

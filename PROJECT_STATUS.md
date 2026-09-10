@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-09-09
+Last updated: 2026-09-10
 
 ## Current phase
 
@@ -17,7 +17,9 @@ and exit gate are satisfied by the documented 50k/100k import, refresh and query
 last-known-good catalog behavior, and successful post-merge CI run `34321067413` on that exact
 commit. The post-Phase-2 Source Management & Validation Flows follow-up is **COMPLETE**, merged
 through PR #19 at merge commit `1c94236`; post-merge CI run `34386676789` succeeded. Phase 3
-playback work has not started.
+playback work has not started. Refresh Scheduling & Policy is **IMPLEMENTED; UNDER FINAL
+VALIDATION/REVIEW** on its feature branch; it is not marked complete before merge and post-merge
+reconciliation.
 
 ## Verified development environment
 
@@ -228,7 +230,7 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 Status: **COMPLETE**. Merged through PR #19 at merge commit `1c94236`; post-merge CI run
 `34386676789` succeeded. Phase 2 remains complete.
 
-- `FileSourceRepository` keeps the version 1 durable source registry at
+- `FileSourceRepository` originally delivered the version 1 durable source registry at
   `Application Support/AEVYNO/sources.json`, outside the rebuildable catalog cache. Actor isolation,
   deterministic array ordering, atomic JSON replacement and explicit corrupt/unsupported-schema
   failures are covered. [ADR-0010](decisions/ADR-0010-local-source-registry.md) records the decision.
@@ -252,11 +254,42 @@ Status: **COMPLETE**. Merged through PR #19 at merge commit `1c94236`; post-merg
   deterministic simulator UI flows are included. Physical Apple TV LTR/RTL focus and visual review
   remains **PENDING**.
 - [Source Management and Validation](docs/SOURCE_MANAGEMENT.md) documents the workflows and current
-  limitations. Refresh scheduling and final production tvOS/iOS library/search composition remain
-  **NOT STARTED**. Phase 3 playback remains **NOT STARTED**.
+  limitations. Final production tvOS/iOS library/search composition remains **NOT STARTED**. Phase 3
+  playback remains **NOT STARTED**.
+
+## Post-Phase-2 Refresh Scheduling & Policy
+
+Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Merge, post-merge CI reconciliation and
+physical-device review remain pending. Phase 2 and Source Management & Validation Flows remain
+complete.
+
+- source-registry schema version 2 durably stores a non-secret per-source policy. Explicit version 1
+  migration preserves source metadata and `CredentialReference` while defaulting to manual-only;
+  corrupt and unsupported future registries still fail without destructive reset.
+- policy choices are manual-only, every 6 hours, every 12 hours and daily. The deterministic domain
+  evaluator accounts for enabled state, missing/last successful refresh, elapsed cadence and a
+  30-minute failed/cancelled-attempt cooldown.
+- the actor-isolated scheduler reads the existing source and refresh-metadata boundaries, delegates
+  only to `CatalogRefreshService`, executes due sources sequentially in deterministic order, isolates
+  source failures, coalesces duplicate cycles and propagates cancellation to current work.
+- tvOS and iOS composition evaluate on first activation and foreground transitions and may sleep
+  until the next due instant while active. Scheduling is best-effort: suspended or terminated app
+  execution is not guaranteed. No Timer, busy polling, background entitlement or CloudKit scheduling
+  was added.
+- manual Refresh Now bypasses automatic cadence/cooldown. Policy-only Xtream edits preserve identity,
+  endpoint, enabled state and credential reference without Keychain credential rewrites.
+- the tvOS editor exposes the scheduling control and safe scheduling metadata without focus-stealing
+  status. English, German and Arabic resources, native RTL behavior and focused simulator automation
+  are included. Physical Apple TV LTR/RTL validation remains **PENDING**.
+- [ADR-0011](decisions/ADR-0011-refresh-scheduling-policy.md) records the decision and
+  [Refresh Scheduling and Policy](docs/REFRESH_SCHEDULING.md) records behavior and limitations.
 
 ## Validation evidence
 
+- Refresh Scheduling & Policy local final validation passed 132 shared tests in 13 suites with zero
+  failures and 22 tvOS UI tests with zero failures on the Apple TV 4K (3rd generation), tvOS 26.5
+  simulator. Generic tvOS/iOS Simulator builds, both static analyzers, strict all-Swift formatting
+  lint and `git diff --check` passed. Pull-request CI and physical Apple TV review remain pending.
 - Phase 2F shared package validation: 98 tests in 10 suites passed, zero failed (`swift test`).
   This includes all prior Phase 2A/B/C/D/E tests plus production search/category semantics,
   Arabic and mixed-language matching, combined-filter isolation, pagination, cancellation,
@@ -425,10 +458,10 @@ a long stress-mode browsing session with Instruments. Resolve findings before ma
 complete.
 
 The post-Phase-2 source and library application-integration follow-up has completed Source Management
-& Validation Flows. Refresh scheduling and final app query/UI composition remain unstarted. These
-items are not part of the approved Phase 2 deliverables or exit gate. M3U file acquisition remains
-outside the completed remote-acquisition slice. Do not begin Phase 3 playback implementation before
-its approved phase gate.
+& Validation Flows. Refresh Scheduling & Policy is implemented and under final validation/review;
+final app query/UI composition remains unstarted. These items are not part of the approved Phase 2
+deliverables or exit gate. M3U file acquisition remains outside the completed remote-acquisition
+slice. Do not begin Phase 3 playback implementation before its approved phase gate.
 
 ## Active blockers
 

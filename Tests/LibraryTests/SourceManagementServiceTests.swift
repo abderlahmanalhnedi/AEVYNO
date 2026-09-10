@@ -14,7 +14,7 @@ struct SourceManagementServiceTests {
     defer { try? fixture.remove() }
     let repository = FileSourceRepository(url: fixture.url)
     let first = try makeM3USource(name: "First")
-    let second = try makeXtreamSource(name: "Second")
+    let second = try makeXtreamSource(name: "Second", policy: .automatic(.daily))
 
     try await repository.create(first)
     try await repository.create(second)
@@ -25,7 +25,8 @@ struct SourceManagementServiceTests {
       kind: second.kind,
       endpoint: second.endpoint,
       credentialReference: second.credentialReference,
-      isEnabled: second.isEnabled
+      isEnabled: second.isEnabled,
+      refreshPolicy: second.refreshPolicy
     )
     try await repository.update(renamed)
 
@@ -34,8 +35,44 @@ struct SourceManagementServiceTests {
     #expect(sources.map(\.id) == [first.id, second.id])
     #expect(sources.map(\.displayName) == ["First", "Renamed"])
     #expect(sources.first?.isEnabled == false)
+    #expect(sources.last?.refreshPolicy == .automatic(.daily))
     try await reopened.delete(id: first.id)
     #expect(try await reopened.listSources().map(\.id) == [second.id])
+  }
+
+  @Test("Version 1 source registry migrates explicitly to version 2 and manual-only policy")
+  func sourceRegistryV1Migration() async throws {
+    let fixture = try SourceRegistryFixture()
+    defer { try? fixture.remove() }
+    let source = try makeXtreamSource(name: "Legacy")
+    let legacy = LegacySourceRegistry(
+      schemaVersion: 1,
+      sources: [LegacySourceConfiguration(source: source)]
+    )
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    try encoder.encode(legacy).write(to: fixture.url, options: .atomic)
+
+    let migrated = try #require(
+      try await FileSourceRepository(url: fixture.url).listSources().first)
+    #expect(migrated.id == source.id)
+    #expect(migrated.displayName == source.displayName)
+    #expect(migrated.kind == source.kind)
+    #expect(migrated.endpoint == source.endpoint)
+    #expect(migrated.credentialReference == source.credentialReference)
+    #expect(migrated.isEnabled == source.isEnabled)
+    #expect(migrated.refreshPolicy == .manualOnly)
+
+    let document = try #require(
+      JSONSerialization.jsonObject(with: Data(contentsOf: fixture.url)) as? [String: Any])
+    #expect(document["schemaVersion"] as? Int == 2)
+    let persistedText = try #require(String(data: Data(contentsOf: fixture.url), encoding: .utf8))
+    #expect(persistedText.contains("manualOnly"))
+    #expect(!persistedText.contains("synthetic-private-password"))
+
+    let reopened = try #require(
+      try await FileSourceRepository(url: fixture.url).listSources().first)
+    #expect(reopened == migrated)
   }
 
   @Test("Malformed and unsupported source registries fail without destructive reset")
@@ -135,10 +172,16 @@ struct SourceManagementServiceTests {
         displayName: "Renamed Provider",
         kind: .xtreamCompatible,
         endpoint: "https://example.invalid/new-path",
+        refreshPolicy: .automatic(.every12Hours),
         credential: .unchanged
       )
     )
     #expect(renamed.id == created.id)
+    #expect(renamed.kind == created.kind)
+    #expect(renamed.endpoint?.url.absoluteString == "https://example.invalid/new-path")
+    #expect(renamed.isEnabled == created.isEnabled)
+    #expect(renamed.credentialReference == reference)
+    #expect(renamed.refreshPolicy == .automatic(.every12Hours))
     #expect(await context.credentials.writeCallCount == writesAfterCreate)
 
     let replaced = try await context.service.updateSource(
@@ -389,6 +432,65 @@ struct SourceManagementServiceTests {
       ])
     #expect(await context.catalog.beginCount == 1)
   }
+
+  @Test("Manual Refresh Now bypasses automatic cadence and retry cooldown")
+  func refreshNowBypassesAutomaticPolicy() async throws {
+    let body = Data("#EXTM3U\n#EXTINF:-1,One\nhttps://example.invalid/one.ts\n".utf8)
+    let context = makeContext(m3uBehavior: .response(status: 200, data: body))
+    var draft = m3uDraft()
+    draft.refreshPolicy = .automatic(.daily)
+    let source = try await context.service.createSource(from: draft)
+    let attemptedAt = Date(timeIntervalSince1970: 10_000)
+    try await context.catalog.recordRefreshAttempt(
+      sourceID: source.id,
+      attemptedAt: attemptedAt,
+      result: .networkFailure
+    )
+    #expect(
+      RefreshPolicyEvaluator().evaluate(
+        source: source,
+        metadata: try await context.catalog.refreshMetadata(for: source.id),
+        now: attemptedAt.addingTimeInterval(60)
+      )
+        == .skipped(
+          reason: .retryCooldown,
+          nextEligibleAt: attemptedAt.addingTimeInterval(30 * 60)
+        )
+    )
+
+    let report = try await context.service.refreshNow(id: source.id, onStage: nil)
+
+    #expect(report.committedItemCount == 1)
+    #expect(await context.catalog.beginCount == 1)
+  }
+
+  @Test("Automatic scheduling delegates success metadata to CatalogRefreshService")
+  func automaticSchedulingUsesDurableRefresh() async throws {
+    let fixedNow = Date(timeIntervalSince1970: 20_000)
+    let body = Data("#EXTM3U\n#EXTINF:-1,One\nhttps://example.invalid/one.ts\n".utf8)
+    let context = makeContext(
+      m3uBehavior: .response(status: 200, data: body),
+      refreshClock: ManagementFixedClock(now: fixedNow)
+    )
+    var draft = m3uDraft()
+    draft.refreshPolicy = .automatic(.every6Hours)
+    let source = try await context.service.createSource(from: draft)
+    let scheduler = RefreshSchedulingService(
+      sourceRepository: context.sources,
+      metadataRepository: context.catalog,
+      refreshService: context.refresh,
+      clock: ManagementFixedClock(now: fixedNow)
+    )
+
+    let cycle = try await scheduler.evaluateAndRefreshDueSources()
+
+    #expect(cycle.outcomes.count == 1)
+    let metadata = try #require(await context.catalog.metadataValue(for: source.id))
+    #expect(metadata.lastAttemptedAt == fixedNow)
+    #expect(metadata.lastSuccessfulAt == fixedNow)
+    #expect(metadata.lastResult == .success)
+    #expect(metadata.lastCommittedItemCount == 1)
+  }
 }
 
 private enum ManagementOperation: Equatable, Sendable {
@@ -418,6 +520,7 @@ private struct ManagementContext {
   let sources: ManagementSourceRepository
   let credentials: ManagementCredentialStore
   let catalog: ManagementCatalogRepository
+  let refresh: CatalogRefreshService
   let operations: ManagementOperationRecorder
 }
 
@@ -429,7 +532,8 @@ private func makeContext(
     status: 200,
     data: Data("#EXTM3U\nhttps://example.invalid/default.ts\n".utf8)
   ),
-  catalogDeleteBehavior: ManagementCatalogRepository.DeleteBehavior = .success
+  catalogDeleteBehavior: ManagementCatalogRepository.DeleteBehavior = .success,
+  refreshClock: any CatalogRefreshClock = SystemCatalogRefreshClock()
 ) -> ManagementContext {
   let operations = ManagementOperationRecorder()
   let sources = ManagementSourceRepository(failure: sourceFailure, operations: operations)
@@ -443,7 +547,8 @@ private func makeContext(
   let refresh = CatalogRefreshService(
     repository: catalog,
     m3uAcquisition: acquisition,
-    providerAdapter: provider
+    providerAdapter: provider,
+    clock: refreshClock
   )
   let service = SourceManagementService(
     sourceRepository: sources,
@@ -458,6 +563,7 @@ private func makeContext(
     sources: sources,
     credentials: credentials,
     catalog: catalog,
+    refresh: refresh,
     operations: operations
   )
 }
@@ -491,12 +597,16 @@ private func makeM3USource(name: String) throws -> SourceConfiguration {
   )
 }
 
-private func makeXtreamSource(name: String) throws -> SourceConfiguration {
+private func makeXtreamSource(
+  name: String,
+  policy: RefreshPolicy = .manualOnly
+) throws -> SourceConfiguration {
   SourceConfiguration(
     displayName: name,
     kind: .xtreamCompatible,
     endpoint: try SourceEndpoint(url: #require(URL(string: "https://example.invalid/provider"))),
-    credentialReference: CredentialReference()
+    credentialReference: CredentialReference(),
+    refreshPolicy: policy
   )
 }
 
@@ -515,6 +625,29 @@ private struct SourceRegistryFixture {
 
   func remove() throws {
     try FileManager.default.removeItem(at: directory)
+  }
+}
+
+private struct LegacySourceRegistry: Encodable {
+  let schemaVersion: Int
+  let sources: [LegacySourceConfiguration]
+}
+
+private struct LegacySourceConfiguration: Encodable {
+  let id: SourceConfiguration.ID
+  let displayName: String
+  let kind: SourceKind
+  let endpoint: SourceEndpoint?
+  let credentialReference: CredentialReference?
+  let isEnabled: Bool
+
+  init(source: SourceConfiguration) {
+    id = source.id
+    displayName = source.displayName
+    kind = source.kind
+    endpoint = source.endpoint
+    credentialReference = source.credentialReference
+    isEnabled = source.isEnabled
   }
 }
 
@@ -575,7 +708,8 @@ private actor ManagementSourceRepository: SourceRepository {
         kind: source.kind,
         endpoint: source.endpoint,
         credentialReference: source.credentialReference,
-        isEnabled: isEnabled
+        isEnabled: isEnabled,
+        refreshPolicy: source.refreshPolicy
       )
     )
   }
@@ -810,4 +944,12 @@ private struct ManagementM3UTransport: M3UAcquisitionTransport {
 private actor ManagementStageRecorder {
   private(set) var values: [CatalogRefreshStage] = []
   func record(_ value: CatalogRefreshStage) { values.append(value) }
+}
+
+private struct ManagementFixedClock: CatalogRefreshClock, RefreshSchedulingClock {
+  let nowValue: Date
+
+  init(now: Date) { nowValue = now }
+  func now() async -> Date { nowValue }
+  func sleep(until date: Date) async throws { try await Task.sleep(for: .seconds(60)) }
 }

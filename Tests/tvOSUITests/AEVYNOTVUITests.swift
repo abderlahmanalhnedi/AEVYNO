@@ -215,6 +215,8 @@ final class AEVYNOTVUITests: XCTestCase {
     let password = app.secureTextFields["source.password"]
     XCTAssertTrue(waitForFocus(on: password), "The secure credential field should be focusable")
     XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: app.buttons["Manual only"]))
+    XCUIRemote.shared.press(.down)
     let save = app.buttons["source.save"]
     XCTAssertTrue(waitForFocus(on: save))
     XCUIRemote.shared.press(.select)
@@ -246,6 +248,8 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertFalse(secureField.label.contains("synthetic-secret"))
     XCTAssertFalse((secureField.value as? String)?.contains("synthetic-secret") ?? false)
 
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: app.buttons["Manual only"]))
     XCUIRemote.shared.press(.down)
     let save = app.buttons["source.save"]
     XCTAssertTrue(waitForFocus(on: save))
@@ -282,6 +286,8 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertTrue(waitForFocus(on: failedApp.textFields["source.username"]))
     XCUIRemote.shared.press(.down)
     XCTAssertTrue(waitForFocus(on: failedApp.secureTextFields["source.password"]))
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: failedApp.buttons["Manual only"]))
     XCUIRemote.shared.press(.down)
     XCTAssertTrue(waitForFocus(on: failedApp.buttons["source.save"]))
     XCUIRemote.shared.press(.left)
@@ -333,6 +339,8 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertTrue(waitForFocus(on: app.textFields["source.endpoint"]))
     XCUIRemote.shared.press(.down)
     XCTAssertTrue(waitForFocus(on: app.buttons["source.replace-credential"]))
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: app.buttons["Manual only"]))
     XCUIRemote.shared.press(.down)
     XCTAssertTrue(waitForFocus(on: app.buttons["source.save"]))
     XCUIRemote.shared.press(.left)
@@ -389,6 +397,98 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertEqual(app.secureTextFields["source.password"].label, "كلمة المرور")
   }
 
+  func testExistingSourceShowsSchedulingControlWithManualOnlyDefault() {
+    let app = launchSourceManagement(arguments: ["--ui-source-seeded"])
+    openSeededSource(in: app)
+
+    XCTAssertTrue(app.staticTexts["source.refresh-policy-title"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.staticTexts["source.refresh-policy-title"].label, "Automatic Refresh")
+    XCTAssertTrue(app.descendants(matching: .any)["source.refresh-policy"].exists)
+    XCTAssertEqual(app.staticTexts["source.current-policy"].label, "Manual only")
+    XCTAssertEqual(app.staticTexts["source.last-refreshed"].label, "Never refreshed")
+    XCTAssertTrue(app.staticTexts["source.refresh-policy-explanation"].label.contains("active"))
+  }
+
+  func testAutomaticCadenceCanBeSelectedAndRemainsVisibleAfterReopening() {
+    let app = launchSourceManagement(arguments: ["--ui-source-seeded"])
+    let row = openSeededSource(in: app)
+    focusSeededSourcePolicy(in: app)
+
+    XCUIRemote.shared.press(.right)
+    XCTAssertTrue(waitForFocus(on: app.buttons["Every 6 hours"]))
+    XCUIRemote.shared.press(.right)
+    XCTAssertTrue(waitForFocus(on: app.buttons["Every 12 hours"]))
+    XCUIRemote.shared.press(.select)
+    XCTAssertTrue(waitForLabel("Every 12 hours", on: app.staticTexts["source.current-policy"]))
+    XCTAssertTrue(
+      waitForFocus(on: app.buttons["Every 12 hours"]),
+      "Changing scheduling status must not steal focus"
+    )
+
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: app.buttons["source.save"]))
+    XCUIRemote.shared.press(.select)
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: row))
+
+    XCUIRemote.shared.press(.select)
+    XCTAssertTrue(app.staticTexts["source.current-policy"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.staticTexts["source.current-policy"].label, "Every 12 hours")
+  }
+
+  func testDisabledAutomaticSourceCommunicatesPausedSchedulingWithoutTakingFocus() {
+    let app = launchSourceManagement(
+      arguments: ["--ui-source-seeded", "--ui-source-policy-6h", "--ui-source-disabled"]
+    )
+    openSeededSource(in: app)
+
+    XCTAssertEqual(app.staticTexts["source.current-policy"].label, "Every 6 hours")
+    XCTAssertEqual(
+      app.staticTexts["source.schedule-paused"].label,
+      "Automatic refresh is paused while this source is disabled."
+    )
+    XCTAssertTrue(waitForFocus(on: app.textFields["source.name"]))
+  }
+
+  func testArabicSchedulingControlsAreLocalized() {
+    let app = launchSourceManagement(
+      arguments: ["--ui-source-seeded", "--ui-source-policy-daily"],
+      locale: "ar"
+    )
+    openSeededSource(in: app)
+
+    XCTAssertEqual(app.staticTexts["source.refresh-policy-title"].label, "التحديث التلقائي")
+    XCTAssertTrue(app.buttons["يدوي فقط"].exists)
+    XCTAssertTrue(app.buttons["كل 6 ساعات"].exists)
+    XCTAssertTrue(app.buttons["كل 12 ساعة"].exists)
+    XCTAssertTrue(app.buttons["يوميًا"].exists)
+    XCTAssertEqual(app.staticTexts["source.current-policy"].label, "يوميًا")
+  }
+
+  func testSchedulingAccessibilityDoesNotExposeSyntheticCredentialValues() {
+    let app = launchSourceManagement(arguments: ["--ui-source-draft-xtream"])
+    let addSource = app.buttons["sources.add"]
+    XCTAssertTrue(addSource.waitForExistence(timeout: 10))
+    XCUIRemote.shared.press(.select)
+    XCTAssertTrue(app.staticTexts["source.refresh-policy-title"].waitForExistence(timeout: 5))
+
+    let schedulingElements = [
+      app.staticTexts["source.refresh-policy-title"],
+      app.descendants(matching: .any)["source.refresh-policy"],
+      app.staticTexts["source.refresh-policy-explanation"],
+    ]
+    for element in schedulingElements {
+      let exposedText = "\(element.label) \(element.value ?? "")"
+      XCTAssertFalse(exposedText.contains("synthetic-user"))
+      XCTAssertFalse(exposedText.contains("synthetic-secret"))
+    }
+    XCTAssertFalse(app.secureTextFields["source.password"].label.contains("synthetic-secret"))
+    XCTAssertFalse(
+      (app.secureTextFields["source.password"].value as? String)?.contains("synthetic-secret")
+        ?? false
+    )
+  }
+
   private func launchApp(arguments: [String] = [], locale: String = "en") -> XCUIApplication {
     let app = XCUIApplication()
     app.launchArguments = arguments + localeLaunchArguments(locale)
@@ -404,6 +504,26 @@ final class AEVYNOTVUITests: XCTestCase {
       arguments: ["--ui-source-management", "--ui-open-sources"] + arguments,
       locale: locale
     )
+  }
+
+  @discardableResult
+  private func openSeededSource(in app: XCUIApplication) -> XCUIElement {
+    let row = app.buttons["sources.row.00000000-0000-0000-0000-000000000101"]
+    XCTAssertTrue(row.waitForExistence(timeout: 10))
+    XCTAssertTrue(waitForFocus(on: row))
+    XCUIRemote.shared.press(.select)
+    XCTAssertTrue(app.textFields["source.name"].waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: app.textFields["source.name"]))
+    return row
+  }
+
+  private func focusSeededSourcePolicy(in app: XCUIApplication) {
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: app.textFields["source.endpoint"]))
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: app.buttons["source.replace-credential"]))
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(waitForFocus(on: app.buttons["Manual only"]))
   }
 
   private func waitForLabel(_ label: String, on element: XCUIElement) -> Bool {
