@@ -2,9 +2,10 @@
 
 ## Scope and status
 
-Refresh Scheduling & Policy is **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW** on its feature branch.
-It is a post-Phase-2 application-integration slice. Phase 2 remains complete, final production
-library/search UI remains unstarted, and this work adds no Phase 3 playback behavior.
+Refresh Scheduling & Policy is **COMPLETE**, merged through PR #21 at merge commit `18ba431`;
+post-merge CI run `34449661574` succeeded. It is a post-Phase-2 application-integration slice. Phase
+2 remains complete, final production library/search UI remains unstarted, and this work adds no
+Phase 3 playback behavior.
 
 ## Policy choices
 
@@ -92,7 +93,8 @@ required scheduling scenarios using injected synthetic fixtures and no live netw
 Local final validation on Xcode 26.6 passed 132 shared tests in 13 suites and all 22 tvOS UI tests on
 the Apple TV 4K (3rd generation), tvOS 26.5 simulator, with zero failures. Generic tvOS and iOS
 Simulator builds, both static analyzers, strict all-Swift formatting lint and `git diff --check` also
-passed. The GitHub CI run will be recorded after the pull request finishes.
+passed. Post-merge CI run `34449661574` succeeded on merge commit `18ba431`, including Core / Build /
+Analyze and tvOS UI Tests.
 
 Physical Apple TV LTR/Arabic RTL focus, viewing-distance layout, foreground transition and
 long-session behavior remain **PENDING**; simulator evidence does not satisfy that device gate.

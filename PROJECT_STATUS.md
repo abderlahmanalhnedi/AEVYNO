@@ -17,9 +17,8 @@ and exit gate are satisfied by the documented 50k/100k import, refresh and query
 last-known-good catalog behavior, and successful post-merge CI run `34321067413` on that exact
 commit. The post-Phase-2 Source Management & Validation Flows follow-up is **COMPLETE**, merged
 through PR #19 at merge commit `1c94236`; post-merge CI run `34386676789` succeeded. Phase 3
-playback work has not started. Refresh Scheduling & Policy is **IMPLEMENTED; UNDER FINAL
-VALIDATION/REVIEW** on its feature branch; it is not marked complete before merge and post-merge
-reconciliation.
+playback work has not started. Refresh Scheduling & Policy is **COMPLETE**, merged through PR #21
+at merge commit `18ba431`; post-merge CI run `34449661574` succeeded.
 
 ## Verified development environment
 
@@ -221,9 +220,10 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - [Phase 2F evidence](docs/PHASE_2F_LIBRARY_SEARCH.md) records exact semantics, architecture,
   security limits, 10k/50k/100k release measurements and remaining device/UI limitations.
 - no final Search/browse UI, source-management UI, refresh scheduler, CloudKit catalog sync or Phase 3
-  playback work is included. The UI and scheduling items are assigned to the planned, unstarted
-  post-Phase 2 source and library application-integration follow-up in `docs/ROADMAP.md`; they are not
-  Phase 2 exit requirements.
+  playback work is included. The UI and scheduling items were assigned to the post-Phase 2 source and
+  library application-integration follow-up in `docs/ROADMAP.md`; scheduling is now complete, while
+  final production library/search UI composition remains not started. Neither item is a Phase 2 exit
+  requirement.
 
 ## Post-Phase-2 Source Management & Validation Flows
 
@@ -259,9 +259,8 @@ Status: **COMPLETE**. Merged through PR #19 at merge commit `1c94236`; post-merg
 
 ## Post-Phase-2 Refresh Scheduling & Policy
 
-Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Merge, post-merge CI reconciliation and
-physical-device review remain pending. Phase 2 and Source Management & Validation Flows remain
-complete.
+Status: **COMPLETE**. Merged through PR #21 at merge commit `18ba431`; post-merge CI run
+`34449661574` succeeded. Phase 2 and Source Management & Validation Flows remain complete.
 
 - source-registry schema version 2 durably stores a non-secret per-source policy. Explicit version 1
   migration preserves source metadata and `CredentialReference` while defaulting to manual-only;
@@ -289,7 +288,9 @@ complete.
 - Refresh Scheduling & Policy local final validation passed 132 shared tests in 13 suites with zero
   failures and 22 tvOS UI tests with zero failures on the Apple TV 4K (3rd generation), tvOS 26.5
   simulator. Generic tvOS/iOS Simulator builds, both static analyzers, strict all-Swift formatting
-  lint and `git diff --check` passed. Pull-request CI and physical Apple TV review remain pending.
+  lint and `git diff --check` passed. The post-merge CI run `34449661574` succeeded on merge commit
+  `18ba431`, including Core / Build / Analyze and tvOS UI Tests. Physical Apple TV review remains
+  pending.
 - Phase 2F shared package validation: 98 tests in 10 suites passed, zero failed (`swift test`).
   This includes all prior Phase 2A/B/C/D/E tests plus production search/category semantics,
   Arabic and mixed-language matching, combined-filter isolation, pagination, cancellation,
@@ -383,6 +384,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   `b557347`; post-merge push run `34321067413` completed successfully on that exact `main` commit.
 - Source Management & Validation Flows merged through PR #19 at `1c94236`; post-merge CI run
   `34386676789` completed successfully, including Core / Build / Analyze and tvOS UI Tests.
+- Refresh Scheduling & Policy merged through PR #21 at `18ba431`; post-merge CI run `34449661574`
+  completed successfully, including Core / Build / Analyze and tvOS UI Tests.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
 - Phase 1 remains physically **PENDING**. Phase 2A/B/C/D/E/F are merged and the approved Phase 2
@@ -401,6 +404,8 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   `34321067413` validated that exact commit.
 - Post-Phase-2 Source Management & Validation Flows is complete, merged through PR #19 at
   `1c94236`; successful post-merge CI run `34386676789` validated the merge commit.
+- Post-Phase-2 Refresh Scheduling & Policy is complete, merged through PR #21 at `18ba431`;
+  successful post-merge CI run `34449661574` validated the merge commit.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -458,10 +463,10 @@ a long stress-mode browsing session with Instruments. Resolve findings before ma
 complete.
 
 The post-Phase-2 source and library application-integration follow-up has completed Source Management
-& Validation Flows. Refresh Scheduling & Policy is implemented and under final validation/review;
-final app query/UI composition remains unstarted. These items are not part of the approved Phase 2
-deliverables or exit gate. M3U file acquisition remains outside the completed remote-acquisition
-slice. Do not begin Phase 3 playback implementation before its approved phase gate.
+& Validation Flows and Refresh Scheduling & Policy. Final production library/search UI composition
+remains not started. These items are not part of the approved Phase 2 deliverables or exit gate. M3U
+file acquisition remains outside the completed remote-acquisition slice. Do not begin Phase 3
+playback implementation before its approved phase gate.
 
 ## Active blockers
 
