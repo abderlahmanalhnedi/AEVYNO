@@ -35,8 +35,6 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
 
@@ -46,8 +44,12 @@ jobs:
             exit 0
           fi
 
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          if ! base_ref="$(git rev-parse HEAD^1 2>/dev/null)" || ! head_ref="$(git rev-parse HEAD^2 2>/dev/null)"; then
+            echo "::error title=PR comparison unavailable::Expected the local pull-request merge commit and both parents from actions/checkout."
+            exit 1
+          fi
+
+          changed_files="$(git diff --name-only "$base_ref" "$head_ref")"
           printf 'Changed files:\n%s\n' "$changed_files"
 
           code_changed=false
@@ -73,14 +75,14 @@ jobs:
       - name: Validate documentation-only change
         if: ${{ steps.scope.outputs.code_changed == 'false' }}
         shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          git diff --check "$BASE_SHA" "$HEAD_SHA"
 
-          python3 - "$BASE_SHA" "$HEAD_SHA" <<'PY'
+          base_ref="$(git rev-parse HEAD^1)"
+          head_ref="$(git rev-parse HEAD^2)"
+          git diff --check "$base_ref" "$head_ref"
+
+          python3 - "$base_ref" "$head_ref" <<'PY'
           import pathlib
           import re
           import subprocess
@@ -288,8 +290,6 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
 
@@ -299,8 +299,12 @@ jobs:
             exit 0
           fi
 
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          if ! base_ref="$(git rev-parse HEAD^1 2>/dev/null)" || ! head_ref="$(git rev-parse HEAD^2 2>/dev/null)"; then
+            echo "::error title=PR comparison unavailable::Expected the local pull-request merge commit and both parents from actions/checkout."
+            exit 1
+          fi
+
+          changed_files="$(git diff --name-only "$base_ref" "$head_ref")"
           run_ui_tests=false
 
           while IFS= read -r path; do
