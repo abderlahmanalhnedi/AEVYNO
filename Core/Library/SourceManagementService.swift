@@ -15,6 +15,7 @@ public struct SourceDraft: Equatable, Sendable {
   public var kind: SourceKind
   public var endpoint: String
   public var isEnabled: Bool
+  public var refreshPolicy: RefreshPolicy
   public var credential: CredentialInput
 
   public init(
@@ -22,12 +23,14 @@ public struct SourceDraft: Equatable, Sendable {
     kind: SourceKind = .xtreamCompatible,
     endpoint: String = "",
     isEnabled: Bool = true,
+    refreshPolicy: RefreshPolicy = .manualOnly,
     credential: CredentialInput = .none
   ) {
     self.displayName = displayName
     self.kind = kind
     self.endpoint = endpoint
     self.isEnabled = isEnabled
+    self.refreshPolicy = refreshPolicy
     self.credential = credential
   }
 }
@@ -117,6 +120,19 @@ public protocol SourceManaging: Sendable {
   ) async throws -> CatalogRefreshReport
 }
 
+public struct ProductionSourceServices: Sendable {
+  public let sourceManagement: SourceManagementService
+  public let refreshScheduling: RefreshSchedulingService
+
+  public init(
+    sourceManagement: SourceManagementService,
+    refreshScheduling: RefreshSchedulingService
+  ) {
+    self.sourceManagement = sourceManagement
+    self.refreshScheduling = refreshScheduling
+  }
+}
+
 /// Provider-neutral application workflow boundary for source metadata, credentials and catalogs.
 public actor SourceManagementService: SourceManaging {
   public static let maximumDisplayNameLength = 120
@@ -151,6 +167,10 @@ public actor SourceManagementService: SourceManaging {
   }
 
   public static func openDefault() async throws -> SourceManagementService {
+    try await openDefaultServices().sourceManagement
+  }
+
+  public static func openDefaultServices() async throws -> ProductionSourceServices {
     let sourceRepository = try FileSourceRepository.openDefault()
     let credentialStore = KeychainCredentialStore()
     let catalogRepository = try await SQLiteCatalogStore.openDefault()
@@ -161,13 +181,22 @@ public actor SourceManagementService: SourceManaging {
       m3uAcquisition: m3uAcquisition,
       providerAdapter: providerAdapter
     )
-    return SourceManagementService(
+    let sourceManagement = SourceManagementService(
       sourceRepository: sourceRepository,
       credentialStore: credentialStore,
       catalogRepository: catalogRepository,
       providerAdapter: providerAdapter,
       m3uAcquisition: m3uAcquisition,
       refreshService: refreshService
+    )
+    let refreshScheduling = RefreshSchedulingService(
+      sourceRepository: sourceRepository,
+      metadataRepository: catalogRepository,
+      refreshService: refreshService
+    )
+    return ProductionSourceServices(
+      sourceManagement: sourceManagement,
+      refreshScheduling: refreshScheduling
     )
   }
 
@@ -531,6 +560,7 @@ public actor SourceManagementService: SourceManaging {
       kind: draft.kind,
       endpoint: endpoint,
       isEnabled: draft.isEnabled,
+      refreshPolicy: draft.refreshPolicy,
       credential: draft.credential
     )
   }
@@ -672,6 +702,7 @@ private struct ValidatedSourceInput {
   let kind: SourceKind
   let endpoint: SourceEndpoint
   let isEnabled: Bool
+  let refreshPolicy: RefreshPolicy
   let credential: SourceDraft.CredentialInput
 
   func configuration(
@@ -685,7 +716,8 @@ private struct ValidatedSourceInput {
       kind: kind,
       endpoint: endpoint,
       credentialReference: credentialReference,
-      isEnabled: forceEnabled ? true : isEnabled
+      isEnabled: forceEnabled ? true : isEnabled,
+      refreshPolicy: refreshPolicy
     )
   }
 }
