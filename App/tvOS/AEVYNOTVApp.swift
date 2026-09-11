@@ -14,10 +14,13 @@ struct AEVYNOTVApp: App {
   private let sourceEditorDraft: SourceDraft?
   private let startsInSourceManagement: Bool
   private let refreshLifecycle: RefreshSchedulingLifecycleController
+  private let usesSyntheticHome: Bool
+  private let productionLibraryViewModel: ProductionLibraryViewModel?
 
   init() {
     let arguments = ProcessInfo.processInfo.arguments
     startsInSourceManagement = arguments.contains("--ui-open-sources")
+    usesSyntheticHome = TVDemoConfiguration.isExplicitSyntheticMode(arguments: arguments)
     let repository = TVDemoConfiguration.repository(arguments: arguments)
     viewModel = HomeViewModel(
       loader: HomeLoader(
@@ -30,12 +33,25 @@ struct AEVYNOTVApp: App {
       sourceServiceFactory = { fixture }
       sourceEditorDraft = TVSourceManagementFixture.editorDraft(arguments: arguments)
       refreshLifecycle = RefreshSchedulingLifecycleController { fixture }
+      productionLibraryViewModel = nil
+    } else if let fixture = TVProductionLibraryFixture.fixture(arguments: arguments) {
+      let sourceFixture = TVSourceManagementFixture(arguments: [])
+      sourceServiceFactory = { sourceFixture }
+      sourceEditorDraft = nil
+      refreshLifecycle = RefreshSchedulingLifecycleController { sourceFixture }
+      productionLibraryViewModel = ProductionLibraryViewModel(
+        serviceFactory: { fixture },
+        initialQuery: TVProductionLibraryFixture.initialQuery(arguments: arguments)
+      )
     } else {
       let serviceContainer = AppSourceServiceContainer()
       sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
       sourceEditorDraft = nil
       refreshLifecycle = RefreshSchedulingLifecycleController {
         try await serviceContainer.services().refreshScheduling
+      }
+      productionLibraryViewModel = ProductionLibraryViewModel {
+        try await serviceContainer.services().productionLibrary
       }
     }
   }
@@ -50,12 +66,18 @@ struct AEVYNOTVApp: App {
               newSourceDraft: sourceEditorDraft
             )
           }
-        } else {
+        } else if usesSyntheticHome {
           TVHomeView(
             viewModel: viewModel,
             artworkPipeline: artworkPipeline,
             sourceServiceFactory: sourceServiceFactory,
             sourceEditorDraft: sourceEditorDraft
+          )
+        } else if let productionLibraryViewModel {
+          TVProductionLibraryView(
+            viewModel: productionLibraryViewModel,
+            artworkPipeline: artworkPipeline,
+            sourceServiceFactory: sourceServiceFactory
           )
         }
       }
@@ -75,6 +97,15 @@ struct AEVYNOTVApp: App {
 }
 
 private enum TVDemoConfiguration {
+  static func isExplicitSyntheticMode(arguments: [String]) -> Bool {
+    arguments.contains("--ui-demo-home")
+      || arguments.contains("--ui-state-empty")
+      || arguments.contains("--ui-state-error")
+      || arguments.contains("--ui-state-loading")
+      || arguments.contains("--ui-stress-catalog")
+      || arguments.contains("--ui-source-management")
+  }
+
   static func repository(arguments: [String]) -> any HomeRepository {
     if arguments.contains("--ui-state-empty") {
       return MockHomeRepository(scenario: .empty)

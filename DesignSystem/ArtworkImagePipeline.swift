@@ -16,8 +16,9 @@ public struct ArtworkImage: @unchecked Sendable {
 
 public struct ArtworkRequest: Hashable, Sendable {
   public let itemID: MediaItem.ID
-  public let theme: ArtworkTheme
-  public let kind: MediaKind
+  public let theme: ArtworkTheme?
+  public let kind: MediaKind?
+  public let remoteURL: URL?
   public let pixelWidth: Int
   public let pixelHeight: Int
 
@@ -31,6 +32,21 @@ public struct ArtworkRequest: Hashable, Sendable {
     self.itemID = itemID
     self.theme = theme
     self.kind = kind
+    remoteURL = nil
+    self.pixelWidth = min(max(pixelWidth, 1), 2_048)
+    self.pixelHeight = min(max(pixelHeight, 1), 2_048)
+  }
+
+  public init(
+    catalogItemID: String,
+    artworkURL: URL,
+    pixelWidth: Int,
+    pixelHeight: Int
+  ) {
+    itemID = MediaItem.ID(rawValue: catalogItemID)
+    theme = nil
+    kind = nil
+    remoteURL = artworkURL
     self.pixelWidth = min(max(pixelWidth, 1), 2_048)
     self.pixelHeight = min(max(pixelHeight, 1), 2_048)
   }
@@ -67,7 +83,12 @@ public actor ArtworkImagePipeline {
   public init(maximumCostInBytes: Int = 48 * 1_024 * 1_024) {
     self.maximumCostInBytes = max(0, maximumCostInBytes)
     renderer = { request in
-      try await SyntheticArtworkRenderer.render(request)
+      if let remoteURL = request.remoteURL {
+        let data = try await RemoteArtworkTransport.load(remoteURL)
+        try Task.checkCancellation()
+        return try ArtworkDownsampler.decode(data: data, request: request)
+      }
+      return try await SyntheticArtworkRenderer.render(request)
     }
   }
 
@@ -145,6 +166,133 @@ public actor ArtworkImagePipeline {
   }
 }
 
+public enum CatalogArtworkPlaceholderKind: Sendable {
+  case movie
+  case series
+  case live
+  case playlist
+}
+
+public struct RemoteArtworkImageView: View {
+  private let request: ArtworkRequest?
+  private let placeholderKind: CatalogArtworkPlaceholderKind
+  private let pipeline: ArtworkImagePipeline
+  @State private var image: ArtworkImage?
+
+  public init(
+    itemID: String,
+    artworkURL: URL?,
+    placeholderKind: CatalogArtworkPlaceholderKind,
+    pixelWidth: Int,
+    pixelHeight: Int,
+    pipeline: ArtworkImagePipeline
+  ) {
+    request = artworkURL.map {
+      ArtworkRequest(
+        catalogItemID: itemID,
+        artworkURL: $0,
+        pixelWidth: pixelWidth,
+        pixelHeight: pixelHeight
+      )
+    }
+    self.placeholderKind = placeholderKind
+    self.pipeline = pipeline
+  }
+
+  public var body: some View {
+    Group {
+      if let image {
+        Image(decorative: image.cgImage, scale: 1, orientation: .up)
+          .resizable()
+          .aspectRatio(contentMode: .fill)
+      } else {
+        CatalogArtworkPlaceholder(kind: placeholderKind)
+      }
+    }
+    .task(id: request) {
+      guard let request else {
+        image = nil
+        return
+      }
+      do {
+        let loaded = try await pipeline.image(for: request)
+        try Task.checkCancellation()
+        image = loaded
+      } catch {
+        image = nil
+      }
+    }
+  }
+}
+
+private struct CatalogArtworkPlaceholder: View {
+  let kind: CatalogArtworkPlaceholderKind
+
+  var body: some View {
+    ZStack {
+      LinearGradient(
+        colors: [AEVYNOColor.background, AEVYNOColor.surface],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+      )
+      Image(systemName: symbolName)
+        .font(.system(size: 40, weight: .medium))
+        .foregroundStyle(AEVYNOColor.secondaryText)
+        .accessibilityHidden(true)
+    }
+  }
+
+  private var symbolName: String {
+    switch kind {
+    case .movie: "film.stack"
+    case .series: "rectangle.stack"
+    case .live: "dot.radiowaves.left.and.right"
+    case .playlist: "list.bullet.rectangle"
+    }
+  }
+}
+
+private enum RemoteArtworkTransport {
+  static let maximumResponseBytes = 12 * 1_024 * 1_024
+
+  static func load(_ url: URL) async throws -> Data {
+    guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
+      throw ArtworkPipelineError.dataUnavailable
+    }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+    configuration.urlCache = nil
+    configuration.httpCookieStorage = nil
+    configuration.httpShouldSetCookies = false
+    configuration.timeoutIntervalForRequest = 15
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+
+    var request = URLRequest(url: url)
+    request.cachePolicy = .reloadIgnoringLocalCacheData
+    request.timeoutInterval = 15
+    let (bytes, response) = try await session.bytes(for: request)
+    guard let response = response as? HTTPURLResponse,
+      (200...299).contains(response.statusCode),
+      response.expectedContentLength <= Int64(maximumResponseBytes)
+    else {
+      throw ArtworkPipelineError.dataUnavailable
+    }
+
+    var data = Data()
+    data.reserveCapacity(min(max(Int(response.expectedContentLength), 0), maximumResponseBytes))
+    for try await byte in bytes {
+      try Task.checkCancellation()
+      guard data.count < maximumResponseBytes else {
+        throw ArtworkPipelineError.dataUnavailable
+      }
+      data.append(byte)
+    }
+    guard !data.isEmpty else { throw ArtworkPipelineError.dataUnavailable }
+    return data
+  }
+}
+
 public struct ArtworkImageView: View {
   private let request: ArtworkRequest
   private let pipeline: ArtworkImagePipeline
@@ -161,8 +309,10 @@ public struct ArtworkImageView: View {
         Image(decorative: image.cgImage, scale: 1, orientation: .up)
           .resizable()
           .aspectRatio(contentMode: .fill)
+      } else if let theme = request.theme, let kind = request.kind {
+        ArtworkPlaceholder(theme: theme, kind: kind)
       } else {
-        ArtworkPlaceholder(theme: request.theme, kind: request.kind)
+        AEVYNOColor.surface
       }
     }
     .task(id: request) {
@@ -229,7 +379,8 @@ private enum SyntheticArtworkRenderer {
       throw ArtworkPipelineError.renderingFailed
     }
 
-    let palette = request.theme.palette
+    guard let theme = request.theme else { throw ArtworkPipelineError.renderingFailed }
+    let palette = theme.palette
     guard
       let gradient = CGGradient(
         colorsSpace: colorSpace,

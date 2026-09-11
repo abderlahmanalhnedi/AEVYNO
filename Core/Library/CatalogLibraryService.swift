@@ -3,7 +3,20 @@ import Foundation
 import Persistence
 
 /// Provider-neutral, UI-independent access to the committed local catalog.
-public struct CatalogLibraryService: Sendable {
+public protocol CatalogLibraryQuerying: Sendable {
+  func browseItems(matching filter: CatalogFilter, page: CatalogPage) async throws -> [CatalogItem]
+  func searchItems(
+    _ text: String, matching filter: CatalogFilter, page: CatalogPage
+  ) async throws -> [CatalogItem]
+  func categories(
+    matching filter: CatalogFilter, page: CatalogPage
+  ) async throws -> [CatalogCategorySummary]
+  func item(id: String) async throws -> CatalogItem?
+  func itemCount(matching filter: CatalogFilter) async throws -> Int
+  func sourceCatalogCount(sourceID: SourceConfiguration.ID?) async throws -> Int
+}
+
+public struct CatalogLibraryService: CatalogLibraryQuerying, Sendable {
   private let repository: any CatalogQueryRepository
 
   public init(repository: any CatalogQueryRepository) {

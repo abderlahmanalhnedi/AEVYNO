@@ -65,7 +65,8 @@ Gate evidence:
 
 ## Post-Phase 2 follow-up — Source and library application integration
 
-Status: **STARTED**. This follow-up remains outside the approved Phase 2 deliverables and exit gate.
+Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. This follow-up remains outside the approved
+Phase 2 deliverables and exit gate.
 The Source Management & Validation Flows slice is **COMPLETE**, merged through PR #19 at merge
 commit `1c94236`; post-merge CI run `34386676789` succeeded.
 
@@ -78,7 +79,11 @@ Planned scope:
   migration, deterministic sequential scheduling, active-app lifecycle integration and localized
   tvOS controls are complete.
 - final tvOS/iOS browse and search UI composition over the production library query boundary —
-  **NOT STARTED**.
+  **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Normal launch uses production composition; the
+  shared presentation/paging boundary, platform-adapted screens, refresh invalidation, artwork,
+  localization/accessibility and deterministic coverage are documented in
+  [Production Library and Search UI](PRODUCTION_LIBRARY_UI.md) and
+  [ADR-0012](../decisions/ADR-0012-production-library-ui-composition.md).
 
 This follow-up does not change the Phase 3 playback scope or count as Phase 3 implementation.
 

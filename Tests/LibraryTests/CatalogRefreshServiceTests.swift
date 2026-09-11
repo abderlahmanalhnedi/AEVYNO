@@ -105,6 +105,46 @@ struct CatalogRefreshServiceTests {
     await store.close()
   }
 
+  @Test("Refresh invalidation publishes after success but not failure or cancellation")
+  func commitInvalidationBoundary() async throws {
+    let fixture = try CatalogFixture()
+    defer { try? fixture.remove() }
+    let store = try await SQLiteCatalogStore(url: fixture.url, encryptionKey: fixture.key)
+    let source = try m3uSource(id: fixture.sourceID)
+    let recorder = RefreshCommitRecorder()
+    let onCommit: CatalogRefreshCommitHandler = { sourceID in
+      await recorder.record(sourceID)
+    }
+    let valid = Data(
+      "#EXTM3U\n#EXTINF:-1,Committed\nhttps://example.invalid/committed.ts\n".utf8)
+
+    _ = try await makeM3URefreshService(
+      store: store, body: valid, onCommit: onCommit
+    ).refresh(source)
+    #expect(await recorder.values == [source.id])
+
+    let failure = makeRefreshService(
+      store: store,
+      m3uTransport: SyntheticM3UTransport(
+        behavior: .failure(URLError(.cannotConnectToHost))),
+      onCommit: onCommit
+    )
+    await #expect(throws: CatalogRefreshError.networkFailure) {
+      try await failure.refresh(source)
+    }
+
+    let suspending = SyntheticM3UTransport(behavior: .suspend)
+    let cancellation = makeRefreshService(
+      store: store, m3uTransport: suspending, onCommit: onCommit)
+    let task = Task { try await cancellation.refresh(source) }
+    await suspending.waitUntilRequestStarts()
+    task.cancel()
+    await #expect(throws: CancellationError.self) { try await task.value }
+
+    #expect(await recorder.values == [source.id])
+    await store.close()
+  }
+
   @Test("Xtream live, VOD, and series commit together and every failure preserves all prior kinds")
   func xtreamEndToEndAndFailures() async throws {
     let fixture = try CatalogFixture()
@@ -321,25 +361,29 @@ private func allTitles(
 private func makeM3URefreshService(
   store: SQLiteCatalogStore,
   body: Data,
-  clock: any CatalogRefreshClock = SystemCatalogRefreshClock()
+  clock: any CatalogRefreshClock = SystemCatalogRefreshClock(),
+  onCommit: CatalogRefreshCommitHandler? = nil
 ) -> CatalogRefreshService {
   makeRefreshService(
     store: store,
     m3uTransport: SyntheticM3UTransport(behavior: .response(status: 200, data: body)),
-    clock: clock
+    clock: clock,
+    onCommit: onCommit
   )
 }
 
 private func makeRefreshService(
   store: SQLiteCatalogStore,
   m3uTransport: any M3UAcquisitionTransport,
-  clock: any CatalogRefreshClock = SystemCatalogRefreshClock()
+  clock: any CatalogRefreshClock = SystemCatalogRefreshClock(),
+  onCommit: CatalogRefreshCommitHandler? = nil
 ) -> CatalogRefreshService {
   CatalogRefreshService(
     repository: store,
     m3uAcquisition: M3UAcquisitionService(transport: m3uTransport),
     providerAdapter: UnusedProviderAdapter(),
-    clock: clock
+    clock: clock,
+    onCommit: onCommit
   )
 }
 
@@ -438,6 +482,11 @@ private actor MissingCredentialStore: CredentialStore {
 private actor RefreshStageRecorder {
   private(set) var values: [CatalogRefreshStage] = []
   func record(_ stage: CatalogRefreshStage) { values.append(stage) }
+}
+
+private actor RefreshCommitRecorder {
+  private(set) var values: [SourceConfiguration.ID] = []
+  func record(_ sourceID: SourceConfiguration.ID) { values.append(sourceID) }
 }
 
 private actor SequenceRefreshClock: CatalogRefreshClock {

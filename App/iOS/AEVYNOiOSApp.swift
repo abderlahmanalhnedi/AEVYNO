@@ -1,3 +1,4 @@
+import DesignSystem
 import Library
 import SwiftUI
 
@@ -6,10 +7,15 @@ struct AEVYNOiOSApp: App {
   @Environment(\.scenePhase) private var scenePhase
 
   private let viewModel: HomeViewModel
+  private let productionLibraryViewModel: ProductionLibraryViewModel
+  private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
+  private let artworkPipeline: ArtworkImagePipeline
+  private let usesSyntheticHome: Bool
   private let refreshLifecycle: RefreshSchedulingLifecycleController
 
   init() {
     let serviceContainer = AppSourceServiceContainer()
+    usesSyntheticHome = ProcessInfo.processInfo.arguments.contains("--ui-demo-home")
     viewModel = HomeViewModel(
       loader: HomeLoader(
         fetchHomeSections: FetchHomeSections(repository: MockHomeRepository())
@@ -18,14 +24,29 @@ struct AEVYNOiOSApp: App {
     refreshLifecycle = RefreshSchedulingLifecycleController {
       try await serviceContainer.services().refreshScheduling
     }
+    productionLibraryViewModel = ProductionLibraryViewModel {
+      try await serviceContainer.services().productionLibrary
+    }
+    sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
+    artworkPipeline = ArtworkImagePipeline()
   }
 
   var body: some Scene {
     WindowGroup {
-      MobileHomeView(viewModel: viewModel)
-        .onChange(of: scenePhase, initial: true) { _, phase in
-          refreshLifecycle.transition(to: phase)
+      Group {
+        if usesSyntheticHome {
+          MobileHomeView(viewModel: viewModel)
+        } else {
+          MobileProductionLibraryView(
+            viewModel: productionLibraryViewModel,
+            artworkPipeline: artworkPipeline,
+            sourceServiceFactory: sourceServiceFactory
+          )
         }
+      }
+      .onChange(of: scenePhase, initial: true) { _, phase in
+        refreshLifecycle.transition(to: phase)
+      }
     }
   }
 }

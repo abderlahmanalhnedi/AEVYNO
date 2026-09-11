@@ -123,13 +123,16 @@ public protocol SourceManaging: Sendable {
 public struct ProductionSourceServices: Sendable {
   public let sourceManagement: SourceManagementService
   public let refreshScheduling: RefreshSchedulingService
+  public let productionLibrary: ProductionLibraryService
 
   public init(
     sourceManagement: SourceManagementService,
-    refreshScheduling: RefreshSchedulingService
+    refreshScheduling: RefreshSchedulingService,
+    productionLibrary: ProductionLibraryService
   ) {
     self.sourceManagement = sourceManagement
     self.refreshScheduling = refreshScheduling
+    self.productionLibrary = productionLibrary
   }
 }
 
@@ -176,10 +179,12 @@ public actor SourceManagementService: SourceManaging {
     let catalogRepository = try await SQLiteCatalogStore.openDefault()
     let providerAdapter = XtreamProviderAdapter(credentialStore: credentialStore)
     let m3uAcquisition = M3UAcquisitionService()
+    let revisionCenter = LibraryRevisionCenter()
     let refreshService = CatalogRefreshService(
       repository: catalogRepository,
       m3uAcquisition: m3uAcquisition,
-      providerAdapter: providerAdapter
+      providerAdapter: providerAdapter,
+      onCommit: { sourceID in await revisionCenter.publish(sourceID: sourceID) }
     )
     let sourceManagement = SourceManagementService(
       sourceRepository: sourceRepository,
@@ -194,9 +199,15 @@ public actor SourceManagementService: SourceManaging {
       metadataRepository: catalogRepository,
       refreshService: refreshService
     )
+    let productionLibrary = ProductionLibraryService(
+      catalog: CatalogLibraryService(repository: catalogRepository),
+      sourceService: sourceManagement,
+      revisionCenter: revisionCenter
+    )
     return ProductionSourceServices(
       sourceManagement: sourceManagement,
-      refreshScheduling: refreshScheduling
+      refreshScheduling: refreshScheduling,
+      productionLibrary: productionLibrary
     )
   }
 
