@@ -81,6 +81,7 @@ public struct SystemCatalogRefreshClock: CatalogRefreshClock {
 }
 
 public typealias CatalogRefreshStageHandler = @Sendable (CatalogRefreshStage) async -> Void
+public typealias CatalogRefreshCommitHandler = @Sendable (SourceConfiguration.ID) async -> Void
 
 /// Provider-neutral source refresh orchestration. UI receives only safe lifecycle stages.
 public actor CatalogRefreshService {
@@ -90,6 +91,7 @@ public actor CatalogRefreshService {
   private let m3uImporter: M3UImportService
   private let providerImporter: ProviderCatalogImportService
   private let clock: any CatalogRefreshClock
+  private let onCommit: CatalogRefreshCommitHandler?
   private var activeSourceIDs: Set<SourceConfiguration.ID> = []
 
   public init(
@@ -98,7 +100,8 @@ public actor CatalogRefreshService {
     providerAdapter: any ProviderAdapter,
     m3uImporter: M3UImportService = M3UImportService(),
     providerImporter: ProviderCatalogImportService = ProviderCatalogImportService(),
-    clock: any CatalogRefreshClock = SystemCatalogRefreshClock()
+    clock: any CatalogRefreshClock = SystemCatalogRefreshClock(),
+    onCommit: CatalogRefreshCommitHandler? = nil
   ) {
     self.repository = repository
     self.m3uAcquisition = m3uAcquisition
@@ -106,6 +109,7 @@ public actor CatalogRefreshService {
     self.m3uImporter = m3uImporter
     self.providerImporter = providerImporter
     self.clock = clock
+    self.onCommit = onCommit
   }
 
   public func refresh(
@@ -140,6 +144,7 @@ public actor CatalogRefreshService {
           source, attemptedAt: attemptedAt, onStage: onStage)
       }
       let completedAt = await clock.now()
+      await onCommit?(source.id)
       await onStage?(.completed)
       return CatalogRefreshReport(
         sourceID: source.id,
