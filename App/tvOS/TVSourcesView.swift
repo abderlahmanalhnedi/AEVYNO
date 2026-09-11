@@ -171,7 +171,7 @@ struct TVSourcesView: View {
     }
     .buttonStyle(.plain)
     .focused($focusedTarget, equals: .source(configuration.id))
-    .accessibilityIdentifier("sources.row.\(configuration.id.rawValue.uuidString.lowercased())")
+    .accessibilityIdentifier("sources.row")
     .accessibilityLabel(
       AppText.sourceRowAccessibilityLabel(
         name: configuration.displayName,
