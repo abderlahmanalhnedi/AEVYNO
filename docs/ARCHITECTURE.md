@@ -76,9 +76,12 @@ Phase 2D implements the SDK system SQLite library behind `CatalogImportRepositor
 `CatalogQueryRepository`, with actor-isolated transactions and bounded indexed pages.
 [ADR-0008](../decisions/ADR-0008-local-catalog-persistence.md) records the selection for review;
 [Phase 2D evidence](PHASE_2D_PERSISTENCE.md) records measured bulk imports and queries.
-The Home/library app shell still consumes synthetic Phase 1 data. Final production query/UI
-composition remains unstarted in the post-Phase-2 source and library application-integration
-follow-up in [the roadmap](ROADMAP.md); it is not a Phase 2 exit requirement.
+Normal app launch now consumes the committed catalog through a bounded production presentation and
+paging boundary. Explicit Phase 1 modes retain synthetic Home data, and production catalog rows are
+not converted to synthetic `MediaItem` values. See
+[ADR-0012](../decisions/ADR-0012-production-library-ui-composition.md) and
+[Production Library and Search UI](PRODUCTION_LIBRARY_UI.md). This post-Phase-2 composition does not
+change the Phase 2 exit gate.
 Phase 2E adds the provider-neutral `CatalogRefreshService`, multi-partition source staging and local
 refresh metadata. Xtream live/VOD/series and success metadata publish in one final transaction after
 all network/normalization work succeeds. See [ADR-0009](../decisions/ADR-0009-durable-source-refresh.md)
@@ -103,8 +106,10 @@ delegates at most one automatic source at a time to the existing durable refresh
 composition owns one cancellable active-session loop using Swift Concurrency; it provides no
 suspended/terminated execution guarantee or background entitlement. See
 [ADR-0011](../decisions/ADR-0011-refresh-scheduling-policy.md) and
-[Refresh Scheduling and Policy](REFRESH_SCHEDULING.md). Final production library/search UI
-composition remains unstarted.
+[Refresh Scheduling and Policy](REFRESH_SCHEDULING.md). Production library/search composition is
+implemented and under final validation/review; successful durable refresh commits publish a bounded
+in-process revision signal consumed by that UI, while foreground/source-return reloads remain
+explicit lifecycle events.
 
 ### Playback
 Define a playback abstraction, for example conceptually:

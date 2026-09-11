@@ -220,10 +220,10 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
 - [Phase 2F evidence](docs/PHASE_2F_LIBRARY_SEARCH.md) records exact semantics, architecture,
   security limits, 10k/50k/100k release measurements and remaining device/UI limitations.
 - no final Search/browse UI, source-management UI, refresh scheduler, CloudKit catalog sync or Phase 3
-  playback work is included. The UI and scheduling items were assigned to the post-Phase 2 source and
-  library application-integration follow-up in `docs/ROADMAP.md`; scheduling is now complete, while
-  final production library/search UI composition remains not started. Neither item is a Phase 2 exit
-  requirement.
+  playback work was included in the Phase 2F slice. Those UI/scheduling items were assigned to the
+  post-Phase-2 application-integration follow-up; scheduling is complete and production
+  library/search composition is now implemented under final validation/review. Neither item changes
+  the completed Phase 2 exit gate.
 
 ## Post-Phase-2 Source Management & Validation Flows
 
@@ -254,8 +254,8 @@ Status: **COMPLETE**. Merged through PR #19 at merge commit `1c94236`; post-merg
   deterministic simulator UI flows are included. Physical Apple TV LTR/RTL focus and visual review
   remains **PENDING**.
 - [Source Management and Validation](docs/SOURCE_MANAGEMENT.md) documents the workflows and current
-  limitations. Final production tvOS/iOS library/search composition remains **NOT STARTED**. Phase 3
-  playback remains **NOT STARTED**.
+  limitations. Production tvOS/iOS library/search composition is now **IMPLEMENTED; UNDER FINAL
+  VALIDATION/REVIEW**. Phase 3 playback remains **NOT STARTED**.
 
 ## Post-Phase-2 Refresh Scheduling & Policy
 
@@ -283,8 +283,51 @@ Status: **COMPLETE**. Merged through PR #21 at merge commit `18ba431`; post-merg
 - [ADR-0011](decisions/ADR-0011-refresh-scheduling-policy.md) records the decision and
   [Refresh Scheduling and Policy](docs/REFRESH_SCHEDULING.md) records behavior and limitations.
 
+## Post-Phase-2 Production Library/Search UI Composition
+
+Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Phase 2, Source Management & Validation
+Flows and Refresh Scheduling & Policy remain complete. Phase 3 remains not started.
+
+- normal tvOS and iOS/iPadOS launches use the committed local catalog through the shared
+  `ProductionLibraryService`, `LibraryPagingController` and `ProductionLibraryViewModel` boundaries;
+  Phase 1 synthetic modes remain available only through explicit demo/test launch arguments.
+- presentation maps stable ID, title, exact catalog media kind, safe source/category display names
+  and optional artwork only. It does not reuse `MediaItem` or fabricate synopsis, progress, rating,
+  year, genre, favorites, Continue Watching or episode metadata. M3U `.unspecified` is presented only
+  as Playlist.
+- 64-item pages feed a maximum 256-item SwiftUI window. Superseded requests are cancelled, stale
+  generations rejected, duplicate next-page requests suppressed, stable IDs defensively deduplicated
+  and a protected focused item is not selected for eviction.
+- Movies, Series, Live TV, Playlist, source/category filters and bounded literal title search reuse
+  the Phase 2F query semantics. Disabled sources with committed catalog data remain locally
+  browsable. Search changes use a 300 ms debounce.
+- successful manual and automatic durable refresh commits publish an in-process revision. Returning
+  from Sources and foreground activation also reload committed state. There is no Timer, database
+  polling, busy loop, detached task or global AppState; failed/cancelled refresh keeps the
+  last-known-good catalog.
+- production artwork reuses the bounded `ArtworkImagePipeline` with cancellation, target downsampling
+  and memory-warning invalidation. Remote responses use ephemeral cacheless/cookieless networking,
+  a 15-second timeout and 12 MiB body cap; failures show a neutral kind placeholder without a
+  fabricated artwork theme.
+- tvOS provides production browse/search, safe metadata-only Detail and stable-ID focus restoration;
+  iPhone/iPad use touch-adapted navigation without tvOS focus mechanics. English, German and Arabic
+  strings, native RTL and URL/credential-free accessibility semantics are included.
+- [ADR-0012](decisions/ADR-0012-production-library-ui-composition.md) records the composition decision.
+  [Production Library and Search UI](docs/PRODUCTION_LIBRARY_UI.md) records behavior, exact bounds,
+  security limits and remaining physical-device validation.
+
 ## Validation evidence
 
+- Production Library/Search UI Composition final local preflight on 2026-09-11 passed 146 shared
+  tests in 14 suites with zero failures (`swift test`, exit 0) and the full 33-test tvOS UI suite
+  with zero failures or skips on Apple TV 4K (3rd generation), tvOS 26.5 Simulator. Generic tvOS
+  and iOS Simulator Debug builds and both static analyzers passed with exit 0. Strict formatting lint
+  across every tracked and new Swift file, complete English/German/Arabic String Catalog validation,
+  the security/scope audit and `git diff --check` passed. At 100k rows, measured median Phase 2F
+  queries remained bounded (first page 0.47 ms, category page 1.14 ms, common search 0.49 ms,
+  rare/no-result search 7.62/7.78 ms); the application composition mapped 384 rows and retained
+  exactly 256 presentation items in 1.16 ms. Physical Apple TV and physical iPhone/iPad validation
+  remain pending. PR/self-hosted CI validation is still pending and this milestone is not complete.
 - Refresh Scheduling & Policy local final validation passed 132 shared tests in 13 suites with zero
   failures and 22 tvOS UI tests with zero failures on the Apple TV 4K (3rd generation), tvOS 26.5
   simulator. Generic tvOS/iOS Simulator builds, both static analyzers, strict all-Swift formatting
@@ -406,6 +449,9 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   `1c94236`; successful post-merge CI run `34386676789` validated the merge commit.
 - Post-Phase-2 Refresh Scheduling & Policy is complete, merged through PR #21 at `18ba431`;
   successful post-merge CI run `34449661574` validated the merge commit.
+- Post-Phase-2 Production Library/Search UI Composition is implemented on
+  `feature/production-library-search-ui` and remains under final local/PR/CI validation. It has not
+  been merged.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -463,10 +509,11 @@ a long stress-mode browsing session with Instruments. Resolve findings before ma
 complete.
 
 The post-Phase-2 source and library application-integration follow-up has completed Source Management
-& Validation Flows and Refresh Scheduling & Policy. Final production library/search UI composition
-remains not started. These items are not part of the approved Phase 2 deliverables or exit gate. M3U
-file acquisition remains outside the completed remote-acquisition slice. Do not begin Phase 3
-playback implementation before its approved phase gate.
+& Validation Flows and Refresh Scheduling & Policy. Production Library/Search UI Composition is
+implemented and under final validation/review on its feature branch; it is not yet merged. These
+items are not part of the approved Phase 2 deliverables or exit gate. M3U file acquisition remains
+outside the completed remote-acquisition slice. Do not begin Phase 3 playback implementation before
+its approved phase gate.
 
 ## Active blockers
 
