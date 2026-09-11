@@ -2,6 +2,143 @@ import XCTest
 
 @MainActor
 final class AEVYNOTVUITests: XCTestCase {
+  func testProductionNoSourceOnboardingOpensSourceManagement() {
+    let app = launchApp(arguments: ["--ui-production-no-sources"])
+    let addSource = app.buttons["library.add-source"]
+
+    XCTAssertTrue(addSource.waitForExistence(timeout: 10))
+    XCTAssertTrue(waitForFocus(on: addSource))
+    XCUIRemote.shared.press(.select)
+    XCTAssertTrue(app.buttons["sources.add"].waitForExistence(timeout: 5))
+  }
+
+  func testProductionCatalogLoadsAndUnspecifiedRemainsPlaylist() {
+    let app = launchApp(arguments: ["--ui-production-catalog"])
+    let first = app.buttons["library.item.movie-1"]
+
+    XCTAssertTrue(first.waitForExistence(timeout: 10))
+    XCTAssertTrue(waitForFocus(on: first))
+    XCTAssertTrue(app.buttons["library.item.m3u-1"].exists)
+    XCTAssertTrue(
+      app.buttons["library.item.m3u-1"].value as? String == "Playlist  ·  Family Playlist")
+  }
+
+  func testProductionMoviesSeriesLiveAndPlaylistScopes() {
+    let app = launchApp(arguments: ["--ui-production-catalog"])
+    XCTAssertTrue(app.buttons["library.item.movie-1"].waitForExistence(timeout: 10))
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.scope.movies"], in: app))
+    XCTAssertTrue(app.buttons["library.item.movie-1"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["library.item.series-1"].exists)
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.scope.series"], in: app))
+    XCTAssertTrue(app.buttons["library.item.series-1"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["library.item.live-1"].exists)
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.scope.liveTV"], in: app))
+    XCTAssertTrue(app.buttons["library.item.live-1"].waitForExistence(timeout: 5))
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.scope.playlist"], in: app))
+    XCTAssertTrue(app.buttons["library.item.m3u-1"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["library.item.movie-1"].exists)
+  }
+
+  func testProductionCategoryAndDetailRestoreExactItemFocus() {
+    let app = launchApp(arguments: ["--ui-production-catalog"])
+    let item = app.buttons["library.item.movie-2"]
+    XCTAssertTrue(item.waitForExistence(timeout: 10))
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.category.film"], in: app))
+    XCTAssertTrue(item.waitForExistence(timeout: 5))
+    XCTAssertTrue(focusAndSelect(item, in: app))
+    XCTAssertTrue(app.staticTexts["library.detail.title"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["library.detail.playback-unavailable"].exists)
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(item.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: item))
+  }
+
+  func testProductionCategoryBrowseAndBackToAllCategories() {
+    let app = launchApp(arguments: ["--ui-production-catalog"])
+    XCTAssertTrue(app.buttons["library.item.movie-1"].waitForExistence(timeout: 10))
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.category.film"], in: app))
+    XCTAssertTrue(app.buttons["library.category.all"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["library.item.movie-2"].exists)
+    XCTAssertFalse(app.buttons["library.item.live-1"].exists)
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.category.all"], in: app))
+    XCTAssertTrue(app.buttons["library.item.live-1"].waitForExistence(timeout: 5))
+  }
+
+  func testProductionSourceFilterIncludesDisabledCommittedCatalog() {
+    let app = launchApp(arguments: ["--ui-production-catalog"])
+    XCTAssertTrue(app.buttons["library.item.movie-1"].waitForExistence(timeout: 10))
+
+    let disabledSource = app.buttons["Family Playlist"]
+    XCTAssertTrue(focusAndSelect(disabledSource, in: app))
+
+    XCTAssertTrue(app.buttons["library.item.m3u-1"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["library.item.movie-1"].exists)
+  }
+
+  func testProductionSearchAndNoResultState() {
+    let app = launchApp(arguments: ["--ui-production-search-results"])
+    XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["library.item.series-1"].waitForExistence(timeout: 5))
+
+    app.terminate()
+    let emptyApp = launchApp(arguments: ["--ui-production-search-empty"])
+    XCTAssertTrue(
+      emptyApp.descendants(matching: .any)["library.no-results"].waitForExistence(timeout: 10))
+  }
+
+  func testProductionArabicRTLAndAccessibilityExposeNoReferences() throws {
+    let app = launchApp(arguments: ["--ui-production-catalog"], locale: "ar")
+    let item = app.buttons["library.item.m3u-1"]
+    XCTAssertTrue(item.waitForExistence(timeout: 10))
+    XCTAssertTrue((item.value as? String)?.contains("قائمة تشغيل") == true)
+    let exposed = "\(item.label) \(item.value ?? "")"
+    XCTAssertFalse(exposed.contains("00000000"))
+    XCTAssertFalse(exposed.contains("example.invalid"))
+    try app.performAccessibilityAudit()
+  }
+
+  func testProductionArabicRTLSearch() {
+    let app = launchApp(arguments: ["--ui-production-search-arabic"], locale: "ar")
+    XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 10))
+
+    let result = app.buttons["library.item.series-ar"]
+    XCTAssertTrue(result.waitForExistence(timeout: 5))
+    XCTAssertTrue((result.value as? String)?.contains("مسلسل") == true)
+  }
+
+  func testProductionPaginationKeepsLoadMoreFocusStable() {
+    let app = launchApp(arguments: ["--ui-production-pagination"])
+    XCTAssertTrue(app.buttons["library.item.page-000"].waitForExistence(timeout: 10))
+    let loadMore = app.buttons["library.load-more"]
+    for _ in 0..<20 where !loadMore.exists {
+      XCUIRemote.shared.press(.down)
+    }
+    XCTAssertTrue(loadMore.waitForExistence(timeout: 5))
+
+    XCTAssertTrue(focusAndSelect(loadMore, in: app))
+
+    XCTAssertTrue(waitForValue("128", on: app.descendants(matching: .any)["library.loaded"]))
+    XCTAssertTrue(loadMore.exists)
+    XCTAssertTrue(waitForFocus(on: loadMore))
+  }
+
+  func testProductionRefreshInvalidatesWithoutStealingFocus() {
+    let app = launchApp(arguments: ["--ui-production-refresh"])
+    let stable = app.buttons["library.item.refresh-stable"]
+    XCTAssertTrue(stable.waitForExistence(timeout: 10))
+    XCTAssertTrue(waitForFocus(on: stable))
+
+    XCTAssertTrue(app.buttons["library.item.refresh-new"].waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: stable))
+  }
+
   func testHomeLaunchesWithInitialFocusAndMovesRight() {
     let app = launchApp()
 
@@ -263,9 +400,7 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertTrue(waitForFocus(on: save))
     XCUIRemote.shared.press(.select)
 
-    let savedRow = app.buttons[
-      "sources.row.00000000-0000-0000-0000-000000000102"
-    ]
+    let savedRow = app.buttons["sources.row"]
     XCTAssertTrue(savedRow.waitForExistence(timeout: 5))
     XCTAssertTrue(waitForFocus(on: savedRow))
   }
@@ -320,7 +455,7 @@ final class AEVYNOTVUITests: XCTestCase {
 
   func testSeededSourceRestoresFocusAndSupportsEnableRefreshDelete() {
     let app = launchSourceManagement(arguments: ["--ui-source-seeded"])
-    let row = app.buttons["sources.row.00000000-0000-0000-0000-000000000101"]
+    let row = app.buttons["sources.row"]
     XCTAssertTrue(row.waitForExistence(timeout: 10))
     XCTAssertTrue(waitForFocus(on: row))
 
@@ -491,7 +626,10 @@ final class AEVYNOTVUITests: XCTestCase {
 
   private func launchApp(arguments: [String] = [], locale: String = "en") -> XCUIApplication {
     let app = XCUIApplication()
-    app.launchArguments = arguments + localeLaunchArguments(locale)
+    let isProductionFixture = arguments.contains { $0.hasPrefix("--ui-production-") }
+    app.launchArguments =
+      (isProductionFixture ? arguments : ["--ui-demo-home"] + arguments)
+      + localeLaunchArguments(locale)
     app.launch()
     return app
   }
@@ -508,7 +646,7 @@ final class AEVYNOTVUITests: XCTestCase {
 
   @discardableResult
   private func openSeededSource(in app: XCUIApplication) -> XCUIElement {
-    let row = app.buttons["sources.row.00000000-0000-0000-0000-000000000101"]
+    let row = app.buttons["sources.row"]
     XCTAssertTrue(row.waitForExistence(timeout: 10))
     XCTAssertTrue(waitForFocus(on: row))
     XCUIRemote.shared.press(.select)
@@ -532,6 +670,12 @@ final class AEVYNOTVUITests: XCTestCase {
     return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
   }
 
+  private func waitForValue(_ value: String, on element: XCUIElement) -> Bool {
+    let predicate = NSPredicate(format: "value == %@", value)
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+    return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
+  }
+
   private func localeLaunchArguments(_ locale: String) -> [String] {
     return ["-AppleLanguages", "(\(locale))", "-AppleLocale", locale]
   }
@@ -540,5 +684,38 @@ final class AEVYNOTVUITests: XCTestCase {
     let predicate = NSPredicate(format: "hasFocus == true")
     let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
     return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+  }
+
+  @discardableResult
+  private func focusAndSelect(
+    _ element: XCUIElement,
+    in app: XCUIApplication,
+    maximumPresses: Int = 24
+  ) -> Bool {
+    guard element.waitForExistence(timeout: 5) else { return false }
+    if !element.hasFocus {
+      for _ in 0..<maximumPresses where !element.hasFocus {
+        let focused = app.descendants(matching: .any).matching(
+          NSPredicate(format: "hasFocus == true")
+        ).firstMatch
+        guard focused.exists else { return false }
+
+        let currentCenter = CGPoint(x: focused.frame.midX, y: focused.frame.midY)
+        let targetCenter = CGPoint(x: element.frame.midX, y: element.frame.midY)
+        let horizontalDistance = targetCenter.x - currentCenter.x
+        let verticalDistance = targetCenter.y - currentCenter.y
+        let direction: XCUIRemote.Button
+        if abs(verticalDistance) > 40 {
+          direction = verticalDistance < 0 ? .up : .down
+        } else {
+          direction = horizontalDistance < 0 ? .left : .right
+        }
+        XCUIRemote.shared.press(direction)
+        _ = waitForFocus(on: element, timeout: 0.15)
+      }
+    }
+    guard element.hasFocus else { return false }
+    XCUIRemote.shared.press(.select)
+    return true
   }
 }

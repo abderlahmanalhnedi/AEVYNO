@@ -57,6 +57,47 @@ enum AppText {
   static let live = localized("media.live", defaultValue: "Live")
   static let liveBadge = localized("media.live.badge", defaultValue: "LIVE")
 
+  static let libraryTitle = localized("library.title", defaultValue: "Library")
+  static let allSources = localized("library.all_sources", defaultValue: "All Sources")
+  static let categories = localized("library.categories", defaultValue: "Categories")
+  static let allCategories = localized("library.all_categories", defaultValue: "All Categories")
+  static let loadMore = localized("library.load_more", defaultValue: "Load More")
+  static let refreshLibrary = localized("library.refresh", defaultValue: "Refresh Library")
+  static let librarySearchPrompt = localized("library.search.field", defaultValue: "Search Library")
+  static let librarySearchPromptTitle = localized(
+    "library.search.prompt.title", defaultValue: "Search your library")
+  static let librarySearchPromptMessage = localized(
+    "library.search.prompt.message",
+    defaultValue: "Enter one or more words to find matching titles.")
+  static let libraryNoResultsTitle = localized(
+    "library.search.empty.title", defaultValue: "No results")
+  static let libraryNoResultsMessage = localized(
+    "library.search.empty.message", defaultValue: "Try another search or adjust the source filter.")
+  static let libraryEmptyTitle = localized(
+    "library.empty.title", defaultValue: "Nothing in this view")
+  static let libraryEmptyMessage = localized(
+    "library.empty.message", defaultValue: "Choose another category, source, or media type.")
+  static let libraryNoSourcesTitle = localized(
+    "library.no_sources.title", defaultValue: "Bring your library to AEVYNO")
+  static let libraryNoSourcesMessage = localized(
+    "library.no_sources.message",
+    defaultValue: "Add a private media source to start building your local library.")
+  static let libraryNoCatalogTitle = localized(
+    "library.no_catalog.title", defaultValue: "Your source is ready")
+  static let libraryNoCatalogMessage = localized(
+    "library.no_catalog.message",
+    defaultValue: "Refresh a source to load its catalog into your private local library.")
+  static let libraryUnavailableTitle = localized(
+    "library.error.title", defaultValue: "Library unavailable")
+  static let libraryUnavailableMessage = localized(
+    "library.error.message", defaultValue: "Your library could not be opened safely. Try again.")
+  static let playbackUnavailable = localized(
+    "library.detail.playback_unavailable", defaultValue: "Playback not available yet")
+  static let playbackUnavailableHint = localized(
+    "library.detail.playback_unavailable.hint", defaultValue: "Playback will be added in Phase 3")
+  static let sourceFilterAccessibilityHint = localized(
+    "library.source_filter.hint", defaultValue: "Filters the committed library by source")
+
   static let sources = localized("sources.title", defaultValue: "Sources")
   static let sourcesSubtitle = localized(
     "sources.subtitle",
@@ -185,6 +226,35 @@ enum AppText {
     case .xtreamCompatible: xtreamCompatible
     case .m3u: m3uPlaylist
     }
+  }
+
+  static func libraryScope(_ scope: LibraryBrowseScope) -> String {
+    switch scope {
+    case .library: localized("library.scope.library", defaultValue: "Library")
+    case .movies: localized("library.scope.movies", defaultValue: "Movies")
+    case .series: localized("library.scope.series", defaultValue: "Series")
+    case .liveTV: localized("library.scope.live", defaultValue: "Live TV")
+    case .playlist: localized("library.scope.playlist", defaultValue: "Playlist")
+    case .search: localized("library.scope.search", defaultValue: "Search")
+    }
+  }
+
+  static func libraryKind(_ kind: CatalogMediaKind) -> String {
+    switch kind {
+    case .vod: localized("library.kind.movie", defaultValue: "Movie")
+    case .series: localized("library.kind.series", defaultValue: "Series")
+    case .live: localized("library.kind.live", defaultValue: "Live TV")
+    case .unspecified: localized("library.kind.playlist", defaultValue: "Playlist")
+    }
+  }
+
+  static func libraryItemMetadata(_ item: LibraryItemPresentation) -> String {
+    var values = [libraryKind(item.mediaKind)]
+    if !item.sourceName.isEmpty { values.append(item.sourceName) }
+    if let categoryTitle = item.categoryTitle, !categoryTitle.isEmpty {
+      values.append(categoryTitle)
+    }
+    return values.joined(separator: "  ·  ")
   }
 
   static func refreshPolicy(_ policy: RefreshPolicy) -> String {
