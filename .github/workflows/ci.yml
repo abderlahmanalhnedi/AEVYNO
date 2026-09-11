@@ -28,8 +28,122 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2
+
+      - name: Classify validation scope
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "code_changed=true" >> "$GITHUB_OUTPUT"
+            echo "Full validation: push/manual run."
+            exit 0
+          fi
+
+          if ! base_ref="$(git rev-parse HEAD^1 2>/dev/null)" || ! head_ref="$(git rev-parse HEAD^2 2>/dev/null)"; then
+            echo "::error title=PR comparison unavailable::Expected the local pull-request merge commit and both parents from actions/checkout."
+            exit 1
+          fi
+
+          changed_files="$(git diff --name-only "$base_ref" "$head_ref")"
+          printf 'Changed files:\n%s\n' "$changed_files"
+
+          code_changed=false
+          while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            case "$path" in
+              *.md|docs/*|decisions/*)
+                ;;
+              *)
+                code_changed=true
+                break
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          echo "code_changed=$code_changed" >> "$GITHUB_OUTPUT"
+          if [[ "$code_changed" == "true" ]]; then
+            echo "Engineering validation required."
+          else
+            echo "Documentation-only fast path selected."
+          fi
+
+      - name: Validate documentation-only change
+        if: ${{ steps.scope.outputs.code_changed == 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_ref="$(git rev-parse HEAD^1)"
+          head_ref="$(git rev-parse HEAD^2)"
+          git diff --check "$base_ref" "$head_ref"
+
+          python3 - "$base_ref" "$head_ref" <<'PY'
+          import pathlib
+          import re
+          import subprocess
+          import sys
+          import urllib.parse
+
+          base, head = sys.argv[1:3]
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", base, head], text=True
+          ).splitlines()
+
+          markdown_files = [pathlib.Path(path) for path in changed if path.endswith(".md")]
+          failures = []
+          link_pattern = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+
+          for document in markdown_files:
+              if not document.exists():
+                  continue
+              text = document.read_text(encoding="utf-8")
+              for raw_target in link_pattern.findall(text):
+                  target = raw_target.strip()
+                  if not target:
+                      continue
+                  if target.startswith("<") and ">" in target:
+                      target = target[1 : target.index(">")]
+                  elif " " in target:
+                      target = target.split(" ", 1)[0]
+
+                  lower = target.lower()
+                  if lower.startswith(("http://", "https://", "mailto:", "tel:")) or target.startswith("#"):
+                      continue
+
+                  target = urllib.parse.unquote(target.split("#", 1)[0].split("?", 1)[0])
+                  if not target:
+                      continue
+
+                  resolved = (
+                      pathlib.Path(target.lstrip("/"))
+                      if target.startswith("/")
+                      else document.parent / target
+                  ).resolve()
+                  try:
+                      resolved.relative_to(pathlib.Path.cwd().resolve())
+                  except ValueError:
+                      failures.append(f"{document}: link escapes repository: {raw_target}")
+                      continue
+
+                  if not resolved.exists():
+                      failures.append(f"{document}: missing relative link target: {raw_target}")
+
+          if failures:
+              print("Markdown relative-link validation failed:")
+              for failure in failures:
+                  print(f"- {failure}")
+              raise SystemExit(1)
+
+          print(f"Documentation validation passed for {len(markdown_files)} changed Markdown file(s).")
+          PY
 
       - name: Select Xcode 26.6
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -61,21 +175,21 @@ jobs:
           find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
           exit 1
 
-      - name: Print toolchain diagnostics
+      - name: Print concise toolchain diagnostics
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
           echo "DEVELOPER_DIR=$DEVELOPER_DIR"
           xcodebuild -version
           swift --version
-          xcodebuild -showsdks
-          xcrun simctl list runtimes
-          xcrun simctl list devices available
 
       - name: Test shared Swift package
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         run: swift test
 
       - name: Build tvOS Simulator app
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -89,6 +203,7 @@ jobs:
             build
 
       - name: Build iOS Simulator app
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -102,6 +217,7 @@ jobs:
             build
 
       - name: Analyze tvOS app
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -115,6 +231,7 @@ jobs:
             analyze
 
       - name: Analyze iOS app
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -128,6 +245,7 @@ jobs:
             analyze
 
       - name: Lint all tracked Swift files
+        if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -145,6 +263,15 @@ jobs:
           printf 'Linting %s\n' "${swift_files[@]}"
           swift format lint --strict -- "${swift_files[@]}"
 
+      - name: Print extended diagnostics after failure
+        if: ${{ failure() && steps.scope.outputs.code_changed == 'true' }}
+        shell: bash
+        run: |
+          set +e
+          xcodebuild -showsdks
+          xcrun simctl list runtimes
+          xcrun simctl list devices available
+
   tvos-ui-tests:
     name: tvOS UI Tests
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
@@ -156,8 +283,53 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2
+
+      - name: Classify tvOS UI validation scope
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "run_ui_tests=true" >> "$GITHUB_OUTPUT"
+            echo "Full tvOS UI validation: push/manual run."
+            exit 0
+          fi
+
+          if ! base_ref="$(git rev-parse HEAD^1 2>/dev/null)" || ! head_ref="$(git rev-parse HEAD^2 2>/dev/null)"; then
+            echo "::error title=PR comparison unavailable::Expected the local pull-request merge commit and both parents from actions/checkout."
+            exit 1
+          fi
+
+          changed_files="$(git diff --name-only "$base_ref" "$head_ref")"
+          run_ui_tests=false
+
+          while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            case "$path" in
+              App/tvOS/*|App/Shared/*|DesignSystem/*|Core/Playback/*|Core/CloudSync/*|AEVYNO.xcodeproj/*|AEVYNO.xcworkspace/*|*UITests*|*.xcstrings)
+                run_ui_tests=true
+                break
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          echo "run_ui_tests=$run_ui_tests" >> "$GITHUB_OUTPUT"
+          if [[ "$run_ui_tests" == "true" ]]; then
+            echo "tvOS UI validation required by changed paths."
+          else
+            echo "tvOS UI suite is not applicable to this pull request."
+          fi
+
+      - name: Record skipped tvOS UI suite
+        if: ${{ steps.scope.outputs.run_ui_tests == 'false' }}
+        run: echo "tvOS UI tests skipped because this PR does not change a tvOS/shared UI, playback/cloud UI contract, project integration, UI tests, or String Catalog."
 
       - name: Select Xcode 26.6
+        if: ${{ steps.scope.outputs.run_ui_tests == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -190,15 +362,10 @@ jobs:
           exit 1
 
       - name: Discover and boot tvOS Simulator
+        if: ${{ steps.scope.outputs.run_ui_tests == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-
-          xcrun simctl list runtimes
-          xcrun simctl list devices available
-          xcodebuild -showdestinations \
-            -workspace AEVYNO.xcworkspace \
-            -scheme AEVYNOTV
 
           simulator_record="$(
             xcrun simctl list devices available --json | python3 -c '
@@ -230,6 +397,7 @@ jobs:
           xcrun simctl bootstatus "$simulator_id" -b
 
       - name: Run tvOS UI tests
+        if: ${{ steps.scope.outputs.run_ui_tests == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -241,3 +409,15 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/aevyno-tvos-ui-tests" \
             CODE_SIGNING_ALLOWED=NO \
             test
+
+      - name: Print extended simulator diagnostics after failure
+        if: ${{ failure() && steps.scope.outputs.run_ui_tests == 'true' }}
+        shell: bash
+        run: |
+          set +e
+          xcodebuild -showsdks
+          xcrun simctl list runtimes
+          xcrun simctl list devices available
+          xcodebuild -showdestinations \
+            -workspace AEVYNO.xcworkspace \
+            -scheme AEVYNOTV
