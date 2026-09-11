@@ -18,6 +18,25 @@ func artworkRequestClampsTargetDimensions() {
   #expect(request.pixelHeight == 1)
 }
 
+@Test("Production artwork requests retain only real remote artwork identity")
+func productionArtworkRequestDoesNotFabricateSyntheticPresentation() throws {
+  let url = try #require(
+    URL(string: "https://images.example.invalid/poster.jpg?opaque=private"))
+  let request = ArtworkRequest(
+    catalogItemID: "stable-catalog-id",
+    artworkURL: url,
+    pixelWidth: 9_000,
+    pixelHeight: 0
+  )
+
+  #expect(request.itemID.rawValue == "stable-catalog-id")
+  #expect(request.remoteURL == url)
+  #expect(request.theme == nil)
+  #expect(request.kind == nil)
+  #expect(request.pixelWidth == 2_048)
+  #expect(request.pixelHeight == 1)
+}
+
 @Test("Artwork cache defaults to exactly 48 MiB")
 func artworkCacheUsesExpectedDefaultBound() async {
   let metrics = await ArtworkImagePipeline().metrics()
