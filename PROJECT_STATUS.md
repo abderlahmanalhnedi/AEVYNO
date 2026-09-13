@@ -1,10 +1,12 @@
 # Project Status
 
-Last updated: 2026-09-12
+Last updated: 2026-09-13
 
 ## Current phase
 
-**Phase 1 physical validation open; Phase 2 complete; Phase 3 implemented with physical exit gate pending**
+**Phase 1 physical validation open; Phase 2 complete; Phase 3 implemented with physical exit gate
+pending; Phase 4A Watch Progress foundation implemented with CloudKit configuration/device gates
+pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -20,8 +22,10 @@ through PR #19 at merge commit `1c94236`; post-merge CI run `34386676789` succee
 Scheduling & Policy is **COMPLETE**, merged through PR #21 at merge commit `18ba431`; post-merge CI
 run `34449661574` succeeded. Production Library/Search UI Composition is **COMPLETE**, merged
 through PR #24 at `1763189`; post-merge CI run `34598275534` succeeded. Phase 3 Playback Foundation
-is implemented on `feature/phase-3-playback-foundation`; its physical Apple TV exit gate remains
-**PENDING**.
+is implemented on `main` at `55e55a0` through PR #25; post-merge CI run `34746573352` succeeded. Its
+physical Apple TV exit gate remains **PENDING**. Phase 4A Watch Progress continuity is implemented on
+`feature/phase-4-cloud-continuity`; real CloudKit entitlement/container configuration and cross-device
+validation remain pending.
 
 ## Verified development environment
 
@@ -324,6 +328,8 @@ complete.
 
 Status: **IMPLEMENTED; PHYSICAL APPLE TV EXIT GATE PENDING**.
 
+Merged through PR #25 at `55e55a0`; post-merge CI run `34746573352` succeeded.
+
 - `PlaybackEngine` is a main-actor boundary with load/play/pause/seek/stop commands and normalized
   attempt-scoped events. `NativeAVPlayerEngine` is the only implementation and owns all AVPlayer,
   AVPlayerItem, observation, timing, and AVPlayerViewController state.
@@ -346,8 +352,44 @@ Status: **IMPLEMENTED; PHYSICAL APPLE TV EXIT GATE PENDING**.
 - no second engine, VLC/FFmpeg, provider URL guessing, broad ATS relaxation, TLS bypass, DRM
   circumvention, background entitlement, or Phase 4 implementation was added.
 
+## Phase 4A Cloud Continuity — Watch Progress
+
+Status: **IMPLEMENTED; CLOUDKIT CONFIGURATION AND REAL-DEVICE EXIT GATES PENDING**.
+
+- `FileWatchProgressRepository` remains the durable local source. The local-first cloud decorator
+  writes it before recording asynchronous/coalesced outbound work; playback never waits for CloudKit.
+- cloud schema version 1 contains only stable media ID, position, duration, completion, update time,
+  reset generation, logical revision, and operation ID. It excludes URLs, provider/credential
+  references, credentials, account IDs, catalog data, artwork, and EPG.
+- deterministic conflict order prevents lower stale progress and stale incomplete completion
+  resurrection. Explicit Start Over is persisted locally and rebased above fetched remote reset
+  generations, so completion can be legitimately cleared.
+- the actor-isolated coordinator pulls incremental custom-zone changes, coalesces outbound records,
+  persists an opaque change token separately from catalog/progress state, resolves/persists local
+  convergence, applies bounded injectable retry, and rejects cancelled/stale generations.
+- missing/restricted/temporary accounts, network/service/rate-limit/quota/schema/configuration errors
+  become presentation-safe status. Cloud or sync-metadata failure never destroys local progress.
+- the real adapter uses an injected `CKContainer` private database, custom zone and silent zone
+  subscription. Before each write it resolves against the latest server record, saves with
+  change-tag protection, and returns the record CloudKit actually committed for local convergence.
+  Server-record-changed races retry only within the bounded policy. No container/team identifier or
+  entitlement was invented because none exists in the repository. Owner configuration and signed
+  cross-device tests remain pending.
+- deterministic fakes require no Apple ID or network. Favorites, Continue Watching UI, catalog/EPG/
+  source/credential sync, monetization, analytics, and Phase 5 remain outside this slice.
+- [ADR-0014](decisions/ADR-0014-cloudkit-watch-progress-sync.md) records the decision; [Cloud Sync
+  Design](docs/CLOUD_SYNC.md) records the schema, behavior, and manual configuration gate.
+
 ## Validation evidence
 
+- Phase 4A local final validation on 2026-09-13 passed 184 shared tests in 18 suites with zero
+  failures (`swift test`, exit 0), including fetch/save races, committed-result persistence,
+  server-record-changed retry bounds, stale-generation cancellation, completion, Start Over,
+  duplicate delivery, account failure, backoff, token persistence, schema rejection, and redaction.
+  Strict all-Swift formatting lint and `git diff --check` passed. Generic tvOS and iOS Simulator
+  Debug builds and both static analyzers passed with exit 0. The full tvOS 26.5 Apple TV 4K (3rd
+  generation) Simulator UI suite passed 41 tests in 1 XCTest suite with zero failures or skips
+  (`xcodebuild test`, exit 0). Signed CloudKit and physical-device validation remain pending.
 - Production Library/Search UI Composition completed through PR #24 at `1763189`; post-merge CI run
   `34598275534` succeeded. Its final local preflight on 2026-09-11 passed 146 shared
   tests in 14 suites with zero failures (`swift test`, exit 0) and the full 33-test tvOS UI suite
@@ -485,8 +527,10 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   successful post-merge CI run `34449661574` validated the merge commit.
 - Post-Phase-2 Production Library/Search UI Composition is complete, merged through PR #24 at
   `1763189`; successful post-merge CI run `34598275534` validated it.
-- Phase 3 Playback Foundation is implemented on `feature/phase-3-playback-foundation`; its physical
-  Apple TV exit gate remains pending.
+- Phase 3 Playback Foundation is merged on `main` at `55e55a0` through PR #25; successful post-merge
+  CI run `34746573352` validated the merge commit. Its physical Apple TV exit gate remains pending.
+- Phase 4A Watch Progress continuity is implemented on `feature/phase-4-cloud-continuity`; CloudKit
+  entitlements/container setup, PR/CI delivery, and signed cross-device validation remain pending.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -543,13 +587,17 @@ navigation, repeated player/Detail/back cycles, native transport/audio/subtitle 
 completion, failure/retry, representative HLS VOD/live/master fixtures, and a long Instruments
 session. Resolve findings before marking either physical exit gate complete.
 
-The post-Phase-2 source and library application-integration follow-up is complete. Phase 3 does not
-start Phase 4 Cloud continuity. Xtream playback URL and episode-resolution contracts remain future
-work and must not be guessed.
+The post-Phase-2 source and library application-integration follow-up is complete. For Phase 4A,
+configure the owner-approved CloudKit container/capabilities, wire signed lifecycle/push triggers,
+then validate Apple TV-to-iPhone and iPhone-to-Apple TV resume plus offline reconnect. Favorites and
+Continue Watching UI remain later Phase 4 slices. Xtream playback URL and episode-resolution
+contracts remain future work and must not be guessed.
 
 ## Active blockers
 
-- No infrastructure/simulator blocker remains.
+- No build/simulator infrastructure blocker remains.
+- Phase 4A signed runtime validation is blocked on owner selection of the Apple development team,
+  CloudKit container, iCloud/CloudKit and remote-notification capabilities, and schema deployment.
 - The Phase 1 exit gate is pending because the physical Apple TV is currently unavailable
   to the owner. Pair/connect the Apple TV and select it as the AEVYNOTV run destination when
   the owner returns.
@@ -561,3 +609,5 @@ work and must not be guessed.
 Physical Apple TV: **PENDING — owner away from device; no Phase 1 UX or Phase 3 playback review run**.
 
 Physical iPhone/iPad: **NOT RUN**.
+
+Cross-device CloudKit Watch Progress: **NOT RUN — container/capabilities are not configured**.

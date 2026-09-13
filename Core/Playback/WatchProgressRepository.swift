@@ -11,8 +11,28 @@ public enum WatchProgressRepositoryError: Error, Equatable, Sendable {
 
 public protocol WatchProgressRepository: Sendable {
   func progress(for mediaID: String) async throws -> WatchProgress?
+  func allProgress() async throws -> [WatchProgress]
   func save(_ progress: WatchProgress) async throws
   func remove(mediaID: String) async throws
+  @discardableResult
+  func startOver(mediaID: String, at date: Date) async throws -> WatchProgress?
+}
+
+extension WatchProgressRepository {
+  /// Persists the user's explicit reset locally before playback continues.
+  @discardableResult
+  public func startOver(mediaID: String, at date: Date) async throws -> WatchProgress? {
+    guard let existing = try await progress(for: mediaID) else { return nil }
+    let reset = WatchProgress(
+      mediaID: existing.mediaID,
+      position: 0,
+      duration: existing.duration,
+      updatedAt: date,
+      isCompleted: false
+    )
+    try await save(reset)
+    return reset
+  }
 }
 
 /// Durable progress lives in Application Support, separately from the rebuildable catalog cache.
@@ -57,6 +77,10 @@ public actor FileWatchProgressRepository: WatchProgressRepository {
   public func progress(for mediaID: String) throws -> WatchProgress? {
     guard isValidMediaID(mediaID) else { throw WatchProgressRepositoryError.invalidProgress }
     return try loadIfNeeded()[mediaID]
+  }
+
+  public func allProgress() throws -> [WatchProgress] {
+    try loadIfNeeded().values.sorted { $0.mediaID < $1.mediaID }
   }
 
   public func save(_ progress: WatchProgress) throws {
