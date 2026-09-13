@@ -94,6 +94,10 @@ private actor TVPlaybackProgressRepository: WatchProgressRepository {
     stored?.mediaID == mediaID ? stored : nil
   }
 
+  func allProgress() -> [WatchProgress] {
+    stored.map { [$0] } ?? []
+  }
+
   func save(_ progress: WatchProgress) { stored = progress }
   func remove(mediaID _: String) { stored = nil }
 }

@@ -372,6 +372,29 @@ struct WatchProgressRepositoryTests {
     #expect(!serialized.lowercased().contains("token"))
   }
 
+  @Test("Explicit Start Over durably clears completion without removing identity")
+  func startOverIsDurable() async throws {
+    let url = temporaryURL(named: "start-over.json")
+    let repository = FileWatchProgressRepository(url: url)
+    try await repository.save(
+      WatchProgress(
+        mediaID: "stable-id",
+        position: 100,
+        duration: 100,
+        updatedAt: Date(timeIntervalSince1970: 100),
+        isCompleted: true
+      )
+    )
+
+    let reset = try await repository.startOver(
+      mediaID: "stable-id",
+      at: Date(timeIntervalSince1970: 200)
+    )
+    #expect(reset?.position == 0)
+    #expect(reset?.isCompleted == false)
+    #expect(try await FileWatchProgressRepository(url: url).progress(for: "stable-id") == reset)
+  }
+
   @Test("Progress remains when unrelated catalog state is removed or replaced")
   func catalogIndependence() async throws {
     let url = temporaryURL(named: "catalog-independent-progress.json")
@@ -526,6 +549,10 @@ private actor FakeProgressRepository: WatchProgressRepository {
   init(records: [String: WatchProgress] = [:]) { self.records = records }
 
   func progress(for mediaID: String) -> WatchProgress? { records[mediaID] }
+
+  func allProgress() -> [WatchProgress] {
+    records.values.sorted { $0.mediaID < $1.mediaID }
+  }
 
   func save(_ progress: WatchProgress) {
     saveCount += 1

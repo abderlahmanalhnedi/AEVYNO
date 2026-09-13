@@ -80,18 +80,20 @@ public final class PlaybackSession: Identifiable {
     let activeAttempt = attemptID
     observeEngineEventsIfNeeded()
 
-    resolutionTask = Task { [weak self, resolver, progressRepository] in
+    resolutionTask = Task { [weak self, resolver, progressRepository, clock] in
       do {
         async let resolvedAsset = resolver.resolve(mediaID: mediaID)
-        async let storedProgress = Self.readProgress(
+        async let storedProgress = Self.prepareProgress(
           from: progressRepository,
-          mediaID: mediaID
+          mediaID: mediaID,
+          startOver: startOver,
+          clock: clock
         )
         let (asset, progress) = try await (resolvedAsset, storedProgress)
         try Task.checkCancellation()
         self?.resolved(
           asset: asset,
-          progress: startOver ? nil : progress,
+          progress: progress,
           attemptID: activeAttempt
         )
       } catch is CancellationError {
@@ -154,6 +156,18 @@ public final class PlaybackSession: Identifiable {
     mediaID: String
   ) async -> WatchProgress? {
     try? await repository.progress(for: mediaID)
+  }
+
+  private static func prepareProgress(
+    from repository: any WatchProgressRepository,
+    mediaID: String,
+    startOver: Bool,
+    clock: any PlaybackClock
+  ) async -> WatchProgress? {
+    guard startOver else { return await readProgress(from: repository, mediaID: mediaID) }
+    let date = await clock.now()
+    _ = try? await repository.startOver(mediaID: mediaID, at: date)
+    return nil
   }
 
   private func observeEngineEventsIfNeeded() {
