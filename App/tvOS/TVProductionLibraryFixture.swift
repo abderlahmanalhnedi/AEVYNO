@@ -42,6 +42,9 @@ actor TVProductionLibraryFixture: ProductionLibraryServing {
     if arguments.contains("--ui-production-refresh") {
       return TVProductionLibraryFixture(scenario: .refresh)
     }
+    if arguments.contains(where: { $0.hasPrefix("--ui-playback-") }) {
+      return TVProductionLibraryFixture(scenario: .catalog)
+    }
     return nil
   }
 

@@ -1,5 +1,6 @@
 import Library
 import OSLog
+import Playback
 import SwiftUI
 
 actor AppSourceServiceContainer {
@@ -10,6 +11,14 @@ actor AppSourceServiceContainer {
     let services = try await SourceManagementService.openDefaultServices()
     resolvedServices = services
     return services
+  }
+
+  func playbackDependencies() async throws -> PlaybackDependencies {
+    let services = try await services()
+    return PlaybackDependencies(
+      resolver: services.playbackAssetResolver,
+      progressRepository: services.watchProgressRepository
+    )
   }
 }
 

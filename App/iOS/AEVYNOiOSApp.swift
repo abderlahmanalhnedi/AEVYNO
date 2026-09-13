@@ -1,5 +1,6 @@
 import DesignSystem
 import Library
+import Playback
 import SwiftUI
 
 @main
@@ -12,6 +13,7 @@ struct AEVYNOiOSApp: App {
   private let artworkPipeline: ArtworkImagePipeline
   private let usesSyntheticHome: Bool
   private let refreshLifecycle: RefreshSchedulingLifecycleController
+  private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
 
   init() {
     let serviceContainer = AppSourceServiceContainer()
@@ -29,6 +31,7 @@ struct AEVYNOiOSApp: App {
     }
     sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
     artworkPipeline = ArtworkImagePipeline()
+    playbackServiceFactory = { try await serviceContainer.playbackDependencies() }
   }
 
   var body: some Scene {
@@ -40,7 +43,8 @@ struct AEVYNOiOSApp: App {
           MobileProductionLibraryView(
             viewModel: productionLibraryViewModel,
             artworkPipeline: artworkPipeline,
-            sourceServiceFactory: sourceServiceFactory
+            sourceServiceFactory: sourceServiceFactory,
+            playbackServiceFactory: playbackServiceFactory
           )
         }
       }

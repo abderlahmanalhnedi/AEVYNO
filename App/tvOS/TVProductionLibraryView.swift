@@ -1,6 +1,7 @@
 import DesignSystem
 import Domain
 import Library
+import Playback
 import SwiftUI
 
 struct TVProductionLibraryView: View {
@@ -14,15 +15,23 @@ struct TVProductionLibraryView: View {
 
   private let artworkPipeline: ArtworkImagePipeline
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
+  private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
+  private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
 
   init(
     viewModel: ProductionLibraryViewModel,
     artworkPipeline: ArtworkImagePipeline,
-    sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory
+    sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
+    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
+    playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory = {
+      NativeAVPlayerEngine()
+    }
   ) {
     _viewModel = State(initialValue: viewModel)
     self.artworkPipeline = artworkPipeline
     self.sourceServiceFactory = sourceServiceFactory
+    self.playbackServiceFactory = playbackServiceFactory
+    self.playbackEngineFactory = playbackEngineFactory
   }
 
   var body: some View {
@@ -36,7 +45,12 @@ struct TVProductionLibraryView: View {
         content
       }
       .navigationDestination(item: $selectedItem) { item in
-        TVLibraryDetailView(item: item, artworkPipeline: artworkPipeline)
+        TVLibraryDetailView(
+          item: item,
+          artworkPipeline: artworkPipeline,
+          playbackServiceFactory: playbackServiceFactory,
+          playbackEngineFactory: playbackEngineFactory
+        )
       }
       .navigationDestination(isPresented: $showsSources) {
         TVSourcesView(serviceFactory: sourceServiceFactory)
@@ -400,6 +414,24 @@ private struct TVLibraryMessage: View {
 private struct TVLibraryDetailView: View {
   let item: LibraryItemPresentation
   let artworkPipeline: ArtworkImagePipeline
+  @State private var playbackViewModel: PlaybackDetailViewModel
+  @State private var playbackSession: PlaybackSession?
+
+  init(
+    item: LibraryItemPresentation,
+    artworkPipeline: ArtworkImagePipeline,
+    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
+    playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory
+  ) {
+    self.item = item
+    self.artworkPipeline = artworkPipeline
+    _playbackViewModel = State(
+      initialValue: PlaybackDetailViewModel(
+        item: item,
+        serviceFactory: playbackServiceFactory,
+        engineFactory: playbackEngineFactory
+      ))
+  }
 
   var body: some View {
     ZStack(alignment: .bottomLeading) {
@@ -431,19 +463,57 @@ private struct TVLibraryDetailView: View {
         Text(AppText.libraryItemMetadata(item))
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
-        Text(AppText.playbackUnavailable)
-          .aevynoTypography(.status)
-          .foregroundStyle(AEVYNOColor.secondaryText)
-          .padding(.horizontal, AEVYNOSpacing.md)
-          .padding(.vertical, AEVYNOSpacing.sm)
-          .background(AEVYNOColor.surface)
-          .clipShape(RoundedRectangle(cornerRadius: AEVYNOCornerRadius.card))
-          .accessibilityIdentifier("library.detail.playback-unavailable")
-          .accessibilityHint(AppText.playbackUnavailableHint)
+        playbackActions
       }
       .padding(.horizontal, 110)
       .padding(.bottom, 88)
     }
+    .task { await playbackViewModel.load() }
+    .fullScreenCover(
+      item: $playbackSession,
+      onDismiss: {
+        Task { await playbackViewModel.load() }
+      },
+      content: { session in
+        PlaybackPresentationView(session: session)
+      }
+    )
+  }
+
+  @ViewBuilder
+  private var playbackActions: some View {
+    switch playbackViewModel.state {
+    case .loading:
+      ProgressView(AppText.playbackPreparing)
+        .accessibilityIdentifier("library.detail.playback-loading")
+    case .play:
+      Button(AppText.play) { beginPlayback(startOver: false) }
+        .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier("library.detail.play")
+        .accessibilityHint(AppText.playAccessibilityHint)
+    case .resume(let position):
+      HStack(spacing: AEVYNOSpacing.sm) {
+        Button(AppText.resumeFrom(position)) { beginPlayback(startOver: false) }
+          .buttonStyle(.borderedProminent)
+          .accessibilityIdentifier("library.detail.resume")
+        Button(AppText.startOver) { beginPlayback(startOver: true) }
+          .buttonStyle(.bordered)
+          .accessibilityIdentifier("library.detail.start-over")
+      }
+    case .unavailable(let failure):
+      Text(AppText.playbackFailureMessage(failure))
+        .aevynoTypography(.status)
+        .foregroundStyle(AEVYNOColor.secondaryText)
+        .padding(.horizontal, AEVYNOSpacing.md)
+        .padding(.vertical, AEVYNOSpacing.sm)
+        .background(AEVYNOColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: AEVYNOCornerRadius.card))
+        .accessibilityIdentifier("library.detail.playback-unavailable")
+    }
+  }
+
+  private func beginPlayback(startOver: Bool) {
+    playbackSession = playbackViewModel.makeSession(startOver: startOver)
   }
 
   private var placeholderKind: CatalogArtworkPlaceholderKind {
