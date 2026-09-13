@@ -121,20 +121,22 @@ Exit gate:
 
 ## Phase 4 — Cloud continuity
 
-Status: **PHASE 4A WATCH PROGRESS FOUNDATION IMPLEMENTED; ENTITLEMENT AND REAL-DEVICE GATES
-PENDING**.
+Status: **PHASE 4A WATCH PROGRESS FOUNDATION COMPLETE; PHASE 4B FAVORITES SYNC IMPLEMENTED;
+ENTITLEMENT AND REAL-DEVICE GATES PENDING**.
 
 Deliver:
 - CloudKit private DB integration — **WATCH PROGRESS ADAPTER IMPLEMENTED; OWNER CONTAINER
   CONFIGURATION PENDING**.
-- local-first progress/favorites — **WATCH PROGRESS IMPLEMENTED; FAVORITES NOT STARTED**.
-- conflict resolution — **WATCH PROGRESS IMPLEMENTED AND DETERMINISTICALLY TESTED**.
+- local-first progress/favorites — **WATCH PROGRESS AND FAVORITES IMPLEMENTED**.
+- conflict resolution — **WATCH PROGRESS AND FAVORITES DETERMINISTICALLY TESTED**.
 - iCloud unavailable mode — **WATCH PROGRESS CONTRACT AND TESTS IMPLEMENTED**.
 
 Phase 4A includes the versioned Watch Progress record, explicit Start Over generation, local-first
 repository decorator, actor-isolated coordinator, bounded retry/cancellation, persisted custom-zone
 change token, normalized account/service state, and injected private CloudKit adapter. It deliberately
-does not add Favorites or Continue Watching UI. See
+does not add Favorites or Continue Watching UI. Phase 4B adds a separate durable favorite repository,
+versioned CloudKit favorite records, operation revisions, removal tombstones and restart-safe sync
+metadata; a tombstone wins an equal-version add, while a later re-favorite advances the revision. See
 [ADR-0014](../decisions/ADR-0014-cloudkit-watch-progress-sync.md) and
 [Cloud Sync Design](CLOUD_SYNC.md).
 

@@ -5,8 +5,8 @@ Last updated: 2026-09-13
 ## Current phase
 
 **Phase 1 physical validation open; Phase 2 complete; Phase 3 implemented with physical exit gate
-pending; Phase 4A Watch Progress foundation implemented with CloudKit configuration/device gates
-pending**
+pending; Phase 4A Watch Progress Sync complete; Phase 4B Favorites Sync implemented with CloudKit
+configuration/device gates pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -23,9 +23,9 @@ Scheduling & Policy is **COMPLETE**, merged through PR #21 at merge commit `18ba
 run `34449661574` succeeded. Production Library/Search UI Composition is **COMPLETE**, merged
 through PR #24 at `1763189`; post-merge CI run `34598275534` succeeded. Phase 3 Playback Foundation
 is implemented on `main` at `55e55a0` through PR #25; post-merge CI run `34746573352` succeeded. Its
-physical Apple TV exit gate remains **PENDING**. Phase 4A Watch Progress continuity is implemented on
-`feature/phase-4-cloud-continuity`; real CloudKit entitlement/container configuration and cross-device
-validation remain pending.
+physical Apple TV exit gate remains **PENDING**. Phase 4A Watch Progress Sync is complete on `main`;
+Phase 4B Favorites Sync is implemented on `feature/phase-4-favorites-sync`. Real CloudKit
+entitlement/container configuration and cross-device validation remain pending.
 
 ## Verified development environment
 
@@ -382,6 +382,11 @@ Status: **IMPLEMENTED; CLOUDKIT CONFIGURATION AND REAL-DEVICE EXIT GATES PENDING
 
 ## Validation evidence
 
+- Phase 4B Favorites Sync local validation on 2026-09-13 passed the full shared `swift test` suite,
+  including durable reopen, idempotent add/remove, tombstone conflict resolution, later re-favorite,
+  offline/account-unavailable local operation, reconnect publication, cloud-failure preservation and
+  cloud-model privacy checks. No real CloudKit account, entitlement or device validation was run.
+
 - Phase 4A local final validation on 2026-09-13 passed 184 shared tests in 18 suites with zero
   failures (`swift test`, exit 0), including fetch/save races, committed-result persistence,
   server-record-changed retry bounds, stale-generation cancellation, completion, Start Over,
@@ -529,8 +534,9 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   `1763189`; successful post-merge CI run `34598275534` validated it.
 - Phase 3 Playback Foundation is merged on `main` at `55e55a0` through PR #25; successful post-merge
   CI run `34746573352` validated the merge commit. Its physical Apple TV exit gate remains pending.
-- Phase 4A Watch Progress continuity is implemented on `feature/phase-4-cloud-continuity`; CloudKit
-  entitlements/container setup, PR/CI delivery, and signed cross-device validation remain pending.
+- Phase 4A Watch Progress Sync is complete on `main`; Phase 4B Favorites Sync is implemented on
+  `feature/phase-4-favorites-sync`. CloudKit entitlements/container setup, PR/CI delivery, and
+  signed cross-device validation remain pending; Phase 4 is not complete.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -587,16 +593,16 @@ navigation, repeated player/Detail/back cycles, native transport/audio/subtitle 
 completion, failure/retry, representative HLS VOD/live/master fixtures, and a long Instruments
 session. Resolve findings before marking either physical exit gate complete.
 
-The post-Phase-2 source and library application-integration follow-up is complete. For Phase 4A,
+The post-Phase-2 source and library application-integration follow-up is complete. For Phase 4,
 configure the owner-approved CloudKit container/capabilities, wire signed lifecycle/push triggers,
-then validate Apple TV-to-iPhone and iPhone-to-Apple TV resume plus offline reconnect. Favorites and
-Continue Watching UI remain later Phase 4 slices. Xtream playback URL and episode-resolution
-contracts remain future work and must not be guessed.
+then validate Apple TV-to-iPhone and iPhone-to-Apple TV resume/favorites plus offline reconnect.
+Favorites and Continue Watching UI remain later Phase 4 slices. Xtream playback URL and
+episode-resolution contracts remain future work and must not be guessed.
 
 ## Active blockers
 
 - No build/simulator infrastructure blocker remains.
-- Phase 4A signed runtime validation is blocked on owner selection of the Apple development team,
+- Phase 4A/4B signed runtime validation is blocked on owner selection of the Apple development team,
   CloudKit container, iCloud/CloudKit and remote-notification capabilities, and schema deployment.
 - The Phase 1 exit gate is pending because the physical Apple TV is currently unavailable
   to the owner. Pair/connect the Apple TV and select it as the AEVYNOTV run destination when

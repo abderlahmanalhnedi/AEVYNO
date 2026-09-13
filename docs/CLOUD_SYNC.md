@@ -32,13 +32,18 @@ constraints without changing synchronization identity.
 
 See [ADR-0014](../decisions/ADR-0014-cloudkit-watch-progress-sync.md).
 
-### Later record types
-
 ### Favorite
-- stableContentID
-- sourceStableID
-- createdAt/updatedAt
-- removed/tombstone strategy if needed
+Phase 4B implements a provider-neutral `CloudFavoriteRecord` with schema version 1, stable `mediaID`,
+an `isRemoved` tombstone, logical revision and opaque operation ID. The private-zone adapter uses
+`AEVYNO_Favorite_v1`; its record name is a SHA-256 digest of the stable media identity. It stores no
+source endpoint, provider response, catalog payload, artwork URL, playback URL or credential.
+
+Favorites use a dedicated durable local file and dedicated restart-safe sync metadata/change token,
+both outside the rebuildable catalog cache. Add/remove commits locally before outbound intent is
+queued. A higher logical revision wins; at an equal revision, a removal tombstone wins an add, then
+operation ID is the deterministic tie-breaker. This prevents a stale add from resurrecting a removal,
+while a deliberate later re-favorite advances the revision. Tombstones are retained in sync metadata
+and CloudKit rather than deleting records.
 
 ### UserPreference
 Only settings that are safe and useful to synchronize.
