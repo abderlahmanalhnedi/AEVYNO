@@ -1,10 +1,10 @@
 # Project Status
 
-Last updated: 2026-09-10
+Last updated: 2026-09-12
 
 ## Current phase
 
-**Phase 1 physical validation open; Phase 2 complete; Phase 3 not started**
+**Phase 1 physical validation open; Phase 2 complete; Phase 3 implemented with physical exit gate pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -16,9 +16,12 @@ Phase 2 is complete on `main` at `b557347` through merged PR #17. Its approved r
 and exit gate are satisfied by the documented 50k/100k import, refresh and query benchmarks, atomic
 last-known-good catalog behavior, and successful post-merge CI run `34321067413` on that exact
 commit. The post-Phase-2 Source Management & Validation Flows follow-up is **COMPLETE**, merged
-through PR #19 at merge commit `1c94236`; post-merge CI run `34386676789` succeeded. Phase 3
-playback work has not started. Refresh Scheduling & Policy is **COMPLETE**, merged through PR #21
-at merge commit `18ba431`; post-merge CI run `34449661574` succeeded.
+through PR #19 at merge commit `1c94236`; post-merge CI run `34386676789` succeeded. Refresh
+Scheduling & Policy is **COMPLETE**, merged through PR #21 at merge commit `18ba431`; post-merge CI
+run `34449661574` succeeded. Production Library/Search UI Composition is **COMPLETE**, merged
+through PR #24 at `1763189`; post-merge CI run `34598275534` succeeded. Phase 3 Playback Foundation
+is implemented on `feature/phase-3-playback-foundation`; its physical Apple TV exit gate remains
+**PENDING**.
 
 ## Verified development environment
 
@@ -221,8 +224,8 @@ The former Command Line Tools / missing `simctl` blocker is resolved.
   security limits, 10k/50k/100k release measurements and remaining device/UI limitations.
 - no final Search/browse UI, source-management UI, refresh scheduler, CloudKit catalog sync or Phase 3
   playback work was included in the Phase 2F slice. Those UI/scheduling items were assigned to the
-  post-Phase-2 application-integration follow-up; scheduling is complete and production
-  library/search composition is now implemented under final validation/review. Neither item changes
+  post-Phase-2 application-integration follow-up; scheduling and production library/search
+  composition are complete. Neither item changes
   the completed Phase 2 exit gate.
 
 ## Post-Phase-2 Source Management & Validation Flows
@@ -255,7 +258,7 @@ Status: **COMPLETE**. Merged through PR #19 at merge commit `1c94236`; post-merg
   remains **PENDING**.
 - [Source Management and Validation](docs/SOURCE_MANAGEMENT.md) documents the workflows and current
   limitations. Production tvOS/iOS library/search composition is now **IMPLEMENTED; UNDER FINAL
-  VALIDATION/REVIEW**. Phase 3 playback remains **NOT STARTED**.
+  COMPLETE**, merged through PR #24 at `1763189`; post-merge CI run `34598275534` succeeded.
 
 ## Post-Phase-2 Refresh Scheduling & Policy
 
@@ -285,8 +288,9 @@ Status: **COMPLETE**. Merged through PR #21 at merge commit `18ba431`; post-merg
 
 ## Post-Phase-2 Production Library/Search UI Composition
 
-Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Phase 2, Source Management & Validation
-Flows and Refresh Scheduling & Policy remain complete. Phase 3 remains not started.
+Status: **COMPLETE**. Merged through PR #24 at `1763189`; post-merge CI run `34598275534`
+succeeded. Phase 2, Source Management & Validation Flows and Refresh Scheduling & Policy remain
+complete.
 
 - normal tvOS and iOS/iPadOS launches use the committed local catalog through the shared
   `ProductionLibraryService`, `LibraryPagingController` and `ProductionLibraryViewModel` boundaries;
@@ -316,9 +320,36 @@ Flows and Refresh Scheduling & Policy remain complete. Phase 3 remains not start
   [Production Library and Search UI](docs/PRODUCTION_LIBRARY_UI.md) records behavior, exact bounds,
   security limits and remaining physical-device validation.
 
+## Phase 3 Playback Foundation
+
+Status: **IMPLEMENTED; PHYSICAL APPLE TV EXIT GATE PENDING**.
+
+- `PlaybackEngine` is a main-actor boundary with load/play/pause/seek/stop commands and normalized
+  attempt-scoped events. `NativeAVPlayerEngine` is the only implementation and owns all AVPlayer,
+  AVPlayerItem, observation, timing, and AVPlayerViewController state.
+- the Library resolver looks up exactly one stable catalog identity. A committed M3U item uses its
+  exact accepted HTTP/HTTPS media URL and remains `.unspecified`. Xtream live/VOD return
+  `unsupported` because the persisted contract lacks a reviewed final playback path/container;
+  series additionally lacks episode enumeration and episode identity.
+- playback URLs are ephemeral and redacted. They are absent from presentation/accessibility and
+  from durable `WatchProgress`, which records only stable ID, position, duration, timestamp and
+  completion in an atomically replaced versioned Application Support file outside catalog SQLite.
+- finite seekable non-live playback receives throttled local checkpoints, Resume, Start Over, and a
+  95% completion rule. Clearly live media receives no VOD progress. Phase 3 adds no CloudKit writes.
+- tvOS and iOS/iPadOS use native `AVPlayerViewController` controls with shared session logic and
+  platform-specific navigation. English, German and Arabic/RTL presentation, safe errors, explicit
+  fresh-resolution Retry, deterministic engine/resolver/progress fixtures, and playback UI modes
+  are included.
+- [ADR-0013](decisions/ADR-0013-native-playback-foundation.md) records the decision and
+  [Playback Foundation](docs/PLAYBACK_FOUNDATION.md) records support, exact semantics, fixture
+  matrix, security constraints, evidence, and the physical-device checklist.
+- no second engine, VLC/FFmpeg, provider URL guessing, broad ATS relaxation, TLS bypass, DRM
+  circumvention, background entitlement, or Phase 4 implementation was added.
+
 ## Validation evidence
 
-- Production Library/Search UI Composition final local preflight on 2026-09-11 passed 146 shared
+- Production Library/Search UI Composition completed through PR #24 at `1763189`; post-merge CI run
+  `34598275534` succeeded. Its final local preflight on 2026-09-11 passed 146 shared
   tests in 14 suites with zero failures (`swift test`, exit 0) and the full 33-test tvOS UI suite
   with zero failures or skips on Apple TV 4K (3rd generation), tvOS 26.5 Simulator. Generic tvOS
   and iOS Simulator Debug builds and both static analyzers passed with exit 0. Strict formatting lint
@@ -327,7 +358,7 @@ Flows and Refresh Scheduling & Policy remain complete. Phase 3 remains not start
   queries remained bounded (first page 0.47 ms, category page 1.14 ms, common search 0.49 ms,
   rare/no-result search 7.62/7.78 ms); the application composition mapped 384 rows and retained
   exactly 256 presentation items in 1.16 ms. Physical Apple TV and physical iPhone/iPad validation
-  remain pending. PR/self-hosted CI validation is still pending and this milestone is not complete.
+  remain pending.
 - Refresh Scheduling & Policy local final validation passed 132 shared tests in 13 suites with zero
   failures and 22 tvOS UI tests with zero failures on the Apple TV 4K (3rd generation), tvOS 26.5
   simulator. Generic tvOS/iOS Simulator builds, both static analyzers, strict all-Swift formatting
@@ -429,10 +460,13 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   `34386676789` completed successfully, including Core / Build / Analyze and tvOS UI Tests.
 - Refresh Scheduling & Policy merged through PR #21 at `18ba431`; post-merge CI run `34449661574`
   completed successfully, including Core / Build / Analyze and tvOS UI Tests.
+- Production Library/Search UI Composition merged through PR #24 at `1763189`; post-merge CI run
+  `34598275534` completed successfully, including Core / Build / Analyze and tvOS UI Tests.
 - CI uses no signing identity, repository secret, Apple ID, provider credential or external
   runtime dependency. It does not replace physical Apple TV validation.
-- Phase 1 remains physically **PENDING**. Phase 2A/B/C/D/E/F are merged and the approved Phase 2
-  roadmap gate is complete. Phase 3 has not started.
+- Phase 1 remains physically **PENDING**. Phase 2A/B/C/D/E/F and post-Phase-2 application
+  integration are merged and complete. Phase 3 is implemented on its feature branch; its physical
+  Apple TV exit gate and PR/self-hosted CI validation remain pending.
 
 ## Repository state
 
@@ -449,9 +483,10 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   `1c94236`; successful post-merge CI run `34386676789` validated the merge commit.
 - Post-Phase-2 Refresh Scheduling & Policy is complete, merged through PR #21 at `18ba431`;
   successful post-merge CI run `34449661574` validated the merge commit.
-- Post-Phase-2 Production Library/Search UI Composition is implemented on
-  `feature/production-library-search-ui` and remains under final local/PR/CI validation. It has not
-  been merged.
+- Post-Phase-2 Production Library/Search UI Composition is complete, merged through PR #24 at
+  `1763189`; successful post-merge CI run `34598275534` validated it.
+- Phase 3 Playback Foundation is implemented on `feature/phase-3-playback-foundation`; its physical
+  Apple TV exit gate remains pending.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -502,18 +537,15 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 ## Next milestone
 
-Run the Phase 1 Home, Detail, focus-restoration, accessibility and Reduce Motion checklist
-on a physical Apple TV in both the base LTR experience and Arabic RTL. Include rapid directional
-navigation, repeated open/back cycles and
-a long stress-mode browsing session with Instruments. Resolve findings before marking Phase 1
-complete.
+Run the Phase 1 Home/Detail/focus/accessibility/Reduce Motion checklist and the Phase 3 lawful-media
+playback checklist on a physical Apple TV in base LTR and Arabic RTL. Include rapid directional
+navigation, repeated player/Detail/back cycles, native transport/audio/subtitle controls, resume and
+completion, failure/retry, representative HLS VOD/live/master fixtures, and a long Instruments
+session. Resolve findings before marking either physical exit gate complete.
 
-The post-Phase-2 source and library application-integration follow-up has completed Source Management
-& Validation Flows and Refresh Scheduling & Policy. Production Library/Search UI Composition is
-implemented and under final validation/review on its feature branch; it is not yet merged. These
-items are not part of the approved Phase 2 deliverables or exit gate. M3U file acquisition remains
-outside the completed remote-acquisition slice. Do not begin Phase 3 playback implementation before
-its approved phase gate.
+The post-Phase-2 source and library application-integration follow-up is complete. Phase 3 does not
+start Phase 4 Cloud continuity. Xtream playback URL and episode-resolution contracts remain future
+work and must not be guessed.
 
 ## Active blockers
 
@@ -521,9 +553,11 @@ its approved phase gate.
 - The Phase 1 exit gate is pending because the physical Apple TV is currently unavailable
   to the owner. Pair/connect the Apple TV and select it as the AEVYNOTV run destination when
   the owner returns.
+- The Phase 3 exit gate is pending for the same reason; simulator automation cannot establish real
+  first-frame, provider, Siri Remote, memory/thermal, or long-session playback behavior.
 
 ## Real-device validation status
 
-Physical Apple TV: **PENDING — owner away from device; no Phase 1 real-device review run**.
+Physical Apple TV: **PENDING — owner away from device; no Phase 1 UX or Phase 3 playback review run**.
 
 Physical iPhone/iPad: **NOT RUN**.

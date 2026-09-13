@@ -1,7 +1,7 @@
 # Production Library and Search UI
 
 Date: 2026-09-10
-Status: Implemented; under final validation/review
+Status: Complete; merged through PR #24 at `1763189`, post-merge CI `34598275534` succeeded
 
 ## Scope
 
@@ -111,6 +111,7 @@ networking, production credentials or the user's catalog. Final command counts a
 recorded in `PROJECT_STATUS.md` and the pull request after validation completes.
 
 Physical Apple TV LTR/Arabic RTL focus, visual quality, long-session memory and Instruments review
-remain pending. Physical iPhone/iPad validation has not been run. Phase 3 playback has not started.
+remain pending. Physical iPhone/iPad validation has not been run. Phase 3 Playback Foundation is
+implemented separately with its physical Apple TV exit gate pending.
 
 See [ADR-0012](../decisions/ADR-0012-production-library-ui-composition.md).
