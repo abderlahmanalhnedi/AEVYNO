@@ -28,7 +28,7 @@ let package = Package(
     ),
     .target(
       name: "Library",
-      dependencies: ["Domain", "IPTVCore", "Persistence", "AEVYNOSecurity"],
+      dependencies: ["Domain", "IPTVCore", "Playback", "Persistence", "AEVYNOSecurity"],
       path: "Core/Library"
     ),
     .target(name: "Playback", dependencies: ["Domain"], path: "Core/Playback"),
