@@ -1,6 +1,7 @@
 import DesignSystem
 import Domain
 import Library
+import Playback
 import SwiftUI
 import UIKit
 
@@ -16,6 +17,8 @@ struct AEVYNOTVApp: App {
   private let refreshLifecycle: RefreshSchedulingLifecycleController
   private let usesSyntheticHome: Bool
   private let productionLibraryViewModel: ProductionLibraryViewModel?
+  private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
+  private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
 
   init() {
     let arguments = ProcessInfo.processInfo.arguments
@@ -34,8 +37,14 @@ struct AEVYNOTVApp: App {
       sourceEditorDraft = TVSourceManagementFixture.editorDraft(arguments: arguments)
       refreshLifecycle = RefreshSchedulingLifecycleController { fixture }
       productionLibraryViewModel = nil
+      let playbackFixture = TVPlaybackFixture(arguments: arguments)
+      let playbackDependencies = playbackFixture.dependencies
+      playbackServiceFactory = { playbackDependencies }
+      playbackEngineFactory = { playbackFixture.makeEngine() }
     } else if let fixture = TVProductionLibraryFixture.fixture(arguments: arguments) {
       let sourceFixture = TVSourceManagementFixture(arguments: [])
+      let playbackFixture = TVPlaybackFixture(arguments: arguments)
+      let playbackDependencies = playbackFixture.dependencies
       sourceServiceFactory = { sourceFixture }
       sourceEditorDraft = nil
       refreshLifecycle = RefreshSchedulingLifecycleController { sourceFixture }
@@ -43,6 +52,8 @@ struct AEVYNOTVApp: App {
         serviceFactory: { fixture },
         initialQuery: TVProductionLibraryFixture.initialQuery(arguments: arguments)
       )
+      playbackServiceFactory = { playbackDependencies }
+      playbackEngineFactory = { playbackFixture.makeEngine() }
     } else {
       let serviceContainer = AppSourceServiceContainer()
       sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
@@ -53,6 +64,8 @@ struct AEVYNOTVApp: App {
       productionLibraryViewModel = ProductionLibraryViewModel {
         try await serviceContainer.services().productionLibrary
       }
+      playbackServiceFactory = { try await serviceContainer.playbackDependencies() }
+      playbackEngineFactory = { NativeAVPlayerEngine() }
     }
   }
 
@@ -77,7 +90,9 @@ struct AEVYNOTVApp: App {
           TVProductionLibraryView(
             viewModel: productionLibraryViewModel,
             artworkPipeline: artworkPipeline,
-            sourceServiceFactory: sourceServiceFactory
+            sourceServiceFactory: sourceServiceFactory,
+            playbackServiceFactory: playbackServiceFactory,
+            playbackEngineFactory: playbackEngineFactory
           )
         }
       }

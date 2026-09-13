@@ -3,6 +3,7 @@ import Domain
 import Foundation
 import IPTVCore
 import Persistence
+import Playback
 
 public struct SourceDraft: Equatable, Sendable {
   public enum CredentialInput: Equatable, Sendable {
@@ -124,15 +125,21 @@ public struct ProductionSourceServices: Sendable {
   public let sourceManagement: SourceManagementService
   public let refreshScheduling: RefreshSchedulingService
   public let productionLibrary: ProductionLibraryService
+  public let playbackAssetResolver: ProductionPlaybackAssetResolver
+  public let watchProgressRepository: FileWatchProgressRepository
 
   public init(
     sourceManagement: SourceManagementService,
     refreshScheduling: RefreshSchedulingService,
-    productionLibrary: ProductionLibraryService
+    productionLibrary: ProductionLibraryService,
+    playbackAssetResolver: ProductionPlaybackAssetResolver,
+    watchProgressRepository: FileWatchProgressRepository
   ) {
     self.sourceManagement = sourceManagement
     self.refreshScheduling = refreshScheduling
     self.productionLibrary = productionLibrary
+    self.playbackAssetResolver = playbackAssetResolver
+    self.watchProgressRepository = watchProgressRepository
   }
 }
 
@@ -204,10 +211,16 @@ public actor SourceManagementService: SourceManaging {
       sourceService: sourceManagement,
       revisionCenter: revisionCenter
     )
+    let playbackAssetResolver = ProductionPlaybackAssetResolver(
+      catalog: CatalogLibraryService(repository: catalogRepository)
+    )
+    let watchProgressRepository = try FileWatchProgressRepository.openDefault()
     return ProductionSourceServices(
       sourceManagement: sourceManagement,
       refreshScheduling: refreshScheduling,
-      productionLibrary: productionLibrary
+      productionLibrary: productionLibrary,
+      playbackAssetResolver: playbackAssetResolver,
+      watchProgressRepository: watchProgressRepository
     )
   }
 

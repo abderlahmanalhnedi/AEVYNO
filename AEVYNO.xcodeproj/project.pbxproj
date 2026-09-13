@@ -13,6 +13,8 @@
 		100000000000000000000004 /* Domain in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000004 /* Domain */; };
 		100000000000000000000005 /* Library in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000005 /* Library */; };
 		100000000000000000000006 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000006 /* DesignSystem */; };
+		100000000000000000000007 /* Playback in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000007 /* Playback */; };
+		100000000000000000000008 /* Playback in Frameworks */ = {isa = PBXBuildFile; productRef = 800000000000000000000008 /* Playback */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +48,7 @@
 				100000000000000000000001 /* Domain in Frameworks */,
 				100000000000000000000002 /* Library in Frameworks */,
 				100000000000000000000003 /* DesignSystem in Frameworks */,
+				100000000000000000000007 /* Playback in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -56,6 +59,7 @@
 				100000000000000000000004 /* Domain in Frameworks */,
 				100000000000000000000005 /* Library in Frameworks */,
 				100000000000000000000006 /* DesignSystem in Frameworks */,
+				100000000000000000000008 /* Playback in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,6 +118,7 @@
 				800000000000000000000001 /* Domain */,
 				800000000000000000000002 /* Library */,
 				800000000000000000000003 /* DesignSystem */,
+				800000000000000000000007 /* Playback */,
 			);
 			productName = AEVYNOTV;
 			productReference = 300000000000000000000001 /* AEVYNOTV.app */;
@@ -140,6 +145,7 @@
 				800000000000000000000004 /* Domain */,
 				800000000000000000000005 /* Library */,
 				800000000000000000000006 /* DesignSystem */,
+				800000000000000000000008 /* Playback */,
 			);
 			productName = AEVYNOiOS;
 			productReference = 300000000000000000000002 /* AEVYNOiOS.app */;
@@ -442,6 +448,8 @@
 		800000000000000000000004 /* Domain */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Domain; };
 		800000000000000000000005 /* Library */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Library; };
 		800000000000000000000006 /* DesignSystem */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = DesignSystem; };
+		800000000000000000000007 /* Playback */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Playback; };
+		800000000000000000000008 /* Playback */ = {isa = XCSwiftPackageProductDependency; package = 800000000000000000000000 /* XCLocalSwiftPackageReference "." */; productName = Playback; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A00000000000000000000001 /* Project object */;

@@ -1,6 +1,7 @@
 import Domain
 import Foundation
 import Library
+import Playback
 
 enum AppText {
   static let appName = localized("app.name", defaultValue: "AEVYNO")
@@ -102,6 +103,20 @@ enum AppText {
   static let sourcesSubtitle = localized(
     "sources.subtitle",
     defaultValue: "Connect and maintain your private media sources."
+  )
+  static let play = localized("playback.action.play", defaultValue: "Play")
+  static let startOver = localized("playback.action.start_over", defaultValue: "Start Over")
+  static let playbackPreparing = localized(
+    "playback.preparing", defaultValue: "Preparing playback"
+  )
+  static let playbackLoading = localized("playback.loading", defaultValue: "Loading")
+  static let playbackBuffering = localized("playback.buffering", defaultValue: "Buffering")
+  static let playbackFailed = localized("playback.failed.title", defaultValue: "Playback failed")
+  static let playAccessibilityHint = localized(
+    "playback.action.play.hint", defaultValue: "Opens the system player"
+  )
+  static let playbackRetryHint = localized(
+    "playback.action.retry.hint", defaultValue: "Resolves a fresh playback attempt"
   )
   static let sourcesLoading = localized("sources.loading", defaultValue: "Loading sources")
   static let sourcesUnavailable = localized(
@@ -255,6 +270,73 @@ enum AppText {
       values.append(categoryTitle)
     }
     return values.joined(separator: "  ·  ")
+  }
+
+  static func resumeFrom(_ position: TimeInterval) -> String {
+    String.localizedStringWithFormat(
+      localized("playback.action.resume_from", defaultValue: "Resume from %@"),
+      formattedPlaybackTime(position)
+    )
+  }
+
+  static func playbackFailureMessage(_ failure: PlaybackFailure?) -> String {
+    switch failure {
+    case .sourceUnavailable:
+      localized(
+        "playback.failure.source_unavailable",
+        defaultValue: "The source is not available right now."
+      )
+    case .itemUnavailable, .notFound:
+      localized(
+        "playback.failure.item_unavailable",
+        defaultValue: "This item is no longer available."
+      )
+    case .unsupported, .unsupportedFormat:
+      localized(
+        "playback.failure.unsupported",
+        defaultValue: "This item cannot be played yet."
+      )
+    case .unauthorized, .forbidden:
+      localized(
+        "playback.failure.authorization",
+        defaultValue: "The source did not allow playback."
+      )
+    case .transportSecurity:
+      localized(
+        "playback.failure.transport_security",
+        defaultValue: "A secure connection could not be established."
+      )
+    case .transport:
+      localized(
+        "playback.failure.transport",
+        defaultValue: "The stream could not be reached. Try again."
+      )
+    case .mediaUnavailable, .unknown, nil:
+      localized(
+        "playback.failure.generic",
+        defaultValue: "Playback could not continue. Try again."
+      )
+    }
+  }
+
+  static func playbackState(_ state: PlaybackState) -> String {
+    switch state {
+    case .idle: localized("playback.state.idle", defaultValue: "Player idle")
+    case .loading, .ready: playbackLoading
+    case .playing: localized("playback.state.playing", defaultValue: "Playing")
+    case .paused: localized("playback.state.paused", defaultValue: "Paused")
+    case .buffering: playbackBuffering
+    case .ended: localized("playback.state.ended", defaultValue: "Playback ended")
+    case .failed: playbackFailed
+    }
+  }
+
+  private static func formattedPlaybackTime(_ seconds: TimeInterval) -> String {
+    let formatter = DateComponentsFormatter()
+    formatter.allowedUnits = seconds >= 3_600 ? [.hour, .minute, .second] : [.minute, .second]
+    formatter.unitsStyle = .positional
+    formatter.zeroFormattingBehavior = .pad
+    return formatter.string(from: max(seconds, 0)) ?? "0:00"
   }
 
   static func refreshPolicy(_ policy: RefreshPolicy) -> String {

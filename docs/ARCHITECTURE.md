@@ -107,26 +107,47 @@ composition owns one cancellable active-session loop using Swift Concurrency; it
 suspended/terminated execution guarantee or background entitlement. See
 [ADR-0011](../decisions/ADR-0011-refresh-scheduling-policy.md) and
 [Refresh Scheduling and Policy](REFRESH_SCHEDULING.md). Production library/search composition is
-implemented and under final validation/review; successful durable refresh commits publish a bounded
+complete, merged through PR #24 at `1763189`, and post-merge CI run `34598275534` succeeded;
+successful durable refresh commits publish a bounded
 in-process revision signal consumed by that UI, while foreground/source-return reloads remain
 explicit lifecycle events.
 
 ### Playback
-Define a playback abstraction, for example conceptually:
+
+Phase 3 implements the Playback boundary:
 
 ```swift
+@MainActor
 protocol PlaybackEngine {
-    func prepare(_ request: PlaybackRequest) async throws
-    func play()
-    func pause()
-    func seek(to: TimeInterval) async throws
-    var state: PlaybackState { get }
+  var events: AsyncStream<PlaybackEngineEvent> { get }
+  func load(_ asset: PlaybackAsset, attemptID: UUID)
+  func play()
+  func pause()
+  func seek(to seconds: TimeInterval) async
+  func stop()
 }
 ```
 
-The initial implementation is AVFoundation/AVPlayer.
+`NativeAVPlayerEngine` is the only implementation. Main-actor isolation contains AVPlayer,
+AVPlayerItem, observations and AVPlayerViewController without unsafe Sendable wrappers. The
+presentation-safe `PlaybackSession` accepts normalized events, rejects stale attempt UUIDs, performs
+safe resume after a finite seekable timeline is known, and applies throttled progress/completion
+policy.
 
-The UI consumes playback state, not AVPlayer internals where avoidable.
+The Library-layer resolver turns one stable catalog ID into an ephemeral `PlaybackAsset`. M3U uses
+the exact committed HTTP/HTTPS media URL and remains `.unspecified`; the current Xtream live/VOD and
+series contract is explicitly unsupported because it lacks a reviewed final path/container and
+episode-resolution model. No SwiftUI view receives a URL, credential or provider reference.
+
+Durable versioned `WatchProgress` lives in an actor-isolated Application Support repository,
+separate from rebuildable catalog SQLite. Finite seekable non-live playback is eligible; clearly
+live media is not. Playing writes require 12 seconds and 5 seconds of movement, lifecycle/pause/end
+checkpoints are forced, and the completion threshold is 95%. Phase 3 performs no CloudKit write.
+
+Both platform apps bridge the engine-provided AVPlayerViewController for system playback controls.
+See [ADR-0013](../decisions/ADR-0013-native-playback-foundation.md) and
+[Playback Foundation](PLAYBACK_FOUNDATION.md). Physical Apple TV playback validation remains the
+Phase 3 exit gate.
 
 ### CloudSync
 Owns:
@@ -193,14 +214,14 @@ Do not delete the previous usable catalog before the replacement import is valid
 Player emits local progress
   -> Progress policy throttles updates
   -> local store writes progress
-  -> CloudSync enqueues compact sync record
-  -> CloudKit private DB saves asynchronously
-  -> another device receives/fetches newer state
-  -> conflict resolver chooses deterministic winner
-  -> local Continue Watching updates
+  -> Phase 4 CloudSync later enqueues a compact sync record
+  -> Phase 4 CloudKit private DB saves asynchronously
+  -> Phase 4 another device receives/fetches newer state
+  -> Phase 4 conflict resolver chooses deterministic winner
+  -> future Continue Watching UI updates
 ```
 
-Playback must not wait on CloudKit.
+Phase 3 implements only the first two steps. Playback does not access or wait on CloudKit.
 
 ## 8. Conflict policy baseline
 

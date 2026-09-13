@@ -65,8 +65,7 @@ Gate evidence:
 
 ## Post-Phase 2 follow-up — Source and library application integration
 
-Status: **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. This follow-up remains outside the approved
-Phase 2 deliverables and exit gate.
+Status: **COMPLETE**. This follow-up remains outside the approved Phase 2 deliverables and exit gate.
 The Source Management & Validation Flows slice is **COMPLETE**, merged through PR #19 at merge
 commit `1c94236`; post-merge CI run `34386676789` succeeded.
 
@@ -79,7 +78,8 @@ Planned scope:
   migration, deterministic sequential scheduling, active-app lifecycle integration and localized
   tvOS controls are complete.
 - final tvOS/iOS browse and search UI composition over the production library query boundary —
-  **IMPLEMENTED; UNDER FINAL VALIDATION/REVIEW**. Normal launch uses production composition; the
+  **COMPLETE**; merged through PR #24 at `1763189`, with successful post-merge CI run `34598275534`.
+  Normal launch uses production composition; the
   shared presentation/paging boundary, platform-adapted screens, refresh invalidation, artwork,
   localization/accessibility and deterministic coverage are documented in
   [Production Library and Search UI](PRODUCTION_LIBRARY_UI.md) and
@@ -89,17 +89,33 @@ This follow-up does not change the Phase 3 playback scope or count as Phase 3 im
 
 ## Phase 3 — Playback foundation
 
+Status: **IMPLEMENTED; PHYSICAL APPLE TV EXIT GATE PENDING**.
+
 Deliver:
-- PlaybackEngine abstraction.
-- AVPlayer engine.
-- player UI.
-- progress tracking.
-- resume.
-- errors/retry.
-- compatibility fixture matrix.
+- PlaybackEngine abstraction — **IMPLEMENTED**.
+- AVPlayer engine — **IMPLEMENTED**; native and only engine.
+- tvOS and iOS/iPadOS system player UI — **IMPLEMENTED**.
+- durable local progress tracking and bounded writes — **IMPLEMENTED**.
+- safe finite-media resume and 95% completion — **IMPLEMENTED**.
+- normalized errors and explicit fresh-resolution retry — **IMPLEMENTED**.
+- lawful/synthetic compatibility fixture matrix — **IMPLEMENTED** for deterministic application
+  behavior; physical media compatibility evidence remains pending.
+
+Support boundary:
+
+- committed M3U media URLs are supported without reclassifying `.unspecified` items.
+- Xtream live/VOD playback is not yet supported because the persisted provider contract lacks a
+  reviewed final playback path/container.
+- series-level Xtream records are not playable because episode enumeration and resolution do not
+  exist.
+- no second engine, ATS relaxation, CloudKit progress sync, or guessed provider URL was added.
+
+Evidence and exact semantics are recorded in
+[ADR-0013](../decisions/ADR-0013-native-playback-foundation.md) and
+[Playback Foundation](PLAYBACK_FOUNDATION.md).
 
 Exit gate:
-- real Apple TV playback validation.
+- real Apple TV playback validation — **PENDING**.
 
 ## Phase 4 — Cloud continuity
 

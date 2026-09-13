@@ -1,6 +1,7 @@
 import DesignSystem
 import Domain
 import Library
+import Playback
 import SwiftUI
 
 struct MobileProductionLibraryView: View {
@@ -11,15 +12,18 @@ struct MobileProductionLibraryView: View {
 
   private let artworkPipeline: ArtworkImagePipeline
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
+  private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
 
   init(
     viewModel: ProductionLibraryViewModel,
     artworkPipeline: ArtworkImagePipeline,
-    sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory
+    sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
+    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory
   ) {
     _viewModel = State(initialValue: viewModel)
     self.artworkPipeline = artworkPipeline
     self.sourceServiceFactory = sourceServiceFactory
+    self.playbackServiceFactory = playbackServiceFactory
   }
 
   var body: some View {
@@ -42,7 +46,11 @@ struct MobileProductionLibraryView: View {
         }
       }
       .navigationDestination(item: $selectedItem) { item in
-        MobileLibraryDetailView(item: item, artworkPipeline: artworkPipeline)
+        MobileLibraryDetailView(
+          item: item,
+          artworkPipeline: artworkPipeline,
+          playbackServiceFactory: playbackServiceFactory
+        )
       }
       .sheet(isPresented: $showsSources) {
         MobileLibrarySourcesView(
@@ -239,6 +247,22 @@ private struct MobileLibraryCard: View {
 private struct MobileLibraryDetailView: View {
   let item: LibraryItemPresentation
   let artworkPipeline: ArtworkImagePipeline
+  @State private var playbackViewModel: PlaybackDetailViewModel
+  @State private var playbackSession: PlaybackSession?
+
+  init(
+    item: LibraryItemPresentation,
+    artworkPipeline: ArtworkImagePipeline,
+    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory
+  ) {
+    self.item = item
+    self.artworkPipeline = artworkPipeline
+    _playbackViewModel = State(
+      initialValue: PlaybackDetailViewModel(
+        item: item,
+        serviceFactory: playbackServiceFactory
+      ))
+  }
 
   var body: some View {
     ScrollView {
@@ -257,13 +281,51 @@ private struct MobileLibraryDetailView: View {
         Text(AppText.libraryItemMetadata(item))
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
-        Text(AppText.playbackUnavailable)
-          .aevynoTypography(.status)
-          .foregroundStyle(AEVYNOColor.secondaryText)
+        playbackActions
       }
       .padding(AEVYNOSpacing.md)
     }
     .background(AEVYNOColor.background)
+    .task { await playbackViewModel.load() }
+    .fullScreenCover(
+      item: $playbackSession,
+      onDismiss: {
+        Task { await playbackViewModel.load() }
+      },
+      content: { session in
+        PlaybackPresentationView(session: session)
+      }
+    )
+  }
+
+  @ViewBuilder
+  private var playbackActions: some View {
+    switch playbackViewModel.state {
+    case .loading:
+      ProgressView(AppText.playbackPreparing)
+    case .play:
+      Button(AppText.play) { beginPlayback(startOver: false) }
+        .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier("library.detail.play")
+    case .resume(let position):
+      HStack {
+        Button(AppText.resumeFrom(position)) { beginPlayback(startOver: false) }
+          .buttonStyle(.borderedProminent)
+          .accessibilityIdentifier("library.detail.resume")
+        Button(AppText.startOver) { beginPlayback(startOver: true) }
+          .buttonStyle(.bordered)
+          .accessibilityIdentifier("library.detail.start-over")
+      }
+    case .unavailable(let failure):
+      Text(AppText.playbackFailureMessage(failure))
+        .aevynoTypography(.status)
+        .foregroundStyle(AEVYNOColor.secondaryText)
+        .accessibilityIdentifier("library.detail.playback-unavailable")
+    }
+  }
+
+  private func beginPlayback(startOver: Bool) {
+    playbackSession = playbackViewModel.makeSession(startOver: startOver)
   }
 
   private var placeholderKind: CatalogArtworkPlaceholderKind {
