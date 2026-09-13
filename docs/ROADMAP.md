@@ -91,6 +91,8 @@ This follow-up does not change the Phase 3 playback scope or count as Phase 3 im
 
 Status: **IMPLEMENTED; PHYSICAL APPLE TV EXIT GATE PENDING**.
 
+Merged to `main` at `55e55a0` through PR #25. Post-merge CI run `34746573352` succeeded.
+
 Deliver:
 - PlaybackEngine abstraction — **IMPLEMENTED**.
 - AVPlayer engine — **IMPLEMENTED**; native and only engine.
@@ -119,11 +121,22 @@ Exit gate:
 
 ## Phase 4 — Cloud continuity
 
+Status: **PHASE 4A WATCH PROGRESS FOUNDATION IMPLEMENTED; ENTITLEMENT AND REAL-DEVICE GATES
+PENDING**.
+
 Deliver:
-- CloudKit private DB integration.
-- local-first progress/favorites.
-- conflict resolution.
-- iCloud unavailable mode.
+- CloudKit private DB integration — **WATCH PROGRESS ADAPTER IMPLEMENTED; OWNER CONTAINER
+  CONFIGURATION PENDING**.
+- local-first progress/favorites — **WATCH PROGRESS IMPLEMENTED; FAVORITES NOT STARTED**.
+- conflict resolution — **WATCH PROGRESS IMPLEMENTED AND DETERMINISTICALLY TESTED**.
+- iCloud unavailable mode — **WATCH PROGRESS CONTRACT AND TESTS IMPLEMENTED**.
+
+Phase 4A includes the versioned Watch Progress record, explicit Start Over generation, local-first
+repository decorator, actor-isolated coordinator, bounded retry/cancellation, persisted custom-zone
+change token, normalized account/service state, and injected private CloudKit adapter. It deliberately
+does not add Favorites or Continue Watching UI. See
+[ADR-0014](../decisions/ADR-0014-cloudkit-watch-progress-sync.md) and
+[Cloud Sync Design](CLOUD_SYNC.md).
 
 Exit gate:
 - Apple TV -> iPhone resume verified.

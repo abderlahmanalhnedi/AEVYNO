@@ -159,6 +159,27 @@ Owns:
 
 Cloud sync failures must degrade gracefully to local behavior.
 
+Phase 4A implements this boundary for Watch Progress. `CloudSync` depends on the provider-neutral
+`Playback` progress repository protocol; `Playback` does not depend on CloudKit. The local-first
+repository decorator writes `FileWatchProgressRepository` first, then enqueues coalesced cloud work.
+The actor-isolated coordinator owns retries, cancellation generations, incremental change-token
+state, deterministic conflict resolution, and safe status. `PrivateCloudKitWatchProgressStore` is the
+only layer that imports CloudKit and always selects an injected container's private database.
+
+```text
+PlaybackSession
+  -> LocalFirstCloudWatchProgressRepository
+       -> FileWatchProgressRepository (required first)
+       -> WatchProgressSyncCoordinator (asynchronous/coalesced)
+            -> WatchProgressSyncStateStore
+            -> CloudWatchProgressStore
+                 -> injected CKContainer.privateCloudDatabase
+```
+
+The production Xcode targets do not enable this adapter until owner-approved container, signing,
+iCloud, and remote-notification capabilities exist. See
+[ADR-0014](../decisions/ADR-0014-cloudkit-watch-progress-sync.md).
+
 ### Security
 Owns:
 - Keychain operations.
@@ -214,18 +235,19 @@ Do not delete the previous usable catalog before the replacement import is valid
 Player emits local progress
   -> Progress policy throttles updates
   -> local store writes progress
-  -> Phase 4 CloudSync later enqueues a compact sync record
-  -> Phase 4 CloudKit private DB saves asynchronously
-  -> Phase 4 another device receives/fetches newer state
-  -> Phase 4 conflict resolver chooses deterministic winner
+  -> Phase 4A local-first decorator enqueues a compact sync record
+  -> Phase 4A CloudKit private DB saves asynchronously when configured
+  -> Phase 4A another device incrementally receives/fetches newer state
+  -> Phase 4A conflict resolver chooses deterministic winner
   -> future Continue Watching UI updates
 ```
 
-Phase 3 implements only the first two steps. Playback does not access or wait on CloudKit.
+Phase 3 implements the local checkpoint. Phase 4A supplies the optional decorator/coordinator while
+keeping playback independent of, and never waiting for, CloudKit.
 
 ## 8. Conflict policy baseline
 
-For simple watch progress, use deterministic metadata including:
+Watch Progress uses deterministic metadata including:
 - content stable ID.
 - position.
 - duration.
@@ -233,7 +255,9 @@ For simple watch progress, use deterministic metadata including:
 - completed flag.
 - source/device metadata only if useful for diagnostics/conflict logic.
 
-Last-write-wins alone may be wrong when one device reports a stale lower position after another device advanced. Implement tests for competing updates before final policy is frozen.
+The implemented order is reset generation, completion, farther absolute position, logical revision,
+operation ID, then timestamp only as a final equivalent-state tie. A pending explicit reset is
+rebased above fetched remote generations. Naive timestamp last-write-wins is rejected.
 
 ## 9. Stable IDs
 
