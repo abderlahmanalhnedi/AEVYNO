@@ -117,6 +117,10 @@ Tradeoffs and limits:
   a real container;
 - foreground/explicit sync triggers can use the coordinator now; push-driven app lifecycle wiring
   requires the entitlement/container setup and device validation;
-- Favorites and Continue Watching UI are outside Phase 4A;
+- Phase 4B extends the same private-zone/local-first architecture to Favorites with a separate
+  `AEVYNO_Favorite_v1` record type, durable favorite repository, persisted change token and retained
+  removal tombstones. Its deterministic ordering is logical revision, tombstone over add at an equal
+  revision, operation ID, then timestamp only for duplicate operation IDs. A later intentional add
+  advances the revision. Favorites UI and Continue Watching UI remain outside this slice;
 - Apple TV-to-iPhone and iPhone-to-Apple TV resume remain unverified until two signed devices use the
   same iCloud account and configured production/development container.
