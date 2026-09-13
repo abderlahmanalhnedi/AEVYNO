@@ -52,7 +52,8 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertTrue(item.waitForExistence(timeout: 5))
     XCTAssertTrue(focusAndSelect(item, in: app))
     XCTAssertTrue(app.staticTexts["library.detail.title"].waitForExistence(timeout: 5))
-    XCTAssertTrue(app.staticTexts["library.detail.playback-unavailable"].exists)
+    XCTAssertTrue(
+      app.staticTexts["library.detail.playback-unavailable"].waitForExistence(timeout: 5))
     XCUIRemote.shared.press(.menu)
     XCTAssertTrue(item.waitForExistence(timeout: 5))
     XCTAssertTrue(waitForFocus(on: item))
@@ -137,6 +138,115 @@ final class AEVYNOTVUITests: XCTestCase {
 
     XCTAssertTrue(app.buttons["library.item.refresh-new"].waitForExistence(timeout: 5))
     XCTAssertTrue(waitForFocus(on: stable))
+  }
+
+  func testPlaybackPlayableDetailExposesPlay() {
+    let app = launchApp(arguments: ["--ui-playback-playing"])
+    openProductionItem("m3u-1", in: app)
+
+    let play = app.buttons["library.detail.play"]
+    XCTAssertTrue(play.waitForExistence(timeout: 5))
+    XCTAssertEqual(play.label, "Play")
+    XCTAssertTrue(waitForFocus(on: play))
+  }
+
+  func testPlaybackResumableDetailExposesResumeAndStartOver() {
+    let app = launchApp(arguments: ["--ui-playback-resumable"])
+    openProductionItem("m3u-1", in: app)
+
+    let resume = app.buttons["library.detail.resume"]
+    XCTAssertTrue(resume.waitForExistence(timeout: 5))
+    XCTAssertTrue(resume.label.hasPrefix("Resume from "))
+    XCTAssertTrue(app.buttons["library.detail.start-over"].exists)
+    XCTAssertTrue(waitForFocus(on: resume))
+  }
+
+  func testPlaybackCompletedDetailDoesNotOfferStaleResume() {
+    let app = launchApp(arguments: ["--ui-playback-completed"])
+    openProductionItem("m3u-1", in: app)
+
+    XCTAssertTrue(app.buttons["library.detail.play"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["library.detail.resume"].exists)
+    XCTAssertFalse(app.buttons["library.detail.start-over"].exists)
+  }
+
+  func testPlaybackDeterministicLoadingPlayingPausedAndBufferingStates() {
+    let scenarios = [
+      ("--ui-playback-loading", "playback.state.loading"),
+      ("--ui-playback-playing", "playback.state.playing"),
+      ("--ui-playback-paused", "playback.state.paused"),
+      ("--ui-playback-buffering", "playback.state.buffering"),
+    ]
+
+    for (argument, identifier) in scenarios {
+      let app = launchApp(arguments: [argument])
+      openProductionItem("m3u-1", in: app)
+      XCTAssertTrue(focusAndSelect(app.buttons["library.detail.play"], in: app))
+      XCTAssertTrue(
+        app.descendants(matching: .any)[identifier].waitForExistence(timeout: 5),
+        "Expected deterministic state \(identifier)"
+      )
+      app.terminate()
+    }
+  }
+
+  func testPlaybackFailureRetryCreatesSafeFreshAttempt() {
+    let app = launchApp(arguments: ["--ui-playback-retry"])
+    openProductionItem("m3u-1", in: app)
+    XCTAssertTrue(focusAndSelect(app.buttons["library.detail.play"], in: app))
+
+    XCTAssertTrue(
+      app.descendants(matching: .any)["playback.state.failed"].waitForExistence(timeout: 5))
+    let retry = app.buttons["playback.retry"]
+    XCTAssertTrue(retry.exists)
+    XCTAssertTrue(focusAndSelect(retry, in: app))
+    XCTAssertTrue(
+      app.descendants(matching: .any)["playback.state.playing"].waitForExistence(timeout: 5))
+  }
+
+  func testPlaybackExitReturnsToDetailThenRestoresExactLibraryItemFocus() {
+    let app = launchApp(arguments: ["--ui-playback-playing"])
+    let item = openProductionItem("m3u-1", in: app)
+    XCTAssertTrue(focusAndSelect(app.buttons["library.detail.play"], in: app))
+    XCTAssertTrue(
+      app.descendants(matching: .any)["playback.state.playing"].waitForExistence(timeout: 5))
+
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(app.staticTexts["library.detail.title"].waitForExistence(timeout: 5))
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(item.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: item))
+  }
+
+  func testPlaybackUnsupportedSeriesCommunicatesSafeLimitation() {
+    let app = launchApp(arguments: ["--ui-playback-playing"])
+    openProductionItem("series-1", in: app)
+
+    let limitation = app.staticTexts["library.detail.playback-unavailable"]
+    XCTAssertTrue(limitation.waitForExistence(timeout: 5))
+    XCTAssertEqual(limitation.label, "This item cannot be played yet.")
+    XCTAssertFalse(app.buttons["library.detail.play"].exists)
+  }
+
+  func testPlaybackArabicErrorIsLocalizedAccessibleAndRedacted() throws {
+    let app = launchApp(arguments: ["--ui-playback-failure"], locale: "ar")
+    openProductionItem("m3u-1", in: app)
+    XCTAssertTrue(focusAndSelect(app.buttons["library.detail.play"], in: app))
+
+    XCTAssertTrue(
+      app.descendants(matching: .any)["playback.state.failed"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.buttons["playback.retry"].label, "إعادة المحاولة")
+    XCTAssertTrue(app.staticTexts["فشل التشغيل"].exists)
+    let exposed = app.descendants(matching: .any).allElementsBoundByIndex
+      .map { "\($0.label) \($0.value ?? "")" }
+      .joined(separator: " ")
+    XCTAssertFalse(exposed.contains("example.invalid"))
+    XCTAssertFalse(exposed.lowercased().contains("token="))
+    try app.performAccessibilityAudit(
+      for: [
+        .contrast, .elementDetection, .sufficientElementDescription, .dynamicType, .textClipped,
+        .trait,
+      ])
   }
 
   func testHomeLaunchesWithInitialFocusAndMovesRight() {
@@ -626,12 +736,26 @@ final class AEVYNOTVUITests: XCTestCase {
 
   private func launchApp(arguments: [String] = [], locale: String = "en") -> XCUIApplication {
     let app = XCUIApplication()
-    let isProductionFixture = arguments.contains { $0.hasPrefix("--ui-production-") }
+    let isProductionFixture = arguments.contains {
+      $0.hasPrefix("--ui-production-") || $0.hasPrefix("--ui-playback-")
+    }
     app.launchArguments =
       (isProductionFixture ? arguments : ["--ui-demo-home"] + arguments)
       + localeLaunchArguments(locale)
     app.launch()
     return app
+  }
+
+  @discardableResult
+  private func openProductionItem(
+    _ identifier: String,
+    in app: XCUIApplication
+  ) -> XCUIElement {
+    let item = app.buttons["library.item.\(identifier)"]
+    XCTAssertTrue(item.waitForExistence(timeout: 10))
+    XCTAssertTrue(focusAndSelect(item, in: app))
+    XCTAssertTrue(app.staticTexts["library.detail.title"].waitForExistence(timeout: 5))
+    return item
   }
 
   private func launchSourceManagement(
