@@ -19,6 +19,7 @@ struct AEVYNOTVApp: App {
   private let productionLibraryViewModel: ProductionLibraryViewModel?
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
   private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
+  private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
 
   init() {
     let arguments = ProcessInfo.processInfo.arguments
@@ -41,6 +42,7 @@ struct AEVYNOTVApp: App {
       let playbackDependencies = playbackFixture.dependencies
       playbackServiceFactory = { playbackDependencies }
       playbackEngineFactory = { playbackFixture.makeEngine() }
+      continueWatchingServiceFactory = TVContinueWatchingFixture.service(arguments: arguments)
     } else if let fixture = TVProductionLibraryFixture.fixture(arguments: arguments) {
       let sourceFixture = TVSourceManagementFixture(arguments: [])
       let playbackFixture = TVPlaybackFixture(arguments: arguments)
@@ -54,6 +56,7 @@ struct AEVYNOTVApp: App {
       )
       playbackServiceFactory = { playbackDependencies }
       playbackEngineFactory = { playbackFixture.makeEngine() }
+      continueWatchingServiceFactory = TVContinueWatchingFixture.service(arguments: arguments)
     } else {
       let serviceContainer = AppSourceServiceContainer()
       sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
@@ -66,6 +69,7 @@ struct AEVYNOTVApp: App {
       }
       playbackServiceFactory = { try await serviceContainer.playbackDependencies() }
       playbackEngineFactory = { NativeAVPlayerEngine() }
+      continueWatchingServiceFactory = { try await serviceContainer.services().continueWatching }
     }
   }
 
@@ -92,6 +96,7 @@ struct AEVYNOTVApp: App {
             artworkPipeline: artworkPipeline,
             sourceServiceFactory: sourceServiceFactory,
             playbackServiceFactory: playbackServiceFactory,
+            continueWatchingServiceFactory: continueWatchingServiceFactory,
             playbackEngineFactory: playbackEngineFactory
           )
         }
