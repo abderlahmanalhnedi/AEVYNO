@@ -125,6 +125,7 @@ public struct ProductionSourceServices: Sendable {
   public let sourceManagement: SourceManagementService
   public let refreshScheduling: RefreshSchedulingService
   public let productionLibrary: ProductionLibraryService
+  public let continueWatching: ProductionContinueWatchingService
   public let playbackAssetResolver: ProductionPlaybackAssetResolver
   public let watchProgressRepository: FileWatchProgressRepository
 
@@ -132,12 +133,14 @@ public struct ProductionSourceServices: Sendable {
     sourceManagement: SourceManagementService,
     refreshScheduling: RefreshSchedulingService,
     productionLibrary: ProductionLibraryService,
+    continueWatching: ProductionContinueWatchingService,
     playbackAssetResolver: ProductionPlaybackAssetResolver,
     watchProgressRepository: FileWatchProgressRepository
   ) {
     self.sourceManagement = sourceManagement
     self.refreshScheduling = refreshScheduling
     self.productionLibrary = productionLibrary
+    self.continueWatching = continueWatching
     self.playbackAssetResolver = playbackAssetResolver
     self.watchProgressRepository = watchProgressRepository
   }
@@ -215,10 +218,16 @@ public actor SourceManagementService: SourceManaging {
       catalog: CatalogLibraryService(repository: catalogRepository)
     )
     let watchProgressRepository = try FileWatchProgressRepository.openDefault()
+    let continueWatching = ProductionContinueWatchingService(
+      catalog: CatalogLibraryService(repository: catalogRepository),
+      progressRepository: watchProgressRepository,
+      revisionCenter: revisionCenter
+    )
     return ProductionSourceServices(
       sourceManagement: sourceManagement,
       refreshScheduling: refreshScheduling,
       productionLibrary: productionLibrary,
+      continueWatching: continueWatching,
       playbackAssetResolver: playbackAssetResolver,
       watchProgressRepository: watchProgressRepository
     )
