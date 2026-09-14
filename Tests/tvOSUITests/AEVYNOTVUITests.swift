@@ -140,6 +140,52 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertTrue(waitForFocus(on: stable))
   }
 
+  func testContinueWatchingShowsResumableFirstItemAndProgress() {
+    let app = launchApp(arguments: ["--ui-continue-watching"])
+    let item = app.buttons["continue-watching.item.m3u-1"]
+
+    XCTAssertTrue(item.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["Continue Watching"].exists)
+    XCTAssertTrue((item.value as? String)?.contains("25") == true)
+  }
+
+  func testContinueWatchingResumeRestoresExactCardFocus() {
+    let app = launchApp(arguments: ["--ui-continue-watching", "--ui-playback-playing"])
+    let item = app.buttons["continue-watching.item.m3u-1"]
+
+    XCTAssertTrue(item.waitForExistence(timeout: 10))
+    XCTAssertTrue(focusAndSelect(item, in: app))
+    XCTAssertTrue(
+      app.descendants(matching: .any)["playback.state.playing"].waitForExistence(timeout: 5))
+
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(item.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: item))
+  }
+
+  func testContinueWatchingCompletedOrOrphanedFixtureLeavesNoFocusGap() {
+    for argument in ["--ui-continue-watching-completed", "--ui-continue-watching-orphaned"] {
+      let app = launchApp(arguments: [argument])
+      XCTAssertTrue(app.buttons["library.item.movie-1"].waitForExistence(timeout: 10))
+      XCTAssertFalse(app.buttons["continue-watching.item.m3u-1"].exists)
+      XCTAssertTrue(waitForFocus(on: app.buttons["library.item.movie-1"]))
+      app.terminate()
+    }
+  }
+
+  func testContinueWatchingArabicRTLAndAccessibilityAreSafe() throws {
+    let app = launchApp(arguments: ["--ui-continue-watching"], locale: "ar")
+    let item = app.buttons["continue-watching.item.m3u-1"]
+
+    XCTAssertTrue(item.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["متابعة المشاهدة"].exists)
+    let exposed = "\(item.label) \(item.value ?? "")"
+    XCTAssertFalse(exposed.contains("m3u-1"))
+    XCTAssertFalse(exposed.contains("image.invalid"))
+    XCTAssertFalse(exposed.contains("provider"))
+    try app.performAccessibilityAudit()
+  }
+
   func testPlaybackPlayableDetailExposesPlay() {
     let app = launchApp(arguments: ["--ui-playback-playing"])
     openProductionItem("m3u-1", in: app)
@@ -738,6 +784,7 @@ final class AEVYNOTVUITests: XCTestCase {
     let app = XCUIApplication()
     let isProductionFixture = arguments.contains {
       $0.hasPrefix("--ui-production-") || $0.hasPrefix("--ui-playback-")
+        || $0.hasPrefix("--ui-continue-watching")
     }
     app.launchArguments =
       (isProductionFixture ? arguments : ["--ui-demo-home"] + arguments)

@@ -10,8 +10,9 @@ Explicit Phase 1 demo/state/stress arguments continue to launch synthetic Home; 
 production UI fixtures are also launch-argument-only. Production records are never repackaged as
 synthetic `MediaItem` values.
 
-This slice contains no playback, playback URL resolution, favorites, Continue Watching, CloudKit
-catalog synchronization, commerce, analytics or tracking.
+This slice contains no playback URL resolution, favorites, CloudKit catalog synchronization, commerce,
+analytics or tracking. Phase 5A adds Continue Watching as a bounded composition over this committed
+catalog boundary; it does not change catalog paging or expose playback data to SwiftUI.
 
 ## Architecture and data flow
 
@@ -23,6 +24,22 @@ SwiftUI screen
   -> CatalogLibraryService
   -> CatalogQueryRepository / committed SQLite catalog
 ```
+
+## Phase 5A Continue Watching
+
+`ProductionContinueWatchingService` reads durable Watch Progress and resolves only matching committed
+catalog records, in deterministic recency order with a maximum of 20 cards. Completed, live, invalid
+and orphaned records are omitted from presentation and retained in durable progress storage. The
+safe card model contains only stable catalog ID, title, exact catalog kind, optional artwork URL and
+progress display values—never playback URLs, provider/credential references or source UUIDs.
+
+tvOS and iOS/iPadOS use separate native horizontal rails. Resume constructs the existing
+`PlaybackSession` path; there is no direct AVPlayer work in either rail. tvOS binds the resumed card
+for focus restoration after player dismissal. Both rails refresh on committed-catalog revision,
+foreground activation and player dismissal, with no Timer or polling. Simulator validation covers
+resumable ordering/progress, completed/orphaned absence, empty-focus behavior, resume/focus
+restoration, Arabic RTL and accessibility redaction. Physical Apple TV focus/RTL and physical
+iPhone/iPad validation remain pending.
 
 `ProductionLibraryService` exposes only safe display data: exact stable catalog ID, provider title,
 exact `CatalogMediaKind`, source display name, optional selected-category title and optional artwork

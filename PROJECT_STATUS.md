@@ -5,8 +5,9 @@ Last updated: 2026-09-13
 ## Current phase
 
 **Phase 1 physical validation open; Phase 2 complete; Phase 3 implemented with physical exit gate
-pending; Phase 4A Watch Progress Sync complete; Phase 4B Favorites Sync implemented with CloudKit
-configuration/device gates pending**
+pending; Phase 4A Watch Progress Sync implemented on main; Phase 4B Favorites Sync implemented on
+main; Phase 4 remains open for signed CloudKit validation; Phase 5A Continue Watching implemented
+with simulator gates passed and real-device validation pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -23,9 +24,10 @@ Scheduling & Policy is **COMPLETE**, merged through PR #21 at merge commit `18ba
 run `34449661574` succeeded. Production Library/Search UI Composition is **COMPLETE**, merged
 through PR #24 at `1763189`; post-merge CI run `34598275534` succeeded. Phase 3 Playback Foundation
 is implemented on `main` at `55e55a0` through PR #25; post-merge CI run `34746573352` succeeded. Its
-physical Apple TV exit gate remains **PENDING**. Phase 4A Watch Progress Sync is complete on `main`;
-Phase 4B Favorites Sync is implemented on `feature/phase-4-favorites-sync`. Real CloudKit
-entitlement/container configuration and cross-device validation remain pending.
+physical Apple TV exit gate remains **PENDING**. Phase 4A Watch Progress Sync is **IMPLEMENTED on
+main**. Phase 4B Favorites Sync is **IMPLEMENTED on main through PR #27 at `252d620`**; post-merge
+CI `34783856312` succeeded. Phase 4 is **NOT COMPLETE** because real CloudKit
+entitlement/container configuration and signed cross-device validation remain pending.
 
 ## Verified development environment
 
@@ -593,10 +595,16 @@ navigation, repeated player/Detail/back cycles, native transport/audio/subtitle 
 completion, failure/retry, representative HLS VOD/live/master fixtures, and a long Instruments
 session. Resolve findings before marking either physical exit gate complete.
 
-The post-Phase-2 source and library application-integration follow-up is complete. For Phase 4,
+The post-Phase-2 source and library application-integration follow-up is complete. Phase 5A
+production Continue Watching is implemented locally: a bounded, provider-neutral composition joins
+durable WatchProgress to exact committed catalog records, hides completed/live/orphaned entries,
+uses deterministic recency ordering, reuses the Phase 3 session for Resume, and renders separate
+tvOS/iOS rails. Catalog commits invalidate the rail; player dismissal and foreground activation
+refresh it without polling. Physical Apple TV focus/RTL and physical iPhone/iPad validation remain
+pending. For Phase 4,
 configure the owner-approved CloudKit container/capabilities, wire signed lifecycle/push triggers,
 then validate Apple TV-to-iPhone and iPhone-to-Apple TV resume/favorites plus offline reconnect.
-Favorites and Continue Watching UI remain later Phase 4 slices. Xtream playback URL and
+Favorites UI remains a later slice. Xtream playback URL and
 episode-resolution contracts remain future work and must not be guessed.
 
 ## Active blockers

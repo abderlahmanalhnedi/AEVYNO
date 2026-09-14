@@ -2,6 +2,7 @@ import Domain
 import Foundation
 import Library
 import Persistence
+import Playback
 import Testing
 
 @Suite("Production library presentation", .serialized)
@@ -159,6 +160,48 @@ struct ProductionLibraryServiceTests {
     #expect(selectedFilter?.origin == .xtream)
     #expect(selectedFilter?.kind == .live)
     #expect(selectedFilter?.categoryID == "same")
+  }
+
+  @Test(
+    "Continue Watching joins only resumable current catalog items in deterministic bounded order")
+  func continueWatchingEligibilityOrderingAndSafety() async throws {
+    let source = fixedSourceID(42)
+    let vod = CatalogScope(sourceID: source, origin: .xtream, kind: .vod)
+    let live = CatalogScope(sourceID: source, origin: .xtream, kind: .live)
+    let catalog = PresentationCatalogStub(
+      items: [
+        CatalogItem(
+          id: "new", scope: vod, title: "Newest",
+          artworkURL: URL(string: "https://image.invalid/new")),
+        CatalogItem(id: "old", scope: vod, title: "Older"),
+        CatalogItem(id: "live", scope: live, title: "Live"),
+      ], categories: [])
+    let progress = ContinueWatchingProgressStub(records: [
+      WatchProgress(
+        mediaID: "old", position: 20, duration: 100, updatedAt: Date(timeIntervalSince1970: 10),
+        isCompleted: false),
+      WatchProgress(
+        mediaID: "new", position: 10, duration: 100, updatedAt: Date(timeIntervalSince1970: 20),
+        isCompleted: false),
+      WatchProgress(
+        mediaID: "live", position: 10, duration: 100, updatedAt: Date(timeIntervalSince1970: 30),
+        isCompleted: false),
+      WatchProgress(
+        mediaID: "complete", position: 100, duration: 100,
+        updatedAt: Date(timeIntervalSince1970: 40), isCompleted: true),
+      WatchProgress(
+        mediaID: "orphan", position: 10, duration: 100, updatedAt: Date(timeIntervalSince1970: 50),
+        isCompleted: false),
+    ])
+    let service = ProductionContinueWatchingService(
+      catalog: catalog, progressRepository: progress, maximumItems: 1)
+    let items = try await service.items()
+    #expect(items.map(\.id) == ["new"])
+    #expect(items.first?.progressFraction == 0.1)
+    let names = Set(Mirror(reflecting: try #require(items.first)).children.compactMap(\.label))
+    #expect(!names.contains("mediaURL"))
+    #expect(!names.contains("providerReference"))
+    #expect(!names.contains("sourceID"))
   }
 
   @Test("Paging suppresses duplicate requests and rejects stale results")
@@ -462,6 +505,15 @@ private actor CancellablePagingServiceStub: ProductionLibraryServing {
   ) -> [LibraryCategoryPresentation] { [] }
 
   func revisions() -> AsyncStream<UInt64> { AsyncStream { $0.finish() } }
+}
+
+private actor ContinueWatchingProgressStub: WatchProgressRepository {
+  let records: [WatchProgress]
+  init(records: [WatchProgress]) { self.records = records }
+  func progress(for mediaID: String) -> WatchProgress? { records.first { $0.mediaID == mediaID } }
+  func allProgress() -> [WatchProgress] { records }
+  func save(_: WatchProgress) {}
+  func remove(mediaID _: String) {}
 }
 
 private actor SourceManagingStub: SourceManaging {

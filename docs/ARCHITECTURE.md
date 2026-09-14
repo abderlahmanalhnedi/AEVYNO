@@ -239,11 +239,17 @@ Player emits local progress
   -> Phase 4A CloudKit private DB saves asynchronously when configured
   -> Phase 4A another device incrementally receives/fetches newer state
   -> Phase 4A conflict resolver chooses deterministic winner
-  -> future Continue Watching UI updates
+  -> bounded Continue Watching composition
+  -> tvOS/iOS Continue Watching presentation
 ```
 
 Phase 3 implements the local checkpoint. Phase 4A supplies the optional decorator/coordinator while
-keeping playback independent of, and never waiting for, CloudKit.
+keeping playback independent of, and never waiting for, CloudKit. Phase 5A joins bounded resumable
+local progress to exact committed catalog records through `ProductionContinueWatchingService`; it
+excludes completed, live, invalid and orphaned records without deleting progress. SwiftUI receives
+safe presentation metadata only, opens the existing `PlaybackSession` flow, and never accesses
+CloudKit, AVPlayer, credentials, provider references or playback URLs directly. Catalog-commit
+revisions, foreground activation and player dismissal reload the rail; no polling is used.
 
 ## 8. Conflict policy baseline
 

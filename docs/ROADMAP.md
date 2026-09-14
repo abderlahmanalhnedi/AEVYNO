@@ -131,10 +131,11 @@ Deliver:
 - conflict resolution — **WATCH PROGRESS AND FAVORITES DETERMINISTICALLY TESTED**.
 - iCloud unavailable mode — **WATCH PROGRESS CONTRACT AND TESTS IMPLEMENTED**.
 
-Phase 4A includes the versioned Watch Progress record, explicit Start Over generation, local-first
+Phase 4A is **IMPLEMENTED on main** and includes the versioned Watch Progress record, explicit Start Over generation, local-first
 repository decorator, actor-isolated coordinator, bounded retry/cancellation, persisted custom-zone
 change token, normalized account/service state, and injected private CloudKit adapter. It deliberately
-does not add Favorites or Continue Watching UI. Phase 4B adds a separate durable favorite repository,
+does not add Favorites UI. Phase 4B is **IMPLEMENTED on main through PR #27 at `252d620`**; post-merge
+CI `34783856312` succeeded. It adds a separate durable favorite repository,
 versioned CloudKit favorite records, operation revisions, removal tombstones and restart-safe sync
 metadata; a tombstone wins an equal-version add, while a later re-favorite advances the revision. See
 [ADR-0014](../decisions/ADR-0014-cloudkit-watch-progress-sync.md) and
@@ -146,6 +147,10 @@ Exit gate:
 - offline/reconnect tests.
 
 ## Phase 5 — iPhone/iPad companion quality
+
+Phase 5A Continue Watching is **IMPLEMENTED** on `feature/phase-5-continue-watching` after the
+shared/unit, simulator build/analyze and full tvOS UI gates. Real-device tvOS focus/RTL and
+iPhone/iPad validation remain pending.
 
 Deliver:
 - touch-adapted UI.

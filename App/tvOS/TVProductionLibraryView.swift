@@ -8,14 +8,19 @@ struct TVProductionLibraryView: View {
   @Environment(\.scenePhase) private var scenePhase
   @State private var viewModel: ProductionLibraryViewModel
   @FocusState private var focusedItemID: String?
+  @FocusState private var focusedContinueWatchingID: String?
   @FocusState private var isLoadMoreFocused: Bool
   @State private var rememberedItemID: String?
   @State private var selectedItem: LibraryItemPresentation?
+  @State private var continueWatchingViewModel: ContinueWatchingViewModel
+  @State private var continueWatchingSession: PlaybackSession?
+  @State private var resumedContinueWatchingID: String?
   @State private var showsSources = false
 
   private let artworkPipeline: ArtworkImagePipeline
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
+  private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
   private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
 
   init(
@@ -23,6 +28,7 @@ struct TVProductionLibraryView: View {
     artworkPipeline: ArtworkImagePipeline,
     sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
     playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
+    continueWatchingServiceFactory: @escaping ContinueWatchingViewModel.ServiceFactory,
     playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory = {
       NativeAVPlayerEngine()
     }
@@ -31,6 +37,9 @@ struct TVProductionLibraryView: View {
     self.artworkPipeline = artworkPipeline
     self.sourceServiceFactory = sourceServiceFactory
     self.playbackServiceFactory = playbackServiceFactory
+    self.continueWatchingServiceFactory = continueWatchingServiceFactory
+    _continueWatchingViewModel = State(
+      initialValue: ContinueWatchingViewModel(serviceFactory: continueWatchingServiceFactory))
     self.playbackEngineFactory = playbackEngineFactory
   }
 
@@ -44,17 +53,21 @@ struct TVProductionLibraryView: View {
         AEVYNOColor.background.ignoresSafeArea()
         content
       }
-      .navigationDestination(item: $selectedItem) { item in
-        TVLibraryDetailView(
-          item: item,
-          artworkPipeline: artworkPipeline,
-          playbackServiceFactory: playbackServiceFactory,
-          playbackEngineFactory: playbackEngineFactory
-        )
-      }
-      .navigationDestination(isPresented: $showsSources) {
-        TVSourcesView(serviceFactory: sourceServiceFactory)
-      }
+      .navigationDestination(
+        item: $selectedItem,
+        destination: { item in
+          TVLibraryDetailView(
+            item: item,
+            artworkPipeline: artworkPipeline,
+            playbackServiceFactory: playbackServiceFactory,
+            playbackEngineFactory: playbackEngineFactory
+          )
+        }
+      )
+      .navigationDestination(
+        isPresented: $showsSources,
+        destination: { TVSourcesView(serviceFactory: sourceServiceFactory) }
+      )
       .searchable(
         text: $viewModel.searchText,
         placement: .automatic,
@@ -66,11 +79,24 @@ struct TVProductionLibraryView: View {
       }
     }
     .preferredColorScheme(.dark)
+    .fullScreenCover(
+      item: $continueWatchingSession,
+      onDismiss: {
+        Task { await continueWatchingViewModel.reload() }
+        focusedContinueWatchingID = resumedContinueWatchingID
+      },
+      content: { session in
+        PlaybackPresentationView(session: session) {
+          Task { await continueWatchingViewModel.reload() }
+        }
+      }
+    )
   }
 
   private var loadConfiguredView: some View {
     navigationView
       .task { await viewModel.loadIfNeeded(protecting: rememberedItemID) }
+      .task { await continueWatchingViewModel.reload() }
       .onChange(of: viewModel.searchText) { _, _ in viewModel.searchTextChanged() }
   }
 
@@ -176,6 +202,7 @@ struct TVProductionLibraryView: View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: AEVYNOSpacing.lg) {
         header
+        continueWatchingRail
         filters
         content()
       }
@@ -185,6 +212,42 @@ struct TVProductionLibraryView: View {
     .scrollIndicators(.hidden)
     .accessibilityIdentifier("library.loaded")
     .accessibilityValue(String(viewModel.items.count))
+  }
+
+  @ViewBuilder private var continueWatchingRail: some View {
+    if !continueWatchingViewModel.items.isEmpty {
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
+        Text(AppText.continueWatching).aevynoTypography(.sectionTitle).foregroundStyle(
+          AEVYNOColor.primaryText)
+        ScrollView(.horizontal) {
+          LazyHStack(spacing: AEVYNOSpacing.lg) {
+            ForEach(continueWatchingViewModel.items) { item in
+              Button {
+                beginResume(item)
+              } label: {
+                TVContinueWatchingCard(item: item, artworkPipeline: artworkPipeline)
+              }
+              .buttonStyle(TVMediaButtonStyle())
+              .focused($focusedContinueWatchingID, equals: item.id)
+              .accessibilityIdentifier("continue-watching.item.\(item.id)")
+              .accessibilityHint(AppText.playAccessibilityHint)
+            }
+          }
+        }.scrollIndicators(.hidden).focusSection()
+      }
+    }
+  }
+
+  private func beginResume(_ item: ContinueWatchingItemPresentation) {
+    resumedContinueWatchingID = item.id
+    Task {
+      guard let dependencies = try? await playbackServiceFactory() else { return }
+      let session = PlaybackSession(
+        resolver: dependencies.resolver, progressRepository: dependencies.progressRepository,
+        engineFactory: playbackEngineFactory)
+      session.start(mediaID: item.id, title: item.title, kind: item.mediaKind)
+      continueWatchingSession = session
+    }
   }
 
   private var header: some View {
