@@ -59,6 +59,8 @@ enum AppText {
   static let liveBadge = localized("media.live.badge", defaultValue: "LIVE")
 
   static let libraryTitle = localized("library.title", defaultValue: "Library")
+  static let continueWatching = localized(
+    "home.section.continue_watching", defaultValue: "Continue Watching")
   static let allSources = localized("library.all_sources", defaultValue: "All Sources")
   static let categories = localized("library.categories", defaultValue: "Categories")
   static let allCategories = localized("library.all_categories", defaultValue: "All Categories")

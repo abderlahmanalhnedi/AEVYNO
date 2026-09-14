@@ -85,6 +85,7 @@ struct PlaybackPresentationView: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.scenePhase) private var scenePhase
   @State var session: PlaybackSession
+  var didDismiss: (() -> Void)?
   #if os(tvOS)
     @FocusState private var isRetryFocused: Bool
   #endif
@@ -100,7 +101,10 @@ struct PlaybackPresentationView: View {
     .onChange(of: scenePhase) { _, phase in
       if phase != .active { Task { await session.checkpoint() } }
     }
-    .onDisappear { Task { await session.dismiss() } }
+    .onDisappear {
+      Task { await session.dismiss() }
+      didDismiss?()
+    }
   }
 
   @ViewBuilder

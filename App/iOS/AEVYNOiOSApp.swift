@@ -14,6 +14,7 @@ struct AEVYNOiOSApp: App {
   private let usesSyntheticHome: Bool
   private let refreshLifecycle: RefreshSchedulingLifecycleController
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
+  private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
 
   init() {
     let serviceContainer = AppSourceServiceContainer()
@@ -32,6 +33,7 @@ struct AEVYNOiOSApp: App {
     sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
     artworkPipeline = ArtworkImagePipeline()
     playbackServiceFactory = { try await serviceContainer.playbackDependencies() }
+    continueWatchingServiceFactory = { try await serviceContainer.services().continueWatching }
   }
 
   var body: some Scene {
@@ -44,7 +46,8 @@ struct AEVYNOiOSApp: App {
             viewModel: productionLibraryViewModel,
             artworkPipeline: artworkPipeline,
             sourceServiceFactory: sourceServiceFactory,
-            playbackServiceFactory: playbackServiceFactory
+            playbackServiceFactory: playbackServiceFactory,
+            continueWatchingServiceFactory: continueWatchingServiceFactory
           )
         }
       }

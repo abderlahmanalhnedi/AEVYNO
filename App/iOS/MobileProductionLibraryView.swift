@@ -8,22 +8,29 @@ struct MobileProductionLibraryView: View {
   @Environment(\.scenePhase) private var scenePhase
   @State private var viewModel: ProductionLibraryViewModel
   @State private var selectedItem: LibraryItemPresentation?
+  @State private var continueWatchingViewModel: ContinueWatchingViewModel
+  @State private var continueWatchingSession: PlaybackSession?
   @State private var showsSources = false
 
   private let artworkPipeline: ArtworkImagePipeline
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
+  private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
 
   init(
     viewModel: ProductionLibraryViewModel,
     artworkPipeline: ArtworkImagePipeline,
     sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
-    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory
+    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
+    continueWatchingServiceFactory: @escaping ContinueWatchingViewModel.ServiceFactory
   ) {
     _viewModel = State(initialValue: viewModel)
     self.artworkPipeline = artworkPipeline
     self.sourceServiceFactory = sourceServiceFactory
     self.playbackServiceFactory = playbackServiceFactory
+    self.continueWatchingServiceFactory = continueWatchingServiceFactory
+    _continueWatchingViewModel = State(
+      initialValue: ContinueWatchingViewModel(serviceFactory: continueWatchingServiceFactory))
   }
 
   var body: some View {
@@ -65,12 +72,26 @@ struct MobileProductionLibraryView: View {
     }
     .preferredColorScheme(.dark)
     .task { await viewModel.loadIfNeeded() }
+    .task { await continueWatchingViewModel.reload() }
+    .fullScreenCover(
+      item: $continueWatchingSession,
+      onDismiss: {
+        Task { await continueWatchingViewModel.reload() }
+      }
+    ) { session in
+      PlaybackPresentationView(session: session) {
+        Task { await continueWatchingViewModel.reload() }
+      }
+    }
     .onChange(of: viewModel.searchText) { _, _ in viewModel.searchTextChanged() }
     .onChange(of: showsSources) { previous, current in
       if previous, !current { Task { await viewModel.reloadAll() } }
     }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { Task { await viewModel.reloadAll() } }
+      if phase == .active {
+        Task { await viewModel.reloadAll() }
+        Task { await continueWatchingViewModel.reload() }
+      }
     }
   }
 
@@ -145,10 +166,42 @@ struct MobileProductionLibraryView: View {
   private func libraryShell<Content: View>(@ViewBuilder content: () -> Content) -> some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: AEVYNOSpacing.md) {
+        continueWatchingRail
         filters
         content()
       }
       .padding(AEVYNOSpacing.md)
+    }
+  }
+
+  @ViewBuilder private var continueWatchingRail: some View {
+    if !continueWatchingViewModel.items.isEmpty {
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
+        Text(AppText.continueWatching).aevynoTypography(.sectionTitle)
+        ScrollView(.horizontal) {
+          LazyHStack(spacing: AEVYNOSpacing.md) {
+            ForEach(continueWatchingViewModel.items) { item in
+              Button {
+                beginResume(item)
+              } label: {
+                MobileContinueWatchingCard(item: item, artworkPipeline: artworkPipeline)
+              }
+              .buttonStyle(.plain).accessibilityIdentifier("continue-watching.item.\(item.id)")
+              .accessibilityHint(AppText.playAccessibilityHint)
+            }
+          }.padding(.vertical, AEVYNOSpacing.xs)
+        }.scrollIndicators(.hidden)
+      }
+    }
+  }
+
+  private func beginResume(_ item: ContinueWatchingItemPresentation) {
+    Task {
+      guard let dependencies = try? await playbackServiceFactory() else { return }
+      let session = PlaybackSession(
+        resolver: dependencies.resolver, progressRepository: dependencies.progressRepository)
+      session.start(mediaID: item.id, title: item.title, kind: item.mediaKind)
+      continueWatchingSession = session
     }
   }
 
