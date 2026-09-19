@@ -9,6 +9,7 @@ struct MobileProductionLibraryView: View {
   @State private var viewModel: ProductionLibraryViewModel
   @State private var selectedItem: LibraryItemPresentation?
   @State private var continueWatchingViewModel: ContinueWatchingViewModel
+  @State private var favoritesViewModel: FavoritesViewModel
   @State private var continueWatchingSession: PlaybackSession?
   @State private var showsSources = false
 
@@ -16,13 +17,15 @@ struct MobileProductionLibraryView: View {
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
+  private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
 
   init(
     viewModel: ProductionLibraryViewModel,
     artworkPipeline: ArtworkImagePipeline,
     sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
     playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
-    continueWatchingServiceFactory: @escaping ContinueWatchingViewModel.ServiceFactory
+    continueWatchingServiceFactory: @escaping ContinueWatchingViewModel.ServiceFactory,
+    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory
   ) {
     _viewModel = State(initialValue: viewModel)
     self.artworkPipeline = artworkPipeline
@@ -31,6 +34,9 @@ struct MobileProductionLibraryView: View {
     self.continueWatchingServiceFactory = continueWatchingServiceFactory
     _continueWatchingViewModel = State(
       initialValue: ContinueWatchingViewModel(serviceFactory: continueWatchingServiceFactory))
+    self.favoritesServiceFactory = favoritesServiceFactory
+    _favoritesViewModel = State(
+      initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
   }
 
   var body: some View {
@@ -56,7 +62,8 @@ struct MobileProductionLibraryView: View {
         MobileLibraryDetailView(
           item: item,
           artworkPipeline: artworkPipeline,
-          playbackServiceFactory: playbackServiceFactory
+          playbackServiceFactory: playbackServiceFactory,
+          favoritesServiceFactory: favoritesServiceFactory
         )
       }
       .sheet(isPresented: $showsSources) {
@@ -73,6 +80,7 @@ struct MobileProductionLibraryView: View {
     .preferredColorScheme(.dark)
     .task { await viewModel.loadIfNeeded() }
     .task { await continueWatchingViewModel.reload() }
+    .task { await favoritesViewModel.reload() }
     .fullScreenCover(
       item: $continueWatchingSession,
       onDismiss: {
@@ -167,10 +175,41 @@ struct MobileProductionLibraryView: View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: AEVYNOSpacing.md) {
         continueWatchingRail
+        favoritesRail
         filters
         content()
       }
       .padding(AEVYNOSpacing.md)
+    }
+  }
+
+  @ViewBuilder private var favoritesRail: some View {
+    if !favoritesViewModel.items.isEmpty {
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
+        Text(AppText.favorites).aevynoTypography(.sectionTitle)
+        ScrollView(.horizontal) {
+          LazyHStack(spacing: AEVYNOSpacing.md) {
+            ForEach(favoritesViewModel.items) { item in
+              Button {
+                selectedItem = LibraryItemPresentation(
+                  id: item.id,
+                  title: item.title,
+                  mediaKind: item.mediaKind,
+                  sourceID: item.sourceID,
+                  sourceName: "",
+                  categoryID: nil,
+                  categoryTitle: nil,
+                  artworkURL: item.artworkURL
+                )
+              } label: {
+                MobileFavoriteCard(item: item, artworkPipeline: artworkPipeline)
+              }
+              .buttonStyle(.plain)
+              .accessibilityIdentifier("favorites.item.\(item.id)")
+            }
+          }.padding(.vertical, AEVYNOSpacing.xs)
+        }.scrollIndicators(.hidden)
+      }
     }
   }
 
@@ -302,11 +341,14 @@ private struct MobileLibraryDetailView: View {
   let artworkPipeline: ArtworkImagePipeline
   @State private var playbackViewModel: PlaybackDetailViewModel
   @State private var playbackSession: PlaybackSession?
+  @State private var favoritesViewModel: FavoritesViewModel
+  @State private var isFavorite = false
 
   init(
     item: LibraryItemPresentation,
     artworkPipeline: ArtworkImagePipeline,
-    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory
+    playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
+    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory
   ) {
     self.item = item
     self.artworkPipeline = artworkPipeline
@@ -315,6 +357,8 @@ private struct MobileLibraryDetailView: View {
         item: item,
         serviceFactory: playbackServiceFactory
       ))
+    _favoritesViewModel = State(
+      initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
   }
 
   var body: some View {
@@ -335,11 +379,17 @@ private struct MobileLibraryDetailView: View {
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
         playbackActions
+        Button(isFavorite ? AppText.removeFromFavorites : AppText.addToFavorites) {
+          Task { isFavorite = await favoritesViewModel.toggle(item.id) ?? isFavorite }
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("library.detail.favorite")
       }
       .padding(AEVYNOSpacing.md)
     }
     .background(AEVYNOColor.background)
     .task { await playbackViewModel.load() }
+    .task { isFavorite = await favoritesViewModel.isFavorite(item.id) }
     .fullScreenCover(
       item: $playbackSession,
       onDismiss: {
