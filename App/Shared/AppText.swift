@@ -61,6 +61,10 @@ enum AppText {
   static let libraryTitle = localized("library.title", defaultValue: "Library")
   static let continueWatching = localized(
     "home.section.continue_watching", defaultValue: "Continue Watching")
+  static let favorites = localized("home.section.favorites", defaultValue: "Favorites")
+  static let addToFavorites = localized("favorite.add", defaultValue: "Add to Favorites")
+  static let removeFromFavorites = localized(
+    "favorite.remove", defaultValue: "Remove from Favorites")
   static let allSources = localized("library.all_sources", defaultValue: "All Sources")
   static let categories = localized("library.categories", defaultValue: "Categories")
   static let allCategories = localized("library.all_categories", defaultValue: "All Categories")
