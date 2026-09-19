@@ -1,13 +1,14 @@
 # Project Status
 
-Last updated: 2026-09-13
+Last updated: 2026-09-20
 
 ## Current phase
 
 **Phase 1 physical validation open; Phase 2 complete; Phase 3 implemented with physical exit gate
 pending; Phase 4A Watch Progress Sync implemented on main; Phase 4B Favorites Sync implemented on
 main; Phase 4 remains open for signed CloudKit validation; Phase 5A Continue Watching implemented
-with simulator gates passed and real-device validation pending**
+with simulator gates passed and real-device validation pending; Phase 5B Favorites UI implemented
+locally with required automated gates passed and CI/real-device validation pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -384,6 +385,13 @@ Status: **IMPLEMENTED; CLOUDKIT CONFIGURATION AND REAL-DEVICE EXIT GATES PENDING
 
 ## Validation evidence
 
+- Phase 5B Favorites UI local validation on 2026-09-20 passed strict formatting, 195 shared tests in
+  19 suites with zero failures (`swift test`, exit 0), generic tvOS Simulator build and Analyze, and
+  all five focused Favorites tvOS UI tests. The previously validated generic iOS Simulator build and
+  Analyze remain applicable because no iOS production code changed afterward. The full tvOS UI suite
+  is deferred to self-hosted CI; physical Apple TV focus/RTL and physical iPhone/iPad validation remain
+  pending.
+
 - Phase 4B Favorites Sync local validation on 2026-09-13 passed the full shared `swift test` suite,
   including durable reopen, idempotent add/remove, tombstone conflict resolution, later re-favorite,
   offline/account-unavailable local operation, reconnect publication, cloud-failure preservation and
@@ -536,9 +544,10 @@ tests, while Instruments profiling and long-session focus review remain real-dev
   `1763189`; successful post-merge CI run `34598275534` validated it.
 - Phase 3 Playback Foundation is merged on `main` at `55e55a0` through PR #25; successful post-merge
   CI run `34746573352` validated the merge commit. Its physical Apple TV exit gate remains pending.
-- Phase 4A Watch Progress Sync is complete on `main`; Phase 4B Favorites Sync is implemented on
-  `feature/phase-4-favorites-sync`. CloudKit entitlements/container setup, PR/CI delivery, and
-  signed cross-device validation remain pending; Phase 4 is not complete.
+- Phase 4A Watch Progress Sync is implemented on `main`; Phase 4B Favorites Sync is implemented on
+  `main` through PR #27 at `252d620`, with post-merge CI `34783856312` successful. CloudKit
+  entitlements/container setup and signed cross-device validation remain pending; Phase 4 is not
+  complete.
 - Phase 1 localization work merged through PR #9; physical LTR/Arabic RTL validation is pending.
 - Phase 1 simulator implementation and hardening are merged into `main` through PRs #3
   and #4. The physical Apple TV exit gate remains pending.
@@ -601,10 +610,12 @@ durable WatchProgress to exact committed catalog records, hides completed/live/o
 uses deterministic recency ordering, reuses the Phase 3 session for Resume, and renders separate
 tvOS/iOS rails. Catalog commits invalidate the rail; player dismissal and foreground activation
 refresh it without polling. Physical Apple TV focus/RTL and physical iPhone/iPad validation remain
-pending. For Phase 4,
+pending. Phase 5A is **IMPLEMENTED on main through PR #28 at `d9b5e3e`**; post-merge CI
+`34873787230` succeeded. Phase 5B Favorites UI is implemented locally with required automated gates
+passed; self-hosted CI and real-device validation remain pending. For Phase 4,
 configure the owner-approved CloudKit container/capabilities, wire signed lifecycle/push triggers,
 then validate Apple TV-to-iPhone and iPhone-to-Apple TV resume/favorites plus offline reconnect.
-Favorites UI remains a later slice. Xtream playback URL and
+Xtream playback URL and
 episode-resolution contracts remain future work and must not be guessed.
 
 ## Active blockers
