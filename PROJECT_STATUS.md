@@ -33,8 +33,8 @@ entitlement/container configuration and signed cross-device validation remain pe
 ## Verified development environment
 
 - selected developer directory: `/Applications/Xcode.app/Contents/Developer`.
-- Xcode 26.6 (build 17F113).
-- Swift 6.3.3.
+- Xcode 27.0 (build 27A266a).
+- Swift 6.4.
 - iOS 26.5 SDK and simulator runtime available; iOS 17.5 runtime also available.
 - tvOS 26.5 SDK and simulator runtime available.
 - Apple TV 4K (3rd generation), 1080p variant and Apple TV simulators available.
@@ -504,7 +504,7 @@ tests, while Instruments profiling and long-session focus review remain real-dev
 
 - A GitHub Actions CI foundation validates Pull Requests targeting `main`, pushes to `main`
   and manual dispatches on the repository-scoped self-hosted macOS runner with explicitly selected
-  Xcode 26.6.
+  Xcode 27.0.
 - Blocking checks cover shared Swift tests, independent tvOS and iOS Simulator builds,
   tvOS and iOS static analysis, and the tvOS UI suite on an Apple TV 4K (3rd generation)
   tvOS 26.5 Simulator.

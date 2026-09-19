@@ -38,8 +38,9 @@ No registration token is written to the repository.
 
 - macOS on the development Mac.
 - `gh` authenticated as a repository administrator.
-- Xcode 26.6 installed at either `/Applications/Xcode.app` or
-  `/Applications/Xcode_26.6.app`.
+- Xcode 27.0 installed at either `/Applications/Xcode_27.0.app` or `/Applications/Xcode.app`.
+  The default application bundle is accepted only when `xcodebuild -version` reports exactly
+  `Xcode 27.0`.
 - tvOS 26.5 Apple TV 4K (3rd generation) Simulator installed.
 - The Mac must be powered on and the runner service available when CI is expected to run.
 
