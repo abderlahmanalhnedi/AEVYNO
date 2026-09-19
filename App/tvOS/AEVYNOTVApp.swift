@@ -20,6 +20,7 @@ struct AEVYNOTVApp: App {
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
   private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
+  private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
 
   init() {
     let arguments = ProcessInfo.processInfo.arguments
@@ -43,6 +44,7 @@ struct AEVYNOTVApp: App {
       playbackServiceFactory = { playbackDependencies }
       playbackEngineFactory = { playbackFixture.makeEngine() }
       continueWatchingServiceFactory = TVContinueWatchingFixture.service(arguments: arguments)
+      favoritesServiceFactory = TVFavoritesFixture.service(arguments: arguments)
     } else if let fixture = TVProductionLibraryFixture.fixture(arguments: arguments) {
       let sourceFixture = TVSourceManagementFixture(arguments: [])
       let playbackFixture = TVPlaybackFixture(arguments: arguments)
@@ -57,6 +59,7 @@ struct AEVYNOTVApp: App {
       playbackServiceFactory = { playbackDependencies }
       playbackEngineFactory = { playbackFixture.makeEngine() }
       continueWatchingServiceFactory = TVContinueWatchingFixture.service(arguments: arguments)
+      favoritesServiceFactory = TVFavoritesFixture.service(arguments: arguments)
     } else {
       let serviceContainer = AppSourceServiceContainer()
       sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
@@ -70,6 +73,7 @@ struct AEVYNOTVApp: App {
       playbackServiceFactory = { try await serviceContainer.playbackDependencies() }
       playbackEngineFactory = { NativeAVPlayerEngine() }
       continueWatchingServiceFactory = { try await serviceContainer.services().continueWatching }
+      favoritesServiceFactory = { try await serviceContainer.services().favorites }
     }
   }
 
@@ -97,6 +101,7 @@ struct AEVYNOTVApp: App {
             sourceServiceFactory: sourceServiceFactory,
             playbackServiceFactory: playbackServiceFactory,
             continueWatchingServiceFactory: continueWatchingServiceFactory,
+            favoritesServiceFactory: favoritesServiceFactory,
             playbackEngineFactory: playbackEngineFactory
           )
         }
