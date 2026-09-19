@@ -186,6 +186,72 @@ final class AEVYNOTVUITests: XCTestCase {
     try app.performAccessibilityAudit()
   }
 
+  func testFavoritesRailShowsDeterministicFirstCardAndRestoresFocusFromDetail() {
+    let app = launchApp(arguments: ["--ui-favorites"])
+    let first = app.buttons["favorites.item.movie-1"]
+
+    XCTAssertTrue(first.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["Favorites"].exists)
+    XCTAssertTrue(focusAndSelect(first, in: app))
+    XCTAssertTrue(app.staticTexts["library.detail.title"].waitForExistence(timeout: 5))
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(first.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: first))
+  }
+
+  func testUnfavoriteFocusedFavoriteMovesToDeterministicSurvivingFavorite() {
+    let app = launchApp(arguments: ["--ui-favorites"])
+    let first = app.buttons["favorites.item.movie-1"]
+    let second = app.buttons["favorites.item.movie-2"]
+
+    XCTAssertTrue(first.waitForExistence(timeout: 10))
+    XCTAssertTrue(focusAndSelect(first, in: app))
+    XCTAssertTrue(focusAndSelect(app.buttons["library.detail.favorite"], in: app))
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(second.waitForExistence(timeout: 5))
+    XCTAssertFalse(first.exists)
+    XCTAssertTrue(
+      waitForFocus(on: second),
+      "Expected movie-2 focus after removing movie-1. \(focusDiagnostics(in: app))"
+    )
+  }
+
+  func testRemovingFinalFavoriteRemovesRailWithoutFocusGap() {
+    let app = launchApp(arguments: ["--ui-favorites-single"])
+    let favorite = app.buttons["favorites.item.movie-1"]
+
+    XCTAssertTrue(favorite.waitForExistence(timeout: 10))
+    XCTAssertTrue(focusAndSelect(favorite, in: app))
+    XCTAssertTrue(focusAndSelect(app.buttons["library.detail.favorite"], in: app))
+    XCUIRemote.shared.press(.menu)
+    XCTAssertFalse(favorite.waitForExistence(timeout: 1))
+    XCTAssertTrue(app.buttons["library.item.movie-1"].waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: app.buttons["library.item.movie-1"]))
+  }
+
+  func testFavoriteFromDetailAddsToFavoritesRail() {
+    let app = launchApp(arguments: ["--ui-favorites-empty"])
+    let item = openProductionItem("movie-1", in: app)
+
+    XCTAssertTrue(focusAndSelect(app.buttons["library.detail.favorite"], in: app))
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(item.waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["favorites.item.movie-1"].waitForExistence(timeout: 5))
+  }
+
+  func testFavoritesArabicRTLandAccessibilityAreSafe() throws {
+    let app = launchApp(arguments: ["--ui-favorites"], locale: "ar")
+    let item = app.buttons["favorites.item.movie-1"]
+
+    XCTAssertTrue(item.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["المفضلة"].exists)
+    let exposed = "\(item.label) \(item.value ?? "")"
+    XCTAssertFalse(exposed.contains("00000000"))
+    XCTAssertFalse(exposed.contains("example.invalid"))
+    XCTAssertFalse(exposed.lowercased().contains("provider"))
+    try app.performAccessibilityAudit()
+  }
+
   func testPlaybackPlayableDetailExposesPlay() {
     let app = launchApp(arguments: ["--ui-playback-playing"])
     openProductionItem("m3u-1", in: app)
@@ -784,7 +850,7 @@ final class AEVYNOTVUITests: XCTestCase {
     let app = XCUIApplication()
     let isProductionFixture = arguments.contains {
       $0.hasPrefix("--ui-production-") || $0.hasPrefix("--ui-playback-")
-        || $0.hasPrefix("--ui-continue-watching")
+        || $0.hasPrefix("--ui-continue-watching") || $0.hasPrefix("--ui-favorites")
     }
     app.launchArguments =
       (isProductionFixture ? arguments : ["--ui-demo-home"] + arguments)
@@ -855,6 +921,15 @@ final class AEVYNOTVUITests: XCTestCase {
     let predicate = NSPredicate(format: "hasFocus == true")
     let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
     return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+  }
+
+  private func focusDiagnostics(in app: XCUIApplication) -> String {
+    let focused = app.descendants(matching: .any)
+      .matching(NSPredicate(format: "hasFocus == true"))
+      .allElementsBoundByIndex
+      .map { "type=\($0.elementType.rawValue) id=\($0.identifier) label=\($0.label)" }
+    return
+      "Focused elements: \(focused.isEmpty ? ["none"] : focused). Hierarchy: \(app.debugDescription)"
   }
 
   @discardableResult

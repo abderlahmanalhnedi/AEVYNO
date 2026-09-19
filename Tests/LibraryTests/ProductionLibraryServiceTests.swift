@@ -204,6 +204,100 @@ struct ProductionLibraryServiceTests {
     #expect(!names.contains("sourceID"))
   }
 
+  @Test("Favorites compose committed catalog metadata in bounded deterministic order")
+  func favoritesComposition() async throws {
+    let source = fixedSourceID(43)
+    let scope = CatalogScope(sourceID: source, origin: .xtream, kind: .vod)
+    let catalog = PresentationCatalogStub(
+      items: [
+        CatalogItem(id: "a", scope: scope, title: "Catalog A"),
+        CatalogItem(id: "b", scope: scope, title: "Catalog B"),
+      ], categories: [])
+    let repository = FavoritePresentationStub(values: [
+      Favorite(mediaID: "a", updatedAt: Date(timeIntervalSince1970: 1)),
+      Favorite(mediaID: "b", updatedAt: Date(timeIntervalSince1970: 2)),
+      Favorite(mediaID: "orphan", updatedAt: Date(timeIntervalSince1970: 3)),
+    ])
+    let service = ProductionFavoritesService(
+      catalog: catalog, repository: repository, maximumItems: 2)
+    #expect(try await service.items().map(\.id) == ["b", "a"])
+    #expect(await repository.favorite(for: "orphan") != nil)
+    #expect(try await service.toggle(mediaID: "a", at: .distantPast) == false)
+    #expect(try await service.items().map(\.id) == ["b"])
+  }
+
+  @Test("Favorites add and remove locally without requiring cloud availability")
+  func favoritesLocalFirstOperations() async throws {
+    let source = fixedSourceID(44)
+    let catalog = PresentationCatalogStub(
+      items: [
+        CatalogItem(
+          id: "catalog-item",
+          scope: CatalogScope(sourceID: source, origin: .xtream, kind: .vod),
+          title: "Catalog title")
+      ], categories: [])
+    let repository = FavoritePresentationStub(values: [])
+    let service = ProductionFavoritesService(catalog: catalog, repository: repository)
+
+    #expect(try await service.toggle(mediaID: "catalog-item", at: .distantPast))
+    #expect(try await service.items().map(\.id) == ["catalog-item"])
+    #expect(await repository.favorite(for: "catalog-item") != nil)
+    #expect(try await service.toggle(mediaID: "catalog-item", at: .distantFuture) == false)
+    #expect(try await service.items().isEmpty)
+  }
+
+  @Test("Favorites use deterministic newest-first bounded catalog composition")
+  func favoritesOrderingBoundsAndIdentity() async throws {
+    let source = fixedSourceID(45)
+    let scope = CatalogScope(sourceID: source, origin: .xtream, kind: .vod)
+    let catalog = PresentationCatalogStub(
+      items: [
+        CatalogItem(id: "a", scope: scope, title: "Catalog A"),
+        CatalogItem(id: "b", scope: scope, title: "Catalog B"),
+        CatalogItem(id: "c", scope: scope, title: "Catalog C"),
+      ], categories: [])
+    let repository = DuplicateFavoritePresentationStub(values: [
+      Favorite(mediaID: "b", updatedAt: Date(timeIntervalSince1970: 20)),
+      Favorite(mediaID: "a", updatedAt: Date(timeIntervalSince1970: 20)),
+      Favorite(mediaID: "a", updatedAt: Date(timeIntervalSince1970: 20)),
+      Favorite(mediaID: "c", updatedAt: Date(timeIntervalSince1970: 10)),
+    ])
+    let service = ProductionFavoritesService(
+      catalog: catalog, repository: repository, maximumItems: 2)
+
+    let items = try await service.items()
+    #expect(items.map(\.id) == ["a", "b"])
+    #expect(Set(items.map(\.id)).count == items.count)
+    #expect(items.map(\.title) == ["Catalog A", "Catalog B"])
+    let names = Set(Mirror(reflecting: try #require(items.first)).children.compactMap(\.label))
+    #expect(!names.contains("mediaURL"))
+    #expect(!names.contains("providerReference"))
+    #expect(!names.contains("credentialReference"))
+  }
+
+  @Test("Orphan favorites remain durable and reappear only when committed catalog restores them")
+  func favoritesOrphanRestorationAndCatalogReplacement() async throws {
+    let source = fixedSourceID(46)
+    let scope = CatalogScope(sourceID: source, origin: .xtream, kind: .vod)
+    let catalog = PresentationCatalogStub(
+      items: [CatalogItem(id: "visible", scope: scope, title: "First committed title")],
+      categories: [])
+    let repository = FavoritePresentationStub(values: [
+      Favorite(mediaID: "orphan", updatedAt: .distantFuture),
+      Favorite(mediaID: "visible", updatedAt: .distantPast),
+    ])
+    let service = ProductionFavoritesService(catalog: catalog, repository: repository)
+
+    #expect(try await service.items().map(\.id) == ["visible"])
+    #expect(await repository.favorite(for: "orphan") != nil)
+    await catalog.replace(items: [
+      CatalogItem(id: "orphan", scope: scope, title: "Restored catalog title")
+    ])
+    #expect(try await service.items().map(\.id) == ["orphan"])
+    #expect(try await service.items().first?.title == "Restored catalog title")
+    #expect(await repository.favorite(for: "visible") != nil)
+  }
+
   @Test("Paging suppresses duplicate requests and rejects stale results")
   func pagingConcurrency() async throws {
     let service = PagingServiceStub()
@@ -346,7 +440,7 @@ struct ProductionLibraryServiceTests {
 }
 
 private actor PresentationCatalogStub: CatalogLibraryQuerying {
-  let storedItems: [CatalogItem]
+  private var storedItems: [CatalogItem]
   let storedCategories: [CatalogCategorySummary]
   let failure: (any Error)?
   private(set) var lastFilter: CatalogFilter?
@@ -404,6 +498,8 @@ private actor PresentationCatalogStub: CatalogLibraryQuerying {
     try failIfNeeded()
     return storedItems.isEmpty ? 0 : 1
   }
+
+  func replace(items: [CatalogItem]) { storedItems = items }
 
   private func failIfNeeded() throws {
     if let failure { throw failure }
@@ -514,6 +610,26 @@ private actor ContinueWatchingProgressStub: WatchProgressRepository {
   func allProgress() -> [WatchProgress] { records }
   func save(_: WatchProgress) {}
   func remove(mediaID _: String) {}
+}
+
+private actor FavoritePresentationStub: FavoriteRepository {
+  private var records: [String: Favorite]
+  init(values: [Favorite]) {
+    records = Dictionary(uniqueKeysWithValues: values.map { ($0.mediaID, $0) })
+  }
+  func favorite(for mediaID: String) -> Favorite? { records[mediaID] }
+  func allFavorites() -> [Favorite] { Array(records.values) }
+  func add(_ favorite: Favorite) { records[favorite.mediaID] = favorite }
+  func remove(mediaID: String) { records.removeValue(forKey: mediaID) }
+}
+
+private actor DuplicateFavoritePresentationStub: FavoriteRepository {
+  private var records: [Favorite]
+  init(values: [Favorite]) { records = values }
+  func favorite(for mediaID: String) -> Favorite? { records.first { $0.mediaID == mediaID } }
+  func allFavorites() -> [Favorite] { records }
+  func add(_ favorite: Favorite) { records.append(favorite) }
+  func remove(mediaID: String) { records.removeAll { $0.mediaID == mediaID } }
 }
 
 private actor SourceManagingStub: SourceManaging {
