@@ -1,0 +1,88 @@
+import Domain
+import Foundation
+import IPTVCore
+import Persistence
+
+public struct XMLTVEPGImportReport: Equatable, Sendable {
+  public let parsedProgrammeCount: Int
+  public let skippedProgrammeCount: Int
+  public let committedAt: Date
+
+  public init(parsedProgrammeCount: Int, skippedProgrammeCount: Int, committedAt: Date) {
+    self.parsedProgrammeCount = parsedProgrammeCount
+    self.skippedProgrammeCount = skippedProgrammeCount
+    self.committedAt = committedAt
+  }
+}
+
+/// Streams XMLTV into a normalized temporary spool, then stages bounded batches before one atomic
+/// publication. The spool contains only normalized, non-secret EPG metadata and is always removed.
+public actor XMLTVEPGImportService {
+  private static let spoolReadSize = 64 * 1024
+  private static let maximumSpoolLineSize = 64 * 1024
+
+  private let repository: any EPGImportRepository
+  private let parser: XMLTVParser
+
+  public init(repository: any EPGImportRepository, parser: XMLTVParser = XMLTVParser()) {
+    self.repository = repository
+    self.parser = parser
+  }
+
+  public func importXMLTV(
+    stream: InputStream, sourceID: SourceConfiguration.ID, at now: Date
+  ) async throws -> XMLTVEPGImportReport {
+    let stagingID = try await repository.beginStaging(sourceID: sourceID)
+    let spool = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer {
+      try? FileManager.default.removeItem(at: spool)
+    }
+    do {
+      FileManager.default.createFile(atPath: spool.path, contents: nil)
+      let writer = try FileHandle(forWritingTo: spool)
+      defer { try? writer.close() }
+      let encoder = JSONEncoder()
+      let parseReport = try parser.parse(stream: stream) { programme in
+        try Task.checkCancellation()
+        try writer.write(encoder.encode(programme))
+        try writer.write(contentsOf: Data([0x0A]))
+      }
+      try writer.close()
+      try Task.checkCancellation()
+      try await stageSpool(spool, stagingID: stagingID)
+      try Task.checkCancellation()
+      try await repository.commitStagedReplacement(stagingID, at: now)
+      return XMLTVEPGImportReport(
+        parsedProgrammeCount: parseReport.programmeCount,
+        skippedProgrammeCount: parseReport.skippedProgrammeCount, committedAt: now)
+    } catch {
+      await repository.discardStaging(stagingID)
+      throw error
+    }
+  }
+
+  private func stageSpool(_ url: URL, stagingID: UUID) async throws {
+    let reader = try FileHandle(forReadingFrom: url)
+    defer { try? reader.close() }
+    let decoder = JSONDecoder()
+    var pending = Data()
+    var batch: [EPGProgramme] = []
+    while let chunk = try reader.read(upToCount: Self.spoolReadSize), !chunk.isEmpty {
+      try Task.checkCancellation()
+      pending.append(chunk)
+      while let newline = pending.firstIndex(of: 0x0A) {
+        let line = pending.prefix(upTo: newline)
+        pending.removeSubrange(...newline)
+        guard !line.isEmpty else { continue }
+        batch.append(try decoder.decode(EPGProgramme.self, from: line))
+        if batch.count == SQLiteEPGStore.batchLimit {
+          try await repository.stage(batch, in: stagingID)
+          batch.removeAll(keepingCapacity: true)
+        }
+      }
+      guard pending.count <= Self.maximumSpoolLineSize else { throw EPGStoreError.invalidInput }
+    }
+    guard pending.isEmpty else { throw EPGStoreError.invalidInput }
+    if !batch.isEmpty { try await repository.stage(batch, in: stagingID) }
+  }
+}
