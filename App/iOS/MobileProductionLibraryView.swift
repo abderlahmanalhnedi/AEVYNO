@@ -443,7 +443,12 @@ private struct MobileLibraryDetailView: View {
 
 private struct MobileLibrarySourcesView: View {
   @Environment(\.dismiss) private var dismiss
-  @State var viewModel: SourceManagementViewModel
+  @State private var viewModel: SourceManagementViewModel
+  @State private var editorRoute: MobileSourceEditorRoute?
+
+  init(viewModel: SourceManagementViewModel) {
+    _viewModel = State(initialValue: viewModel)
+  }
 
   var body: some View {
     NavigationStack {
@@ -451,7 +456,14 @@ private struct MobileLibrarySourcesView: View {
         if viewModel.isLoading {
           ProgressView(AppText.sourcesLoading)
         } else if viewModel.loadFailed {
-          Button(AppText.retry) { Task { await viewModel.load() } }
+          VStack(spacing: AEVYNOSpacing.md) {
+            ContentUnavailableView(
+              AppText.sourcesUnavailable,
+              systemImage: "externaldrive.badge.exclamationmark",
+              description: Text(AppText.sourcesUnavailableMessage)
+            )
+            Button(AppText.retry) { Task { await viewModel.load() } }
+          }
         } else if viewModel.sources.isEmpty {
           ContentUnavailableView(
             AppText.sourcesEmptyTitle,
@@ -460,22 +472,311 @@ private struct MobileLibrarySourcesView: View {
           )
         } else {
           ForEach(viewModel.sources) { source in
-            VStack(alignment: .leading) {
-              Text(source.configuration.displayName)
-              Text(AppText.sourceKind(source.configuration.kind))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-              Button(AppText.refreshNow) {
-                Task { await viewModel.refresh(id: source.id) }
-              }
-              .disabled(!source.configuration.isEnabled)
+            Button {
+              editorRoute = MobileSourceEditorRoute(source: source)
+            } label: {
+              MobileSourceRow(source: source)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(sourceAccessibilityLabel(source))
+            .accessibilityHint(AppText.editSourceAccessibilityHint)
           }
         }
       }
       .navigationTitle(AppText.sources)
-      .toolbar { Button(AppText.done) { dismiss() } }
+      .navigationDestination(item: $editorRoute) { route in
+        MobileSourceEditorView(
+          source: route.source,
+          viewModel: viewModel,
+          onSaved: { editorRoute = nil },
+          onDeleted: { editorRoute = nil }
+        )
+      }
+      .toolbar {
+        ToolbarItem(placement: .topBarLeading) { Button(AppText.done) { dismiss() } }
+        ToolbarItem(placement: .topBarTrailing) {
+          Button(AppText.addSource, systemImage: "plus") {
+            editorRoute = MobileSourceEditorRoute(source: nil)
+          }
+          .accessibilityHint(AppText.addSourceAccessibilityHint)
+        }
+      }
       .task { await viewModel.load() }
     }
+  }
+
+  private func sourceAccessibilityLabel(_ source: ManagedSource) -> String {
+    AppText.sourceRowAccessibilityLabel(
+      name: source.configuration.displayName,
+      kind: AppText.sourceKind(source.configuration.kind),
+      status: source.configuration.isEnabled ? AppText.enabled : AppText.disabled
+    )
+  }
+}
+
+private struct MobileSourceEditorRoute: Identifiable, Hashable {
+  let id = UUID()
+  let source: ManagedSource?
+
+  static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+  func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+private struct MobileSourceRow: View {
+  let source: ManagedSource
+
+  var body: some View {
+    HStack(spacing: AEVYNOSpacing.md) {
+      Image(systemName: source.configuration.kind == .m3u ? "list.bullet.rectangle" : "server.rack")
+        .foregroundStyle(AEVYNOColor.accent)
+        .frame(width: 28)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.xxs) {
+        Text(source.configuration.displayName).foregroundStyle(.primary)
+        Text(AppText.sourceKind(source.configuration.kind))
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        Text(AppText.refreshPolicy(source.configuration.refreshPolicy))
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      Spacer(minLength: AEVYNOSpacing.sm)
+      VStack(alignment: .trailing, spacing: AEVYNOSpacing.xxs) {
+        Text(source.configuration.isEnabled ? AppText.enabled : AppText.disabled)
+          .font(.caption.weight(.medium))
+          .foregroundStyle(source.configuration.isEnabled ? AEVYNOColor.accent : .secondary)
+        Text(AppText.lastRefreshed(source.refreshMetadata?.lastSuccessfulAt))
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
+    }
+    .padding(.vertical, AEVYNOSpacing.xs)
+  }
+}
+
+private struct MobileSourceEditorView: View {
+  let source: ManagedSource?
+  let viewModel: SourceManagementViewModel
+  let onSaved: () -> Void
+  let onDeleted: () -> Void
+
+  @State private var displayName: String
+  @State private var kind: SourceKind
+  @State private var endpoint: String
+  @State private var isEnabled: Bool
+  @State private var refreshPolicy: RefreshPolicy
+  @State private var replacingCredential: Bool
+  @State private var username = ""
+  @State private var password = ""
+  @State private var showsDeleteConfirmation = false
+
+  init(
+    source: ManagedSource?,
+    viewModel: SourceManagementViewModel,
+    onSaved: @escaping () -> Void,
+    onDeleted: @escaping () -> Void
+  ) {
+    self.source = source
+    self.viewModel = viewModel
+    self.onSaved = onSaved
+    self.onDeleted = onDeleted
+    _displayName = State(initialValue: source?.configuration.displayName ?? "")
+    _kind = State(initialValue: source?.configuration.kind ?? .xtreamCompatible)
+    _endpoint = State(initialValue: source?.configuration.endpoint?.url.absoluteString ?? "")
+    _isEnabled = State(initialValue: source?.configuration.isEnabled ?? true)
+    _refreshPolicy = State(initialValue: source?.configuration.refreshPolicy ?? .manualOnly)
+    _replacingCredential = State(initialValue: source == nil)
+  }
+
+  var body: some View {
+    Form {
+      Section {
+        TextField(AppText.sourceName, text: $displayName)
+          .textContentType(.name)
+        Picker(AppText.sourceType, selection: $kind) {
+          Text(AppText.xtreamCompatible).tag(SourceKind.xtreamCompatible)
+          Text(AppText.m3uPlaylist).tag(SourceKind.m3u)
+        }
+        .disabled(source != nil)
+        TextField(AppText.serverAddress, text: $endpoint)
+          .textContentType(.URL)
+          .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
+      }
+
+      Section(AppText.automaticRefresh) {
+        Picker(AppText.automaticRefresh, selection: $refreshPolicy) {
+          Text(AppText.manualOnly).tag(RefreshPolicy.manualOnly)
+          Text(AppText.every6Hours).tag(RefreshPolicy.automatic(.every6Hours))
+          Text(AppText.every12Hours).tag(RefreshPolicy.automatic(.every12Hours))
+          Text(AppText.daily).tag(RefreshPolicy.automatic(.daily))
+        }
+        Text(AppText.automaticRefreshActiveExplanation).font(.footnote).foregroundStyle(.secondary)
+      }
+
+      credentialsSection
+      sourceActions
+      if let source { existingSourceActions(source) }
+      operationStatus
+    }
+    .navigationTitle(source == nil ? AppText.addSource : AppText.editSource)
+    .navigationBarTitleDisplayMode(.inline)
+    .task { viewModel.clearOperationState() }
+    .confirmationDialog(
+      AppText.deleteSourceConfirmationTitle,
+      isPresented: $showsDeleteConfirmation,
+      titleVisibility: .visible
+    ) {
+      Button(AppText.delete, role: .destructive) { deleteSource() }
+      Button(AppText.cancel, role: .cancel) {}
+    } message: {
+      Text(AppText.deleteSourceConfirmationMessage)
+    }
+  }
+
+  @ViewBuilder private var credentialsSection: some View {
+    if kind == .xtreamCompatible {
+      Section {
+        if source != nil, !replacingCredential {
+          LabeledContent(AppText.credentialSaved) {
+            Button(AppText.replaceCredential) { replacingCredential = true }
+              .accessibilityHint(AppText.replaceCredentialAccessibilityHint)
+          }
+        } else {
+          TextField(AppText.username, text: $username)
+            .textContentType(.username)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+          SecureField(AppText.password, text: $password)
+            .textContentType(.password)
+            .accessibilityHint(AppText.passwordAccessibilityHint)
+        }
+      } header: {
+        Text(AppText.xtreamCompatible)
+      }
+    } else {
+      Section {
+        Text(AppText.m3uQueryLimitation).font(.footnote).foregroundStyle(.secondary)
+      }
+    }
+  }
+
+  private var sourceActions: some View {
+    Section {
+      Button(AppText.testConnection) { testConnection() }
+        .accessibilityHint(AppText.testConnectionAccessibilityHint)
+      Button(AppText.save) { save() }
+        .buttonStyle(.borderedProminent)
+        .tint(AEVYNOColor.accent)
+    }
+  }
+
+  @ViewBuilder private func existingSourceActions(_ source: ManagedSource) -> some View {
+    Section {
+      Toggle(
+        source.configuration.isEnabled ? AppText.enabled : AppText.disabled,
+        isOn: Binding(
+          get: { isEnabled },
+          set: { newValue in setEnabled(newValue, sourceID: source.id) }
+        )
+      )
+      Button(AppText.refreshNow) { Task { await viewModel.refresh(id: source.id) } }
+        .disabled(!isEnabled)
+    }
+    Section {
+      Button(AppText.delete, role: .destructive) { showsDeleteConfirmation = true }
+        .accessibilityHint(AppText.deleteAccessibilityHint)
+    }
+  }
+
+  @ViewBuilder private var operationStatus: some View {
+    if let state = viewModel.operationState {
+      Section {
+        Label(AppText.sourceOperationState(state), systemImage: statusSymbol(state))
+          .foregroundStyle(statusColor(state))
+      }
+    }
+  }
+
+  private func draft() -> SourceDraft {
+    let credential: SourceDraft.CredentialInput =
+      if kind == .m3u { .none } else if source != nil, !replacingCredential { .unchanged } else {
+        .replace(username: username, secret: password)
+      }
+    return SourceDraft(
+      displayName: displayName,
+      kind: kind,
+      endpoint: endpoint,
+      isEnabled: isEnabled,
+      refreshPolicy: refreshPolicy,
+      credential: credential
+    )
+  }
+
+  private func testConnection() {
+    let input = draft()
+    Task {
+      let issues = await viewModel.validate(input, editing: source?.id)
+      guard issues.isEmpty else {
+        viewModel.reportValidationIssues(issues)
+        return
+      }
+      _ = await viewModel.testConnection(input, editing: source?.id)
+    }
+  }
+
+  private func save() {
+    let input = draft()
+    Task {
+      let issues = await viewModel.validate(input, editing: source?.id)
+      guard issues.isEmpty else {
+        viewModel.reportValidationIssues(issues)
+        return
+      }
+      if await viewModel.save(input, editing: source?.id) {
+        password = ""
+        username = ""
+        onSaved()
+      }
+    }
+  }
+
+  private func setEnabled(_ value: Bool, sourceID: SourceConfiguration.ID) {
+    Task {
+      await viewModel.setEnabled(value, id: sourceID)
+      if !(viewModel.operationState?.isFailure ?? false) { isEnabled = value }
+    }
+  }
+
+  private func deleteSource() {
+    guard let source else { return }
+    Task {
+      if await viewModel.delete(id: source.id) {
+        onDeleted()
+      }
+    }
+  }
+
+  private func statusSymbol(_ state: SourceOperationState) -> String {
+    switch state {
+    case .connectionSucceeded, .saved, .enabled, .disabled, .deleted, .refreshing(.completed):
+      "checkmark.circle.fill"
+    case .failed: "exclamationmark.triangle.fill"
+    case .cancelled, .refreshing(.cancelled): "xmark.circle.fill"
+    default: "arrow.triangle.2.circlepath"
+    }
+  }
+
+  private func statusColor(_ state: SourceOperationState) -> Color {
+    if case .failed = state { return AEVYNOColor.accentWarm }
+    return AEVYNOColor.accent
+  }
+}
+
+extension SourceOperationState {
+  fileprivate var isFailure: Bool {
+    if case .failed = self { return true }
+    return false
   }
 }
