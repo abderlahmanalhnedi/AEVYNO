@@ -575,16 +575,10 @@ private struct TVSourceEditorView: View {
         return
       }
       let succeeded = await viewModel.save(input, editing: source?.id)
-      if succeeded {
+      if succeeded, let savedID = viewModel.lastSavedSourceID {
         password = ""
         username = ""
-        if let saved = viewModel.sources.first(where: {
-          $0.configuration.displayName
-            == input.displayName.trimmingCharacters(
-              in: .whitespacesAndNewlines)
-        }) {
-          onSaved(saved.id)
-        }
+        onSaved(savedID)
       }
     }
   }
