@@ -10,9 +10,9 @@ Explicit Phase 1 demo/state/stress arguments continue to launch synthetic Home; 
 production UI fixtures are also launch-argument-only. Production records are never repackaged as
 synthetic `MediaItem` values.
 
-This slice contains no playback URL resolution, favorites, CloudKit catalog synchronization, commerce,
-analytics or tracking. Phase 5A adds Continue Watching as a bounded composition over this committed
-catalog boundary; it does not change catalog paging or expose playback data to SwiftUI.
+This slice contains no CloudKit catalog synchronization, commerce, analytics or tracking. Phase 5A
+adds Continue Watching and Phase 5B adds Favorites as bounded compositions over this committed
+catalog boundary; neither changes catalog paging or exposes playback data to SwiftUI.
 
 ## Architecture and data flow
 
@@ -40,6 +40,34 @@ foreground activation and player dismissal, with no Timer or polling. Simulator 
 resumable ordering/progress, completed/orphaned absence, empty-focus behavior, resume/focus
 restoration, Arabic RTL and accessibility redaction. Physical Apple TV focus/RTL and physical
 iPhone/iPad validation remain pending.
+
+## Phase 5B Favorites
+
+`ProductionFavoritesService` joins Phase 4B's durable local-first `FavoriteRepository` to matching
+committed catalog records. It sorts favorites by newest `updatedAt`, then stable media ID, resolves a
+maximum of 20 cards, and uses catalog title, exact kind and artwork as the only display metadata.
+Favorite records never contain persisted catalog metadata. Duplicate presentation IDs are suppressed.
+
+An unresolved favorite is intentionally hidden but remains durable; catalog replacement does not
+delete it and a later matching committed record restores it. The service publishes local writes and
+forwards committed-catalog revisions, so the platform rails update without a `Timer` or polling.
+Cloud availability and later Phase 4B synchronization cannot block or reverse a successful local
+favorite write.
+
+The tvOS rail is a native horizontal focus section keyed by stable media ID. Returning from Detail
+restores the opened favorite while it remains present. If it was removed, focus moves to the
+deterministic surviving favorite at the removed card's prior index. Removing the final card removes
+the rail and restores a remembered or valid library card, avoiding a focus gap. iPhone/iPad use a
+separate touch rail and the existing Detail destination. Both Detail screens use the same local-first
+toggle boundary; SwiftUI never calls CloudKit and Favorites adds no AVPlayer code or a second Detail
+path.
+
+Favorites, Add to Favorites and Remove from Favorites have English, German and Arabic catalog
+entries. Layout stays semantic and uses native SwiftUI RTL. Card accessibility exposes catalog title
+only; it never exposes URLs, provider/credential references or source UUIDs. Automated simulator
+coverage exercises ordering, orphan restoration, local operations, focused removal, final-card rail
+removal, Detail/back restoration, Detail add, Arabic RTL and accessibility. Physical Apple TV focus
+and RTL review and physical iPhone/iPad validation remain pending.
 
 `ProductionLibraryService` exposes only safe display data: exact stable catalog ID, provider title,
 exact `CatalogMediaKind`, source display name, optional selected-category title and optional artwork

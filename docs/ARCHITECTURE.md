@@ -251,7 +251,31 @@ safe presentation metadata only, opens the existing `PlaybackSession` flow, and 
 CloudKit, AVPlayer, credentials, provider references or playback URLs directly. Catalog-commit
 revisions, foreground activation and player dismissal reload the rail; no polling is used.
 
-## 8. Conflict policy baseline
+## 8. Data flow — Favorites
+
+```text
+Detail or Favorites rail action
+  -> FavoritesViewModel (main-actor UI boundary)
+  -> ProductionFavoritesService
+  -> Phase 4B local-first FavoriteRepository write
+  -> optional Phase 4B sync enqueue; cloud availability never blocks the local write
+  -> bounded join with matching committed catalog records
+  -> separate native tvOS and iOS/iPadOS Favorites presentation
+```
+
+Phase 5B keeps a Favorite as durable identity plus update time only. `ProductionFavoritesService`
+sorts by newest update then stable media ID, resolves at most 20 matching committed catalog items,
+and takes title, kind and artwork solely from the current catalog. Missing catalog entries are hidden
+without deleting their durable favorite; they reappear if a later committed catalog contains the same
+identity. Catalog commits and local favorite writes publish revision updates; foreground reloads are
+explicit lifecycle work. There is no polling, Timer, UI CloudKit call, duplicated store, catalog
+metadata persistence in a Favorite or alternate Detail/playback path.
+
+The safe Favorites card model excludes playback URLs, provider/credential references and artwork
+fetch internals. Source identity is retained only for routing from the card into the existing Detail
+path and is never used in accessibility labels, values or hints.
+
+## 9. Conflict policy baseline
 
 Watch Progress uses deterministic metadata including:
 - content stable ID.
@@ -265,13 +289,13 @@ The implemented order is reset generation, completion, farther absolute position
 operation ID, then timestamp only as a final equivalent-state tie. A pending explicit reset is
 rebased above fetched remote generations. Naive timestamp last-write-wins is rejected.
 
-## 9. Stable IDs
+## 10. Stable IDs
 
 Provider IDs are not automatically globally stable.
 
 Construct stable identities using provider/source identity plus provider media identifier where possible. Do not key CloudKit records only by human title.
 
-## 10. Offline/degraded operation
+## 11. Offline/degraded operation
 
 When the provider or CloudKit is unavailable:
 - cached catalog remains browsable if valid.
@@ -279,7 +303,7 @@ When the provider or CloudKit is unavailable:
 - sync retries later.
 - playback can continue if media URL remains valid/reachable.
 
-## 11. Observability
+## 12. Observability
 
 Use structured logs/categories such as:
 - app lifecycle.

@@ -126,6 +126,7 @@ public struct ProductionSourceServices: Sendable {
   public let refreshScheduling: RefreshSchedulingService
   public let productionLibrary: ProductionLibraryService
   public let continueWatching: ProductionContinueWatchingService
+  public let favorites: ProductionFavoritesService
   public let playbackAssetResolver: ProductionPlaybackAssetResolver
   public let watchProgressRepository: FileWatchProgressRepository
 
@@ -134,6 +135,7 @@ public struct ProductionSourceServices: Sendable {
     refreshScheduling: RefreshSchedulingService,
     productionLibrary: ProductionLibraryService,
     continueWatching: ProductionContinueWatchingService,
+    favorites: ProductionFavoritesService,
     playbackAssetResolver: ProductionPlaybackAssetResolver,
     watchProgressRepository: FileWatchProgressRepository
   ) {
@@ -141,6 +143,7 @@ public struct ProductionSourceServices: Sendable {
     self.refreshScheduling = refreshScheduling
     self.productionLibrary = productionLibrary
     self.continueWatching = continueWatching
+    self.favorites = favorites
     self.playbackAssetResolver = playbackAssetResolver
     self.watchProgressRepository = watchProgressRepository
   }
@@ -223,11 +226,18 @@ public actor SourceManagementService: SourceManaging {
       progressRepository: watchProgressRepository,
       revisionCenter: revisionCenter
     )
+    let favoriteRepository = try FileFavoriteRepository.openDefault()
+    let favorites = ProductionFavoritesService(
+      catalog: CatalogLibraryService(repository: catalogRepository),
+      repository: favoriteRepository,
+      catalogRevisions: revisionCenter
+    )
     return ProductionSourceServices(
       sourceManagement: sourceManagement,
       refreshScheduling: refreshScheduling,
       productionLibrary: productionLibrary,
       continueWatching: continueWatching,
+      favorites: favorites,
       playbackAssetResolver: playbackAssetResolver,
       watchProgressRepository: watchProgressRepository
     )

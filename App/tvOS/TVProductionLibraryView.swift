@@ -4,15 +4,24 @@ import Library
 import Playback
 import SwiftUI
 
+private enum TVLibraryFocusTarget: Hashable {
+  case continueWatching(String)
+  case favorite(String)
+  case item(String)
+  case loadMore
+}
+
 struct TVProductionLibraryView: View {
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.resetFocus) private var resetFocus
+  @Namespace private var libraryFocusScope
   @State private var viewModel: ProductionLibraryViewModel
-  @FocusState private var focusedItemID: String?
-  @FocusState private var focusedContinueWatchingID: String?
-  @FocusState private var isLoadMoreFocused: Bool
+  @FocusState private var focusedTarget: TVLibraryFocusTarget?
   @State private var rememberedItemID: String?
+  @State private var openedFavoriteID: String?
   @State private var selectedItem: LibraryItemPresentation?
   @State private var continueWatchingViewModel: ContinueWatchingViewModel
+  @State private var favoritesViewModel: FavoritesViewModel
   @State private var continueWatchingSession: PlaybackSession?
   @State private var resumedContinueWatchingID: String?
   @State private var showsSources = false
@@ -21,6 +30,7 @@ struct TVProductionLibraryView: View {
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
+  private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
   private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
 
   init(
@@ -29,6 +39,7 @@ struct TVProductionLibraryView: View {
     sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
     playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
     continueWatchingServiceFactory: @escaping ContinueWatchingViewModel.ServiceFactory,
+    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory,
     playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory = {
       NativeAVPlayerEngine()
     }
@@ -38,8 +49,11 @@ struct TVProductionLibraryView: View {
     self.sourceServiceFactory = sourceServiceFactory
     self.playbackServiceFactory = playbackServiceFactory
     self.continueWatchingServiceFactory = continueWatchingServiceFactory
+    self.favoritesServiceFactory = favoritesServiceFactory
     _continueWatchingViewModel = State(
       initialValue: ContinueWatchingViewModel(serviceFactory: continueWatchingServiceFactory))
+    _favoritesViewModel = State(
+      initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
     self.playbackEngineFactory = playbackEngineFactory
   }
 
@@ -60,8 +74,10 @@ struct TVProductionLibraryView: View {
             item: item,
             artworkPipeline: artworkPipeline,
             playbackServiceFactory: playbackServiceFactory,
-            playbackEngineFactory: playbackEngineFactory
+            playbackEngineFactory: playbackEngineFactory,
+            favoritesServiceFactory: favoritesServiceFactory
           )
+          .onDisappear { restoreFocusAfterDetail() }
         }
       )
       .navigationDestination(
@@ -83,7 +99,9 @@ struct TVProductionLibraryView: View {
       item: $continueWatchingSession,
       onDismiss: {
         Task { await continueWatchingViewModel.reload() }
-        focusedContinueWatchingID = resumedContinueWatchingID
+        if let resumedContinueWatchingID {
+          focusedTarget = .continueWatching(resumedContinueWatchingID)
+        }
       },
       content: { session in
         PlaybackPresentationView(session: session) {
@@ -97,29 +115,57 @@ struct TVProductionLibraryView: View {
     navigationView
       .task { await viewModel.loadIfNeeded(protecting: rememberedItemID) }
       .task { await continueWatchingViewModel.reload() }
+      .task { await favoritesViewModel.reload() }
       .onChange(of: viewModel.searchText) { _, _ in viewModel.searchTextChanged() }
   }
 
   private var focusConfiguredView: some View {
     loadConfiguredView
       .onChange(of: viewModel.items) { _, items in
-        guard selectedItem == nil, !isLoadMoreFocused else { return }
+        guard selectedItem == nil, focusedTarget != .loadMore else { return }
         if let rememberedItemID, items.contains(where: { $0.id == rememberedItemID }) {
-          focusedItemID = rememberedItemID
+          focusedTarget = .item(rememberedItemID)
         } else if let first = items.first {
           rememberedItemID = first.id
-          focusedItemID = first.id
+          focusedTarget = .item(first.id)
         }
       }
-      .onChange(of: focusedItemID) { _, value in
-        if let value { rememberedItemID = value }
+      .onChange(of: focusedTarget) { _, value in
+        if case .item(let id) = value { rememberedItemID = id }
       }
   }
 
   private var navigationConfiguredView: some View {
     focusConfiguredView
-      .onChange(of: selectedItem?.id) { (previous: String?, current: String?) in
-        if previous != nil, current == nil { focusedItemID = rememberedItemID }
+      .onChange(of: favoritesViewModel.items) { previousItems, items in
+        guard
+          let activeFavoriteID = openedFavoriteID ?? focusedFavoriteID,
+          !items.contains(where: { $0.id == activeFavoriteID })
+        else { return }
+
+        let replacementFavoriteID: String? = {
+          guard !items.isEmpty else { return nil }
+          guard
+            let previousIndex = previousItems.firstIndex(where: { $0.id == activeFavoriteID })
+          else {
+            return items.first?.id
+          }
+
+          let replacementIndex = min(previousIndex, items.count - 1)
+          return items[replacementIndex].id
+        }()
+
+        focusedTarget = nil
+        openedFavoriteID = replacementFavoriteID
+
+        if selectedItem == nil {
+          if let replacementFavoriteID {
+            requestFocus(.favorite(replacementFavoriteID))
+            openedFavoriteID = nil
+          } else {
+            focusLibraryFallback()
+          }
+        }
       }
       .onChange(of: showsSources) { previous, current in
         if previous, !current {
@@ -203,6 +249,7 @@ struct TVProductionLibraryView: View {
       LazyVStack(alignment: .leading, spacing: AEVYNOSpacing.lg) {
         header
         continueWatchingRail
+        favoritesRail
         filters
         content()
       }
@@ -210,8 +257,46 @@ struct TVProductionLibraryView: View {
       .padding(.vertical, AEVYNOSpacing.xl)
     }
     .scrollIndicators(.hidden)
+    .focusScope(libraryFocusScope)
     .accessibilityIdentifier("library.loaded")
     .accessibilityValue(String(viewModel.items.count))
+  }
+
+  @ViewBuilder private var favoritesRail: some View {
+    if !favoritesViewModel.items.isEmpty {
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.sm) {
+        Text(AppText.favorites).aevynoTypography(.sectionTitle).foregroundStyle(
+          AEVYNOColor.primaryText)
+        ScrollView(.horizontal) {
+          LazyHStack(spacing: AEVYNOSpacing.lg) {
+            ForEach(favoritesViewModel.items) { item in
+              Button {
+                openedFavoriteID = item.id
+                selectedItem = LibraryItemPresentation(
+                  id: item.id,
+                  title: item.title,
+                  mediaKind: item.mediaKind,
+                  sourceID: item.sourceID,
+                  sourceName: "",
+                  categoryID: nil,
+                  categoryTitle: nil,
+                  artworkURL: item.artworkURL
+                )
+              } label: {
+                TVFavoriteCard(item: item, artworkPipeline: artworkPipeline)
+              }
+              .buttonStyle(TVMediaButtonStyle()).accessibilityIdentifier(
+                "favorites.item.\(item.id)"
+              )
+              .focused($focusedTarget, equals: .favorite(item.id))
+              .prefersDefaultFocus(
+                focusedTarget == .favorite(item.id), in: libraryFocusScope
+              )
+            }
+          }.focusSection()
+        }.scrollIndicators(.hidden)
+      }
+    }
   }
 
   @ViewBuilder private var continueWatchingRail: some View {
@@ -228,7 +313,7 @@ struct TVProductionLibraryView: View {
                 TVContinueWatchingCard(item: item, artworkPipeline: artworkPipeline)
               }
               .buttonStyle(TVMediaButtonStyle())
-              .focused($focusedContinueWatchingID, equals: item.id)
+              .focused($focusedTarget, equals: .continueWatching(item.id))
               .accessibilityIdentifier("continue-watching.item.\(item.id)")
               .accessibilityHint(AppText.playAccessibilityHint)
             }
@@ -247,6 +332,43 @@ struct TVProductionLibraryView: View {
         engineFactory: playbackEngineFactory)
       session.start(mediaID: item.id, title: item.title, kind: item.mediaKind)
       continueWatchingSession = session
+    }
+  }
+
+  private var focusedFavoriteID: String? {
+    guard case .favorite(let id) = focusedTarget else { return nil }
+    return id
+  }
+
+  private var focusedItemID: String? {
+    guard case .item(let id) = focusedTarget else { return nil }
+    return id
+  }
+
+  private func restoreFocusAfterDetail() {
+    if let targetFavoriteID = openedFavoriteID,
+      favoritesViewModel.items.contains(where: { $0.id == targetFavoriteID })
+    {
+      requestFocus(.favorite(targetFavoriteID))
+    } else {
+      focusLibraryFallback()
+    }
+    openedFavoriteID = nil
+  }
+
+  private func focusLibraryFallback() {
+    if let id = rememberedItemID ?? viewModel.items.first?.id {
+      requestFocus(.item(id))
+    }
+  }
+
+  private func requestFocus(_ target: TVLibraryFocusTarget) {
+    focusedTarget = nil
+    Task { @MainActor in
+      await Task.yield()
+      focusedTarget = target
+      await Task.yield()
+      resetFocus(in: libraryFocusScope)
     }
   }
 
@@ -347,13 +469,14 @@ struct TVProductionLibraryView: View {
           } label: {
             TVLibraryCard(
               item: item,
-              isFocused: focusedItemID == item.id,
+              isFocused: focusedTarget == .item(item.id),
               artworkPipeline: artworkPipeline
             )
           }
           .buttonStyle(TVMediaButtonStyle())
           .focusEffectDisabled()
-          .focused($focusedItemID, equals: item.id)
+          .focused($focusedTarget, equals: .item(item.id))
+          .prefersDefaultFocus(focusedTarget == .item(item.id), in: libraryFocusScope)
           .accessibilityIdentifier("library.item.\(item.id)")
           .accessibilityHint(AppText.openDetailsAccessibilityHint)
         }
@@ -363,10 +486,10 @@ struct TVProductionLibraryView: View {
         Button(AppText.loadMore) {
           Task {
             await viewModel.loadNext(protecting: focusedItemID)
-            if viewModel.hasMore { isLoadMoreFocused = true }
+            if viewModel.hasMore { focusedTarget = .loadMore }
           }
         }
-        .focused($isLoadMoreFocused)
+        .focused($focusedTarget, equals: .loadMore)
         .accessibilityIdentifier("library.load-more")
       }
     }
@@ -479,12 +602,15 @@ private struct TVLibraryDetailView: View {
   let artworkPipeline: ArtworkImagePipeline
   @State private var playbackViewModel: PlaybackDetailViewModel
   @State private var playbackSession: PlaybackSession?
+  @State private var favoritesViewModel: FavoritesViewModel
+  @State private var isFavorite = false
 
   init(
     item: LibraryItemPresentation,
     artworkPipeline: ArtworkImagePipeline,
     playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
-    playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory
+    playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory,
+    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory
   ) {
     self.item = item
     self.artworkPipeline = artworkPipeline
@@ -494,6 +620,8 @@ private struct TVLibraryDetailView: View {
         serviceFactory: playbackServiceFactory,
         engineFactory: playbackEngineFactory
       ))
+    _favoritesViewModel = State(
+      initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
   }
 
   var body: some View {
@@ -527,11 +655,16 @@ private struct TVLibraryDetailView: View {
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
         playbackActions
+        Button(isFavorite ? AppText.removeFromFavorites : AppText.addToFavorites) {
+          Task { isFavorite = await favoritesViewModel.toggle(item.id) ?? isFavorite }
+        }
+        .buttonStyle(.bordered).accessibilityIdentifier("library.detail.favorite")
       }
       .padding(.horizontal, 110)
       .padding(.bottom, 88)
     }
     .task { await playbackViewModel.load() }
+    .task { isFavorite = await favoritesViewModel.isFavorite(item.id) }
     .fullScreenCover(
       item: $playbackSession,
       onDismiss: {

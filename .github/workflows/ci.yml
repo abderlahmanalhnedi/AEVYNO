@@ -142,14 +142,14 @@ jobs:
           print(f"Documentation validation passed for {len(markdown_files)} changed Markdown file(s).")
           PY
 
-      - name: Select Xcode 26.6
+      - name: Select Xcode 27.0
         if: ${{ steps.scope.outputs.code_changed == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
 
           candidates=(
-            "/Applications/Xcode_26.6.app/Contents/Developer"
+            "/Applications/Xcode_27.0.app/Contents/Developer"
             "/Applications/Xcode.app/Contents/Developer"
           )
 
@@ -163,7 +163,7 @@ jobs:
             fi
 
             first_line="${xcode_version%%$'\n'*}"
-            if [[ "$first_line" == "Xcode 26.6" ]]; then
+            if [[ "$first_line" == "Xcode 27.0" ]]; then
               echo "DEVELOPER_DIR=$candidate" >> "$GITHUB_ENV"
               echo "Using $candidate"
               printf '%s\n' "$xcode_version"
@@ -171,7 +171,7 @@ jobs:
             fi
           done
 
-          echo "::error title=Xcode 26.6 unavailable::Expected Xcode 26.6 at /Applications/Xcode_26.6.app or /Applications/Xcode.app."
+          echo "::error title=Xcode 27.0 unavailable::Expected Xcode 27.0 at /Applications/Xcode_27.0.app or /Applications/Xcode.app."
           find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
           exit 1
 
@@ -328,14 +328,14 @@ jobs:
         if: ${{ steps.scope.outputs.run_ui_tests == 'false' }}
         run: echo "tvOS UI tests skipped because this PR does not change a tvOS/shared UI, playback/cloud UI contract, project integration, UI tests, or String Catalog."
 
-      - name: Select Xcode 26.6
+      - name: Select Xcode 27.0
         if: ${{ steps.scope.outputs.run_ui_tests == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
 
           candidates=(
-            "/Applications/Xcode_26.6.app/Contents/Developer"
+            "/Applications/Xcode_27.0.app/Contents/Developer"
             "/Applications/Xcode.app/Contents/Developer"
           )
 
@@ -349,7 +349,7 @@ jobs:
             fi
 
             first_line="${xcode_version%%$'\n'*}"
-            if [[ "$first_line" == "Xcode 26.6" ]]; then
+            if [[ "$first_line" == "Xcode 27.0" ]]; then
               echo "DEVELOPER_DIR=$candidate" >> "$GITHUB_ENV"
               echo "Using $candidate"
               printf '%s\n' "$xcode_version"
@@ -357,7 +357,7 @@ jobs:
             fi
           done
 
-          echo "::error title=Xcode 26.6 unavailable::Expected Xcode 26.6 at /Applications/Xcode_26.6.app or /Applications/Xcode.app."
+          echo "::error title=Xcode 27.0 unavailable::Expected Xcode 27.0 at /Applications/Xcode_27.0.app or /Applications/Xcode.app."
           find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort
           exit 1
 

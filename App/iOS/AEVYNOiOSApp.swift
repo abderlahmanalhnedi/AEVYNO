@@ -15,6 +15,7 @@ struct AEVYNOiOSApp: App {
   private let refreshLifecycle: RefreshSchedulingLifecycleController
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
+  private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
 
   init() {
     let serviceContainer = AppSourceServiceContainer()
@@ -34,6 +35,7 @@ struct AEVYNOiOSApp: App {
     artworkPipeline = ArtworkImagePipeline()
     playbackServiceFactory = { try await serviceContainer.playbackDependencies() }
     continueWatchingServiceFactory = { try await serviceContainer.services().continueWatching }
+    favoritesServiceFactory = { try await serviceContainer.services().favorites }
   }
 
   var body: some Scene {
@@ -47,7 +49,8 @@ struct AEVYNOiOSApp: App {
             artworkPipeline: artworkPipeline,
             sourceServiceFactory: sourceServiceFactory,
             playbackServiceFactory: playbackServiceFactory,
-            continueWatchingServiceFactory: continueWatchingServiceFactory
+            continueWatchingServiceFactory: continueWatchingServiceFactory,
+            favoritesServiceFactory: favoritesServiceFactory
           )
         }
       }

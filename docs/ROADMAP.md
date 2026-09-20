@@ -148,9 +148,14 @@ Exit gate:
 
 ## Phase 5 — iPhone/iPad companion quality
 
-Phase 5A Continue Watching is **IMPLEMENTED** on `feature/phase-5-continue-watching` after the
-shared/unit, simulator build/analyze and full tvOS UI gates. Real-device tvOS focus/RTL and
-iPhone/iPad validation remain pending.
+Phase 5A Continue Watching is **IMPLEMENTED on main through PR #28 at `d9b5e3e`**; post-merge CI
+`34873787230` succeeded. Real-device tvOS focus/RTL and iPhone/iPad validation remain pending.
+
+Phase 5B Favorites UI is implemented locally on its feature branch with shared tests, platform
+build/analyze gates and focused tvOS UI coverage passed. It composes local-first favorite identities
+with committed catalog display metadata; it does not change Phase 4B CloudKit records, sync conflict
+policy, catalog persistence or playback. The full tvOS UI suite remains a self-hosted CI gate;
+physical Apple TV focus/RTL and physical iPhone/iPad validation remain pending.
 
 Deliver:
 - touch-adapted UI.
