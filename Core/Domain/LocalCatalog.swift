@@ -67,11 +67,13 @@ public struct CatalogItem: Identifiable, Equatable, Sendable, CustomStringConver
   public let artworkURL: URL?
   public let mediaURL: URL?
   public let providerReference: ProviderItemReference?
+  /// Provider-neutral XMLTV anchor; it deliberately does not participate in catalog identity.
+  public let epgChannelID: EPGChannelIdentity?
 
   public init(
     id: String, scope: CatalogScope, title: String, categoryID: String? = nil,
     artworkURL: URL? = nil, mediaURL: URL? = nil,
-    providerReference: ProviderItemReference? = nil
+    providerReference: ProviderItemReference? = nil, epgChannelID: EPGChannelIdentity? = nil
   ) {
     self.id = id
     self.scope = scope
@@ -80,6 +82,7 @@ public struct CatalogItem: Identifiable, Equatable, Sendable, CustomStringConver
     self.artworkURL = artworkURL
     self.mediaURL = mediaURL
     self.providerReference = providerReference
+    self.epgChannelID = epgChannelID
   }
 
   public var description: String { "CatalogItem(references: <redacted>)" }

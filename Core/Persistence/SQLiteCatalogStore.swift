@@ -432,7 +432,7 @@ public actor SQLiteCatalogStore: CatalogQueryRepository, CatalogImportRepository
     return CatalogItem(
       id: id, scope: try decodeScope(row), title: title, categoryID: row.text(5),
       artworkURL: try decodeURL(references.artwork), mediaURL: try decodeURL(references.media),
-      providerReference: references.provider)
+      providerReference: references.provider, epgChannelID: references.epgChannelID)
   }
 
   func decodeScope(_ row: CatalogStatement) throws -> CatalogScope {
