@@ -53,7 +53,7 @@ No SwiftUI dependency.
 Provider adapters:
 - M3U parser.
 - Xtream-like provider client.
-- XMLTV/EPG parser later.
+- XMLTV/EPG SAX parser and normalized programme DTOs.
 - normalized provider errors.
 
 Produces domain/import DTOs, not views.
@@ -90,6 +90,12 @@ Phase 2F extends the same repository with bounded literal substring search, orig
 filters and committed category counts. The injected `CatalogLibraryService` is the provider-neutral
 query boundary for future app UI. Search and browse never read staging tables. See
 [Phase 2F evidence](PHASE_2F_LIBRARY_SEARCH.md).
+
+Phase 6A adds a separate actor-isolated, backup-excluded SQLite EPG cache. XMLTV parsing remains in
+`IPTVCore`; `Library` joins an exact encrypted M3U `tvg-id` channel anchor to source-scoped EPG
+queries. It does not infer identities from titles, alter catalog IDs, add a guide UI, or let SwiftUI
+access SQLite/provider data. See [ADR-0015](../decisions/ADR-0015-epg-xmltv-foundation.md) and
+[EPG Foundation](EPG_FOUNDATION.md).
 
 Post-Phase-2 source management stores small, user-authored `SourceConfiguration` records in a
 versioned, atomically replaced Application Support JSON registry. It keeps credentials in Keychain

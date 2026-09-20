@@ -9,7 +9,11 @@ pending; Phase 4A Watch Progress Sync implemented on main; Phase 4B Favorites Sy
 main; Phase 4 remains open for signed CloudKit validation; Phase 5A Continue Watching implemented
 with simulator gates passed and real-device validation pending; Phase 5B Favorites UI implemented
 on main with CI/simulator gates passed and physical review pending; Phase 5C mobile source management
-implemented locally with automated gates passed and physical review pending**
+implementation and automated exit gate complete on main; physical review pending**
+
+Phase 6A XMLTV/EPG foundation is in local pre-delivery validation on
+`feature/phase-6a-epg-foundation`; it adds no guide UI, XMLTV source URL, network acquisition, or
+Xtream EPG contract.
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -386,7 +390,9 @@ Status: **IMPLEMENTED; CLOUDKIT CONFIGURATION AND REAL-DEVICE EXIT GATES PENDING
 
 ## Validation evidence
 
-- Phase 5C iPhone/iPad Source Management & Setup local validation on 2026-09-20 passed strict
+- Phase 5C iPhone/iPad Source Management & Setup merged through PR #30 at
+  `672a26c11d399054c85d18c51e1d16e3637407a8`; post-merge CI `35511142779` **SUCCESS**.
+  Implementation and automated gates are complete. Its prior local validation on 2026-09-20 passed strict
   formatting, 195 shared tests in 19 suites with zero failures (`swift test`, exit 0), generic iOS
   Simulator build and Analyze (both exit 0), and `git diff --check`. Existing deterministic
   source-management tests cover M3U/Xtream create, validation, credential replacement, connection
@@ -622,8 +628,10 @@ refresh it without polling. Physical Apple TV focus/RTL and physical iPhone/iPad
 pending. Phase 5A is **IMPLEMENTED on main through PR #28 at `d9b5e3e`**; post-merge CI
 `34873787230` succeeded. Phase 5B Favorites UI is **IMPLEMENTED on main through PR #29 at
 `f6b206f29db57d9249fccd69ca7e321825cab9d9`**; post-merge CI `35491439055` succeeded. Phase 5C
-iPhone/iPad source management is implemented locally on `feature/phase-5-mobile-source-management`
-with local automated gates passed; physical iPhone/iPad review remains pending. For Phase 4,
+iPhone/iPad source management is **IMPLEMENTED on main through PR #30 at
+`672a26c11d399054c85d18c51e1d16e3637407a8`**; post-merge CI `35511142779` succeeded. The
+implementation/automated exit gate is complete; physical iPhone/iPad touch, keyboard, layout and
+Arabic RTL review remains pending. For Phase 4,
 configure the owner-approved CloudKit container/capabilities, wire signed lifecycle/push triggers,
 then validate Apple TV-to-iPhone and iPhone-to-Apple TV resume/favorites plus offline reconnect.
 Xtream playback URL and

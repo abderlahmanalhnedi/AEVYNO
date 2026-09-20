@@ -9,6 +9,8 @@ Quality is a product feature. The project cannot reach the desired speed/design/
 ### Unit tests
 Must cover:
 - M3U parsing.
+- XMLTV explicit-offset time parsing, malformed-entry isolation, bounded streaming behavior, and
+  deterministic Now/Next interval/overlap semantics.
 - provider response normalization.
 - stable ID construction.
 - watch-progress rules.
