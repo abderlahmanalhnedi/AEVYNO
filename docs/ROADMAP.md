@@ -151,11 +151,17 @@ Exit gate:
 Phase 5A Continue Watching is **IMPLEMENTED on main through PR #28 at `d9b5e3e`**; post-merge CI
 `34873787230` succeeded. Real-device tvOS focus/RTL and iPhone/iPad validation remain pending.
 
-Phase 5B Favorites UI is implemented locally on its feature branch with shared tests, platform
-build/analyze gates and focused tvOS UI coverage passed. It composes local-first favorite identities
-with committed catalog display metadata; it does not change Phase 4B CloudKit records, sync conflict
-policy, catalog persistence or playback. The full tvOS UI suite remains a self-hosted CI gate;
-physical Apple TV focus/RTL and physical iPhone/iPad validation remain pending.
+Phase 5B Favorites UI is **IMPLEMENTED on main through PR #29 at
+`f6b206f29db57d9249fccd69ca7e321825cab9d9`**; post-merge CI `35491439055` succeeded. Simulator and
+automated gates are complete. Physical Apple TV focus/Arabic RTL and physical iPhone/iPad review
+remain pending.
+
+Phase 5C iPhone/iPad Source Management & Setup is **IMPLEMENTED LOCALLY** on
+`feature/phase-5-mobile-source-management`; strict formatting, shared tests and iOS Simulator
+build/analyze gates passed. It adds touch-native setup and management over the existing
+source-management boundary; it does not alter source persistence, credentials, provider networking,
+catalog refresh, scheduling or CloudKit. Physical iPhone/iPad touch, keyboard and Arabic RTL review
+remain pending.
 
 Deliver:
 - touch-adapted UI.

@@ -119,6 +119,10 @@ committed catalog. There is no `Timer`, database polling, busy loop, detached ta
 Failed/cancelled refresh does not publish a revision and the persistence transaction guarantees keep
 the last-known-good catalog visible.
 
+Phase 5C extends the iPhone/iPad Sources sheet from a read/refresh view into full touch-first source
+management. Dismissing that navigation flow retains this existing `reloadAll()` lifecycle boundary;
+there is no duplicate catalog-refresh path or global app state.
+
 ## Platform UI
 
 tvOS provides scope controls, source/category filters, native search, a lazy grid, explicit bounded

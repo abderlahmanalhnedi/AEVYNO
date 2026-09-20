@@ -26,6 +26,7 @@ final class SourceManagementViewModel {
   private(set) var isLoading = true
   private(set) var loadFailed = false
   private(set) var operationState: SourceOperationState?
+  private(set) var lastSavedSourceID: SourceConfiguration.ID?
 
   init(serviceFactory: @escaping ServiceFactory) {
     self.serviceFactory = serviceFactory
@@ -76,12 +77,14 @@ final class SourceManagementViewModel {
     operationState = .saving
     do {
       let service = try await resolvedService()
+      let savedSource: SourceConfiguration
       if let id {
-        _ = try await service.updateSource(id: id, from: draft)
+        savedSource = try await service.updateSource(id: id, from: draft)
       } else {
-        _ = try await service.createSource(from: draft)
+        savedSource = try await service.createSource(from: draft)
       }
       sources = try await service.listSources()
+      lastSavedSourceID = savedSource.id
       operationState = .saved
       return true
     } catch let error as SourceManagementError {
