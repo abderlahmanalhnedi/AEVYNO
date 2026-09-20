@@ -9,12 +9,13 @@ struct CatalogReferenceCipher {
     let media: String?
     let artwork: String?
     let provider: ProviderItemReference?
+    let epgChannelID: EPGChannelIdentity?
   }
 
   func seal(_ item: CatalogItem) throws -> String {
     let payload = References(
       media: item.mediaURL?.absoluteString, artwork: item.artworkURL?.absoluteString,
-      provider: item.providerReference)
+      provider: item.providerReference, epgChannelID: item.epgChannelID)
     do {
       let box = try AES.GCM.seal(
         JSONEncoder().encode(payload), using: key, authenticating: Data(item.id.utf8))

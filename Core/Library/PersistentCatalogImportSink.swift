@@ -71,7 +71,8 @@ public actor PersistentCatalogImportSink: M3UImportSink, ProviderCatalogImportSi
         id: item.id.rawValue,
         scope: CatalogScope(sourceID: item.sourceID, origin: .m3u, kind: .unspecified),
         title: item.title, categoryID: categoryID, artworkURL: item.artworkURL,
-        mediaURL: item.mediaURL)
+        mediaURL: item.mediaURL,
+        epgChannelID: item.tvgID.flatMap { EPGChannelIdentity(rawValue: $0) })
     }
     try await repository.stage(
       items: values, categories: Array(categories.values), in: stagingID)

@@ -156,9 +156,9 @@ Phase 5B Favorites UI is **IMPLEMENTED on main through PR #29 at
 automated gates are complete. Physical Apple TV focus/Arabic RTL and physical iPhone/iPad review
 remain pending.
 
-Phase 5C iPhone/iPad Source Management & Setup is **IMPLEMENTED LOCALLY** on
-`feature/phase-5-mobile-source-management`; strict formatting, shared tests and iOS Simulator
-build/analyze gates passed. It adds touch-native setup and management over the existing
+Phase 5C iPhone/iPad Source Management & Setup is **IMPLEMENTED on main through PR #30 at
+`672a26c11d399054c85d18c51e1d16e3637407a8`**; post-merge CI `35511142779` succeeded. Its
+implementation and automated exit gate are complete. It adds touch-native setup and management over the existing
 source-management boundary; it does not alter source persistence, credentials, provider networking,
 catalog refresh, scheduling or CloudKit. Physical iPhone/iPad touch, keyboard and Arabic RTL review
 remain pending.
@@ -174,6 +174,10 @@ Exit gate:
 - no tvOS-specific UI assumptions leaked into iOS.
 
 ## Phase 6 — Media experience
+
+Phase 6A XMLTV/EPG Foundation is in local pre-delivery validation. It provides streaming parser,
+local staged cache and bounded Now/Next data contracts only; no guide UI, XMLTV source configuration,
+network acquisition, or Xtream EPG behavior is included.
 
 Candidates:
 - EPG.
