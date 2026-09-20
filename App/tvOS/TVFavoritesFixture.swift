@@ -11,8 +11,10 @@ actor TVFavoritesFixture: FavoritesServing {
       values = []
     } else if arguments.contains("--ui-favorites-single") {
       values = [Self.first]
-    } else {
+    } else if arguments.contains("--ui-favorites") {
       values = [Self.first, Self.second]
+    } else {
+      values = []
     }
   }
   static func service(arguments: [String]) -> FavoritesViewModel.ServiceFactory {
