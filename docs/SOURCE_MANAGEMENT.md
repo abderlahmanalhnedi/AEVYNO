@@ -95,7 +95,7 @@ Refresh Now is an explicit user action that delegates the saved source to `Catal
 and exposes its safe lifecycle stages. Phase 2E last-known-good publication and refresh metadata
 semantics remain unchanged. It is never blocked by the separate automatic cadence or retry cooldown.
 
-## tvOS experience, localization and accessibility
+## Platform experience, localization and accessibility
 
 The native tvOS Sources screen provides loading, empty and actionable error states; an add/edit form;
 secure credential replacement; Test Connection; enable/disable; Refresh Now; and confirmed deletion.
@@ -108,3 +108,17 @@ labels and UI automation expose no secret value. Simulator automation covers ini
 focus, validation focus, secure Xtream and credential-free M3U forms, safe failure status, manual
 refresh, enable/disable, delete, and Arabic RTL. Physical Apple TV focus, remote and visual validation
 remain pending.
+
+The iPhone/iPad Sources sheet uses a separate touch-first `NavigationStack`, list rows and native
+forms. It presents the same saved-source state (kind, enabled state, refresh policy and safe refresh
+status), add/edit flow, secure Xtream credential replacement, connection test, enable/disable,
+Refresh Now and confirmed deletion as tvOS. The editor calls only `SourceManagementViewModel`; it
+does not access Keychain, provider networking, SQLite or refresh scheduling directly. Source save,
+delete and sheet dismissal reuse the production library's existing reload boundary, so the committed
+library and source context are reread on return. The mobile UI intentionally has no tvOS focus or
+remote-control behavior.
+
+Both platforms use the same English, German and Arabic String Catalog entries. Source rows and
+operation status expose only safe display metadata; credentials, provider IDs and credential-bearing
+URLs are absent from accessibility content. Physical iPhone/iPad touch, keyboard, visual and Arabic
+RTL review remain pending.

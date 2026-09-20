@@ -8,7 +8,8 @@ Last updated: 2026-09-20
 pending; Phase 4A Watch Progress Sync implemented on main; Phase 4B Favorites Sync implemented on
 main; Phase 4 remains open for signed CloudKit validation; Phase 5A Continue Watching implemented
 with simulator gates passed and real-device validation pending; Phase 5B Favorites UI implemented
-locally with required automated gates passed and CI/real-device validation pending**
+on main with CI/simulator gates passed and physical review pending; Phase 5C mobile source management
+implemented locally with automated gates passed and physical review pending**
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
@@ -385,12 +386,20 @@ Status: **IMPLEMENTED; CLOUDKIT CONFIGURATION AND REAL-DEVICE EXIT GATES PENDING
 
 ## Validation evidence
 
-- Phase 5B Favorites UI local validation on 2026-09-20 passed strict formatting, 195 shared tests in
-  19 suites with zero failures (`swift test`, exit 0), generic tvOS Simulator build and Analyze, and
-  all five focused Favorites tvOS UI tests. The previously validated generic iOS Simulator build and
-  Analyze remain applicable because no iOS production code changed afterward. The full tvOS UI suite
-  is deferred to self-hosted CI; physical Apple TV focus/RTL and physical iPhone/iPad validation remain
-  pending.
+- Phase 5C iPhone/iPad Source Management & Setup local validation on 2026-09-20 passed strict
+  formatting, 195 shared tests in 19 suites with zero failures (`swift test`, exit 0), generic iOS
+  Simulator build and Analyze (both exit 0), and `git diff --check`. Existing deterministic
+  source-management tests cover M3U/Xtream create, validation, credential replacement, connection
+  success/failure without catalog publication, edit, enable/disable, policy, manual refresh and
+  compensated delete; no iOS UI-test target exists to extend. Physical iPhone/iPad touch, keyboard
+  and Arabic RTL review remain pending. The 11 focused tvOS Source Management UI tests passed with
+  zero failures on the Apple TV 4K (3rd generation), tvOS 26.5 simulator; the full tvOS UI suite was
+  intentionally not rerun.
+
+- Phase 5B Favorites UI merged through PR #29 at `f6b206f29db57d9249fccd69ca7e321825cab9d9`.
+  Post-merge CI `35491439055` passed Core / Build / Analyze and tvOS UI Tests on the Xcode 27.0,
+  tvOS 26.5 simulator baseline. Automated/simulator gates are complete; physical Apple TV
+  focus/Arabic RTL and physical iPhone/iPad review remain pending.
 
 - Phase 4B Favorites Sync local validation on 2026-09-13 passed the full shared `swift test` suite,
   including durable reopen, idempotent add/remove, tombstone conflict resolution, later re-favorite,
@@ -611,8 +620,10 @@ uses deterministic recency ordering, reuses the Phase 3 session for Resume, and 
 tvOS/iOS rails. Catalog commits invalidate the rail; player dismissal and foreground activation
 refresh it without polling. Physical Apple TV focus/RTL and physical iPhone/iPad validation remain
 pending. Phase 5A is **IMPLEMENTED on main through PR #28 at `d9b5e3e`**; post-merge CI
-`34873787230` succeeded. Phase 5B Favorites UI is implemented locally with required automated gates
-passed; self-hosted CI and real-device validation remain pending. For Phase 4,
+`34873787230` succeeded. Phase 5B Favorites UI is **IMPLEMENTED on main through PR #29 at
+`f6b206f29db57d9249fccd69ca7e321825cab9d9`**; post-merge CI `35491439055` succeeded. Phase 5C
+iPhone/iPad source management is implemented locally on `feature/phase-5-mobile-source-management`
+with local automated gates passed; physical iPhone/iPad review remains pending. For Phase 4,
 configure the owner-approved CloudKit container/capabilities, wire signed lifecycle/push triggers,
 then validate Apple TV-to-iPhone and iPhone-to-Apple TV resume/favorites plus offline reconnect.
 Xtream playback URL and
