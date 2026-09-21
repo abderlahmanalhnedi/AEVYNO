@@ -13,10 +13,11 @@ composition, CloudKit source synchronization and Phase 3 playback remain outside
 `Application Support/AEVYNO/sources.json`, outside the purgeable SQLite catalog cache. The actor owns
 an ordered in-memory view and persists mutations with atomic file replacement.
 
-The current JSON schema version is 2. Each `SourceConfiguration` contains a stable UUID, display
+The current JSON schema version is 3. Each `SourceConfiguration` contains a stable UUID, display
 name, source kind, safe endpoint, enabled state, refresh policy and optional non-secret
-`CredentialReference`. Version 1 records migrate explicitly to version 2 with `manualOnly` while
-preserving all existing source metadata.
+`CredentialReference`. M3U sources may additionally carry an optional safe XMLTV endpoint; Xtream
+sources cannot. Version 1 records migrate explicitly to version 2 with `manualOnly`, and version 2
+records migrate atomically to version 3 with no XMLTV endpoint.
 Sorted JSON keys make encoding stable, while array order preserves deterministic creation order.
 Duplicate IDs, invalid records, corrupted JSON and unsupported schema versions fail without an
 automatic destructive reset. See [ADR-0010](../decisions/ADR-0010-local-source-registry.md).
@@ -91,8 +92,10 @@ unrelated sources and query-invisible staging semantics are unchanged.
 Enable/disable changes only the source's durable metadata. It preserves the stable ID, endpoint,
 credential and committed catalog. Disabled sources cannot run a refresh.
 
-Refresh Now is an explicit user action that delegates the saved source to `CatalogRefreshService`
-and exposes its safe lifecycle stages. Phase 2E last-known-good publication and refresh metadata
+Refresh Now and automatic scheduling both delegate the saved source to `SourceRefreshService` and
+expose the catalog lifecycle stages. For an M3U source with an XMLTV endpoint, it acquires and
+imports XMLTV only after catalog publication; catalog and EPG caches commit independently, so an EPG
+failure never removes a usable catalog. Phase 2E last-known-good publication and refresh metadata
 semantics remain unchanged. It is never blocked by the separate automatic cadence or retry cooldown.
 
 ## Platform experience, localization and accessibility
@@ -108,6 +111,10 @@ labels and UI automation expose no secret value. Simulator automation covers ini
 focus, validation focus, secure Xtream and credential-free M3U forms, safe failure status, manual
 refresh, enable/disable, delete, and Arabic RTL. Physical Apple TV focus, remote and visual validation
 remain pending.
+
+M3U forms on both platforms include an optional XMLTV endpoint. It uses the same safe endpoint rule
+as the playlist: HTTPS/HTTP only, host required, and no user info, query, or fragment. The endpoint
+is never included in accessibility content. Xtream forms deliberately do not expose XMLTV settings.
 
 The iPhone/iPad Sources sheet uses a separate touch-first `NavigationStack`, list rows and native
 forms. It presents the same saved-source state (kind, enabled state, refresh policy and safe refresh

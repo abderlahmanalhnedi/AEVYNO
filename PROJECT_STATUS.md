@@ -11,9 +11,11 @@ with simulator gates passed and real-device validation pending; Phase 5B Favorit
 on main with CI/simulator gates passed and physical review pending; Phase 5C mobile source management
 implementation and automated exit gate complete on main; physical review pending**
 
-Phase 6A XMLTV/EPG foundation is in local pre-delivery validation on
-`feature/phase-6a-epg-foundation`; it adds no guide UI, XMLTV source URL, network acquisition, or
-Xtream EPG contract.
+Phase 6A XMLTV/EPG foundation is stable on main through PR #31 at merge commit
+`f9169da9f209dbcaf7528ba1819f1ca4aaf2bea6`; post-merge CI `35524819690` succeeded. Phase 6B
+acquisition and Now/Next is in local validation on `feature/phase-6b-epg-acquisition-now-next`.
+It adds a sanitized M3U-only XMLTV endpoint, shared manual/scheduled acquisition and a small detail
+Now/Next presentation; source URL guessing, Xtream EPG, a full guide and CloudKit EPG remain out of scope.
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit
