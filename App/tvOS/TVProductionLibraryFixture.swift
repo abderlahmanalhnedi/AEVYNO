@@ -30,6 +30,7 @@ actor TVProductionLibraryFixture: ProductionLibraryServing {
       return TVProductionLibraryFixture(scenario: .failure)
     }
     if arguments.contains("--ui-production-catalog")
+      || arguments.contains("--ui-production-now-next")
       || arguments.contains("--ui-production-search-results")
       || arguments.contains("--ui-production-search-empty")
       || arguments.contains("--ui-production-search-arabic")

@@ -105,6 +105,47 @@ final class AEVYNOTVUITests: XCTestCase {
     try app.performAccessibilityAudit()
   }
 
+  func testProductionDetailPresentsDeterministicNowAndNext() {
+    let app = launchApp(arguments: ["--ui-production-now-next"])
+    _ = openProductionItem("live-1", in: app)
+
+    let programmes = app.staticTexts.matching(identifier: "library.detail.now-next")
+    let now = programmes.element(boundBy: 0)
+    let next = programmes.element(boundBy: 1)
+    XCTAssertTrue(now.waitForExistence(timeout: 5))
+    XCTAssertTrue(next.exists)
+    XCTAssertEqual(now.label, "Now: Morning Brief")
+    XCTAssertEqual(next.label, "Next: Market Review")
+    XCTAssertFalse("\(now.label) \(now.value ?? "")".contains("synthetic-news"))
+  }
+
+  func testProductionDetailWithoutEPGMappingOmitsNowNext() {
+    let app = launchApp(arguments: ["--ui-production-catalog"])
+    _ = openProductionItem("live-1", in: app)
+
+    let programmes = app.staticTexts.matching(identifier: "library.detail.now-next")
+    XCTAssertFalse(programmes.firstMatch.exists)
+  }
+
+  func testProductionArabicNowNextIsLocalizedAndSafe() throws {
+    let app = launchApp(arguments: ["--ui-production-now-next"], locale: "ar")
+    _ = openProductionItem("live-1", in: app)
+
+    let programmes = app.staticTexts.matching(identifier: "library.detail.now-next")
+    let now = programmes.element(boundBy: 0)
+    let next = programmes.element(boundBy: 1)
+    XCTAssertTrue(now.waitForExistence(timeout: 5))
+    XCTAssertTrue(next.exists)
+    XCTAssertTrue(now.label.contains("الآن:"))
+    XCTAssertTrue(now.label.contains("Morning Brief"))
+    XCTAssertTrue(next.label.contains("التالي:"))
+    XCTAssertTrue(next.label.contains("Market Review"))
+    let exposed = "\(now.label) \(now.value ?? "") \(next.label) \(next.value ?? "")"
+    XCTAssertFalse(exposed.contains("synthetic-news"))
+    XCTAssertFalse(exposed.contains("00000000"))
+    try app.performAccessibilityAudit()
+  }
+
   func testProductionArabicRTLSearch() {
     let app = launchApp(arguments: ["--ui-production-search-arabic"], locale: "ar")
     XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 10))
@@ -671,6 +712,7 @@ final class AEVYNOTVUITests: XCTestCase {
     XCUIRemote.shared.press(.down)
     XCUIRemote.shared.press(.down)
     XCTAssertTrue(waitForFocus(on: m3uApp.textFields["source.endpoint"]))
+    XCTAssertTrue(m3uApp.textFields["source.epg-endpoint"].exists)
     XCTAssertTrue(m3uApp.staticTexts["source.m3u-limitation"].exists)
     XCTAssertFalse(m3uApp.secureTextFields["source.password"].exists)
   }

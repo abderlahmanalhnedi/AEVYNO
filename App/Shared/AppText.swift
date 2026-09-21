@@ -57,6 +57,12 @@ enum AppText {
   )
   static let live = localized("media.live", defaultValue: "Live")
   static let liveBadge = localized("media.live.badge", defaultValue: "LIVE")
+  static func nowProgramme(_ title: String) -> String {
+    String.localizedStringWithFormat(localized("epg.now", defaultValue: "Now: %@"), title)
+  }
+  static func nextProgramme(_ title: String) -> String {
+    String.localizedStringWithFormat(localized("epg.next", defaultValue: "Next: %@"), title)
+  }
 
   static let libraryTitle = localized("library.title", defaultValue: "Library")
   static let continueWatching = localized(
@@ -146,6 +152,11 @@ enum AppText {
   static let sourceName = localized("sources.field.name", defaultValue: "Source name")
   static let sourceType = localized("sources.field.type", defaultValue: "Source type")
   static let serverAddress = localized("sources.field.server", defaultValue: "Server address")
+  static let xmltvEndpoint = localized("sources.field.xmltv", defaultValue: "XMLTV endpoint")
+  static let xmltvEndpointAccessibilityHint = localized(
+    "sources.accessibility.xmltv_endpoint_hint",
+    defaultValue: "Optional XMLTV schedule endpoint for this M3U source"
+  )
   static let username = localized("sources.field.username", defaultValue: "Username")
   static let password = localized("sources.field.password", defaultValue: "Password")
   static let xtreamCompatible = localized(

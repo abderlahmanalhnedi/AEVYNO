@@ -118,6 +118,12 @@ public struct SourceEndpoint: Codable, Hashable, Sendable, CustomStringConvertib
   public var debugDescription: String { description }
 }
 
+public struct EPGConfiguration: Codable, Hashable, Sendable {
+  public let endpoint: SourceEndpoint
+
+  public init(endpoint: SourceEndpoint) { self.endpoint = endpoint }
+}
+
 public struct SourceConfiguration: Identifiable, Codable, Hashable, Sendable,
   CustomStringConvertible, CustomDebugStringConvertible
 {
@@ -140,6 +146,7 @@ public struct SourceConfiguration: Identifiable, Codable, Hashable, Sendable,
   public let credentialReference: CredentialReference?
   public let isEnabled: Bool
   public let refreshPolicy: RefreshPolicy
+  public let epgConfiguration: EPGConfiguration?
 
   public init(
     id: ID = ID(),
@@ -148,7 +155,8 @@ public struct SourceConfiguration: Identifiable, Codable, Hashable, Sendable,
     endpoint: SourceEndpoint? = nil,
     credentialReference: CredentialReference? = nil,
     isEnabled: Bool = true,
-    refreshPolicy: RefreshPolicy = .manualOnly
+    refreshPolicy: RefreshPolicy = .manualOnly,
+    epgConfiguration: EPGConfiguration? = nil
   ) {
     self.id = id
     self.displayName = displayName
@@ -157,13 +165,14 @@ public struct SourceConfiguration: Identifiable, Codable, Hashable, Sendable,
     self.credentialReference = credentialReference
     self.isEnabled = isEnabled
     self.refreshPolicy = refreshPolicy
+    self.epgConfiguration = epgConfiguration
   }
 
   public var description: String {
     "SourceConfiguration(id: \(id.rawValue.uuidString), kind: \(kind.rawValue), "
       + "endpoint: \(endpoint == nil ? "absent" : "present"), "
       + "credentialReference: \(credentialReference == nil ? "absent" : "present"), "
-      + "isEnabled: \(isEnabled), refreshPolicy: \(refreshPolicy))"
+      + "isEnabled: \(isEnabled), refreshPolicy: \(refreshPolicy), epgConfiguration: \(epgConfiguration == nil ? "absent" : "present"))"
   }
 
   public var debugDescription: String { description }

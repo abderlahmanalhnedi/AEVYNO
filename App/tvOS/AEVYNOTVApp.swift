@@ -21,6 +21,7 @@ struct AEVYNOTVApp: App {
   private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
   private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
+  private let epgServiceFactory: EPGNowNextViewModel.ServiceFactory
 
   init() {
     let arguments = ProcessInfo.processInfo.arguments
@@ -45,6 +46,7 @@ struct AEVYNOTVApp: App {
       playbackEngineFactory = { playbackFixture.makeEngine() }
       continueWatchingServiceFactory = TVContinueWatchingFixture.service(arguments: arguments)
       favoritesServiceFactory = TVFavoritesFixture.service(arguments: arguments)
+      epgServiceFactory = { throw EPGPresentationError.unavailable }
     } else if let fixture = TVProductionLibraryFixture.fixture(arguments: arguments) {
       let sourceFixture = TVSourceManagementFixture(arguments: [])
       let playbackFixture = TVPlaybackFixture(arguments: arguments)
@@ -60,6 +62,12 @@ struct AEVYNOTVApp: App {
       playbackEngineFactory = { playbackFixture.makeEngine() }
       continueWatchingServiceFactory = TVContinueWatchingFixture.service(arguments: arguments)
       favoritesServiceFactory = TVFavoritesFixture.service(arguments: arguments)
+      let hasNowNextFixture = arguments.contains("--ui-production-now-next")
+      if hasNowNextFixture {
+        epgServiceFactory = { TVEPGPresentationFixture.service() }
+      } else {
+        epgServiceFactory = { throw EPGPresentationError.unavailable }
+      }
     } else {
       let serviceContainer = AppSourceServiceContainer()
       sourceServiceFactory = { try await serviceContainer.services().sourceManagement }
@@ -74,6 +82,7 @@ struct AEVYNOTVApp: App {
       playbackEngineFactory = { NativeAVPlayerEngine() }
       continueWatchingServiceFactory = { try await serviceContainer.services().continueWatching }
       favoritesServiceFactory = { try await serviceContainer.services().favorites }
+      epgServiceFactory = { try await serviceContainer.services().epg }
     }
   }
 
@@ -102,7 +111,8 @@ struct AEVYNOTVApp: App {
             playbackServiceFactory: playbackServiceFactory,
             continueWatchingServiceFactory: continueWatchingServiceFactory,
             favoritesServiceFactory: favoritesServiceFactory,
-            playbackEngineFactory: playbackEngineFactory
+            playbackEngineFactory: playbackEngineFactory,
+            epgServiceFactory: epgServiceFactory
           )
         }
       }

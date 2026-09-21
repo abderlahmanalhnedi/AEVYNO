@@ -15,6 +15,7 @@ public struct SourceDraft: Equatable, Sendable {
   public var displayName: String
   public var kind: SourceKind
   public var endpoint: String
+  public var epgEndpoint: String
   public var isEnabled: Bool
   public var refreshPolicy: RefreshPolicy
   public var credential: CredentialInput
@@ -23,6 +24,7 @@ public struct SourceDraft: Equatable, Sendable {
     displayName: String = "",
     kind: SourceKind = .xtreamCompatible,
     endpoint: String = "",
+    epgEndpoint: String = "",
     isEnabled: Bool = true,
     refreshPolicy: RefreshPolicy = .manualOnly,
     credential: CredentialInput = .none
@@ -30,6 +32,7 @@ public struct SourceDraft: Equatable, Sendable {
     self.displayName = displayName
     self.kind = kind
     self.endpoint = endpoint
+    self.epgEndpoint = epgEndpoint
     self.isEnabled = isEnabled
     self.refreshPolicy = refreshPolicy
     self.credential = credential
@@ -40,6 +43,7 @@ public enum SourceValidationField: String, CaseIterable, Sendable {
   case displayName
   case sourceKind
   case endpoint
+  case epgEndpoint
   case username
   case credential
 }
@@ -51,6 +55,7 @@ public enum SourceValidationReason: String, Sendable {
   case unsupportedScheme
   case missingHost
   case forbiddenURLComponents
+  case epgUnsupportedForSourceKind
   case credentialReplacementRequired
   case sourceKindCannotChange
 }
@@ -127,6 +132,7 @@ public struct ProductionSourceServices: Sendable {
   public let productionLibrary: ProductionLibraryService
   public let continueWatching: ProductionContinueWatchingService
   public let favorites: ProductionFavoritesService
+  public let epg: ProductionEPGService
   public let playbackAssetResolver: ProductionPlaybackAssetResolver
   public let watchProgressRepository: FileWatchProgressRepository
 
@@ -136,6 +142,7 @@ public struct ProductionSourceServices: Sendable {
     productionLibrary: ProductionLibraryService,
     continueWatching: ProductionContinueWatchingService,
     favorites: ProductionFavoritesService,
+    epg: ProductionEPGService,
     playbackAssetResolver: ProductionPlaybackAssetResolver,
     watchProgressRepository: FileWatchProgressRepository
   ) {
@@ -144,6 +151,7 @@ public struct ProductionSourceServices: Sendable {
     self.productionLibrary = productionLibrary
     self.continueWatching = continueWatching
     self.favorites = favorites
+    self.epg = epg
     self.playbackAssetResolver = playbackAssetResolver
     self.watchProgressRepository = watchProgressRepository
   }
@@ -162,7 +170,7 @@ public actor SourceManagementService: SourceManaging {
   private let providerAdapter: any ProviderAdapter
   private let m3uAcquisition: M3UAcquisitionService
   private let m3uParser: M3UParser
-  private let refreshService: CatalogRefreshService
+  private let refreshService: any CatalogRefreshing
 
   public init(
     sourceRepository: any SourceRepository,
@@ -171,7 +179,7 @@ public actor SourceManagementService: SourceManaging {
     providerAdapter: any ProviderAdapter,
     m3uAcquisition: M3UAcquisitionService,
     m3uParser: M3UParser = M3UParser(),
-    refreshService: CatalogRefreshService
+    refreshService: any CatalogRefreshing
   ) {
     self.sourceRepository = sourceRepository
     self.credentialStore = credentialStore
@@ -190,6 +198,7 @@ public actor SourceManagementService: SourceManaging {
     let sourceRepository = try FileSourceRepository.openDefault()
     let credentialStore = KeychainCredentialStore()
     let catalogRepository = try await SQLiteCatalogStore.openDefault()
+    let epgRepository = try SQLiteEPGStore.openDefault()
     let providerAdapter = XtreamProviderAdapter(credentialStore: credentialStore)
     let m3uAcquisition = M3UAcquisitionService()
     let revisionCenter = LibraryRevisionCenter()
@@ -199,18 +208,23 @@ public actor SourceManagementService: SourceManaging {
       providerAdapter: providerAdapter,
       onCommit: { sourceID in await revisionCenter.publish(sourceID: sourceID) }
     )
+    let sourceRefresh = SourceRefreshService(
+      catalogRefresh: refreshService,
+      xmltvAcquisition: XMLTVAcquisitionService(),
+      epgImporter: XMLTVEPGImportService(repository: epgRepository)
+    )
     let sourceManagement = SourceManagementService(
       sourceRepository: sourceRepository,
       credentialStore: credentialStore,
       catalogRepository: catalogRepository,
       providerAdapter: providerAdapter,
       m3uAcquisition: m3uAcquisition,
-      refreshService: refreshService
+      refreshService: sourceRefresh
     )
     let refreshScheduling = RefreshSchedulingService(
       sourceRepository: sourceRepository,
       metadataRepository: catalogRepository,
-      refreshService: refreshService
+      refreshService: sourceRefresh
     )
     let productionLibrary = ProductionLibraryService(
       catalog: CatalogLibraryService(repository: catalogRepository),
@@ -232,12 +246,14 @@ public actor SourceManagementService: SourceManaging {
       repository: favoriteRepository,
       catalogRevisions: revisionCenter
     )
+    let epg = ProductionEPGService(catalog: catalogRepository, epg: epgRepository)
     return ProductionSourceServices(
       sourceManagement: sourceManagement,
       refreshScheduling: refreshScheduling,
       productionLibrary: productionLibrary,
       continueWatching: continueWatching,
       favorites: favorites,
+      epg: epg,
       playbackAssetResolver: playbackAssetResolver,
       watchProgressRepository: watchProgressRepository
     )
@@ -604,8 +620,24 @@ public actor SourceManagementService: SourceManaging {
       endpoint: endpoint,
       isEnabled: draft.isEnabled,
       refreshPolicy: draft.refreshPolicy,
+      epgConfiguration: try Self.epgConfiguration(draft),
       credential: draft.credential
     )
+  }
+
+  private static func epgConfiguration(_ draft: SourceDraft) throws -> EPGConfiguration? {
+    let text = draft.epgEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return nil }
+    guard draft.kind == .m3u, let url = URL(string: text),
+      let endpoint = try? SourceEndpoint(url: url)
+    else {
+      throw SourceManagementError.invalidInput([
+        .init(
+          field: .epgEndpoint,
+          reason: draft.kind == .m3u ? .invalidURL : .epgUnsupportedForSourceKind)
+      ])
+    }
+    return EPGConfiguration(endpoint: endpoint)
   }
 
   private func makeCredential(username: String, secret: String) throws -> SourceCredential {
@@ -620,6 +652,7 @@ public actor SourceManagementService: SourceManaging {
         SourceValidationIssue(field: .credential, reason: .required)
       ])
     }
+
   }
 
   private func cleanupTemporaryCredential(_ reference: CredentialReference) async throws {
@@ -648,25 +681,17 @@ extension SourceManagementService {
       issues.append(.init(field: .sourceKind, reason: .sourceKindCannotChange))
     }
 
-    let endpointText = draft.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-    if endpointText.isEmpty {
-      issues.append(.init(field: .endpoint, reason: .required))
-    } else if endpointText.utf8.count > maximumEndpointLength {
-      issues.append(.init(field: .endpoint, reason: .tooLong))
-    } else if let components = URLComponents(string: endpointText) {
-      if components.scheme?.lowercased() != "http" && components.scheme?.lowercased() != "https" {
-        issues.append(.init(field: .endpoint, reason: .unsupportedScheme))
-      } else if components.host?.isEmpty != false {
-        issues.append(.init(field: .endpoint, reason: .missingHost))
+    let epg = draft.epgEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !epg.isEmpty {
+      if draft.kind != .m3u {
+        issues.append(.init(field: .epgEndpoint, reason: .epgUnsupportedForSourceKind))
+      } else {
+        issues.append(contentsOf: endpointIssues(epg, field: .epgEndpoint))
       }
-      if components.user != nil || components.password != nil || components.query != nil
-        || components.fragment != nil
-      {
-        issues.append(.init(field: .endpoint, reason: .forbiddenURLComponents))
-      }
-    } else {
-      issues.append(.init(field: .endpoint, reason: .invalidURL))
     }
+
+    let endpointText = draft.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+    issues.append(contentsOf: endpointIssues(endpointText, field: .endpoint))
 
     switch (draft.kind, draft.credential) {
     case (.xtreamCompatible, .replace(let username, let secret)):
@@ -697,6 +722,34 @@ extension SourceManagementService {
       issues.append(.init(field: .credential, reason: .credentialReplacementRequired))
     }
     return issues
+  }
+
+  private static func endpointIssues(
+    _ endpointText: String,
+    field: SourceValidationField
+  ) -> [SourceValidationIssue] {
+    if endpointText.isEmpty {
+      return [.init(field: field, reason: .required)]
+    }
+    if endpointText.utf8.count > maximumEndpointLength {
+      return [.init(field: field, reason: .tooLong)]
+    }
+    if let components = URLComponents(string: endpointText) {
+      var issues: [SourceValidationIssue] = []
+      if components.scheme?.lowercased() != "http" && components.scheme?.lowercased() != "https" {
+        issues.append(.init(field: field, reason: .unsupportedScheme))
+      } else if components.host?.isEmpty != false {
+        issues.append(.init(field: field, reason: .missingHost))
+      }
+      if components.user != nil || components.password != nil || components.query != nil
+        || components.fragment != nil
+      {
+        issues.append(.init(field: field, reason: .forbiddenURLComponents))
+      }
+      return issues
+    } else {
+      return [.init(field: field, reason: .invalidURL)]
+    }
   }
 
   private static func mapConnectionError(_ error: any Error) -> any Error {
@@ -746,6 +799,7 @@ private struct ValidatedSourceInput {
   let endpoint: SourceEndpoint
   let isEnabled: Bool
   let refreshPolicy: RefreshPolicy
+  let epgConfiguration: EPGConfiguration?
   let credential: SourceDraft.CredentialInput
 
   func configuration(
@@ -760,7 +814,8 @@ private struct ValidatedSourceInput {
       endpoint: endpoint,
       credentialReference: credentialReference,
       isEnabled: forceEnabled ? true : isEnabled,
-      refreshPolicy: refreshPolicy
+      refreshPolicy: refreshPolicy,
+      epgConfiguration: epgConfiguration
     )
   }
 }

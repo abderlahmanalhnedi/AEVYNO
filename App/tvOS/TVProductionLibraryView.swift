@@ -32,6 +32,7 @@ struct TVProductionLibraryView: View {
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
   private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
   private let playbackEngineFactory: PlaybackDetailViewModel.EngineFactory
+  private let epgServiceFactory: EPGNowNextViewModel.ServiceFactory
 
   init(
     viewModel: ProductionLibraryViewModel,
@@ -42,6 +43,9 @@ struct TVProductionLibraryView: View {
     favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory,
     playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory = {
       NativeAVPlayerEngine()
+    },
+    epgServiceFactory: @escaping EPGNowNextViewModel.ServiceFactory = {
+      throw EPGPresentationError.unavailable
     }
   ) {
     _viewModel = State(initialValue: viewModel)
@@ -55,6 +59,7 @@ struct TVProductionLibraryView: View {
     _favoritesViewModel = State(
       initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
     self.playbackEngineFactory = playbackEngineFactory
+    self.epgServiceFactory = epgServiceFactory
   }
 
   var body: some View {
@@ -75,7 +80,8 @@ struct TVProductionLibraryView: View {
             artworkPipeline: artworkPipeline,
             playbackServiceFactory: playbackServiceFactory,
             playbackEngineFactory: playbackEngineFactory,
-            favoritesServiceFactory: favoritesServiceFactory
+            favoritesServiceFactory: favoritesServiceFactory,
+            epgServiceFactory: epgServiceFactory
           )
           .onDisappear { restoreFocusAfterDetail() }
         }
@@ -604,13 +610,15 @@ private struct TVLibraryDetailView: View {
   @State private var playbackSession: PlaybackSession?
   @State private var favoritesViewModel: FavoritesViewModel
   @State private var isFavorite = false
+  @State private var epgViewModel: EPGNowNextViewModel
 
   init(
     item: LibraryItemPresentation,
     artworkPipeline: ArtworkImagePipeline,
     playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
     playbackEngineFactory: @escaping PlaybackDetailViewModel.EngineFactory,
-    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory
+    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory,
+    epgServiceFactory: @escaping EPGNowNextViewModel.ServiceFactory
   ) {
     self.item = item
     self.artworkPipeline = artworkPipeline
@@ -622,6 +630,8 @@ private struct TVLibraryDetailView: View {
       ))
     _favoritesViewModel = State(
       initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
+    _epgViewModel = State(
+      initialValue: EPGNowNextViewModel(itemID: item.id, serviceFactory: epgServiceFactory))
   }
 
   var body: some View {
@@ -654,6 +664,7 @@ private struct TVLibraryDetailView: View {
         Text(AppText.libraryItemMetadata(item))
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
+        nowNext
         playbackActions
         Button(isFavorite ? AppText.removeFromFavorites : AppText.addToFavorites) {
           Task { isFavorite = await favoritesViewModel.toggle(item.id) ?? isFavorite }
@@ -665,6 +676,7 @@ private struct TVLibraryDetailView: View {
     }
     .task { await playbackViewModel.load() }
     .task { isFavorite = await favoritesViewModel.isFavorite(item.id) }
+    .task { await epgViewModel.load() }
     .fullScreenCover(
       item: $playbackSession,
       onDismiss: {
@@ -674,6 +686,19 @@ private struct TVLibraryDetailView: View {
         PlaybackPresentationView(session: session)
       }
     )
+  }
+
+  @ViewBuilder private var nowNext: some View {
+    if item.mediaKind == .live, let now = epgViewModel.presentation.now {
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.xs) {
+        Text(AppText.nowProgramme(now.title)).aevynoTypography(.status)
+        if let next = epgViewModel.presentation.next {
+          Text(AppText.nextProgramme(next.title))
+            .aevynoTypography(.metadata).foregroundStyle(AEVYNOColor.secondaryText)
+        }
+      }
+      .accessibilityIdentifier("library.detail.now-next")
+    }
   }
 
   @ViewBuilder

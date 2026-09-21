@@ -37,8 +37,9 @@ pure domain logic and has no UI, networking or persistence dependency.
 ## Scheduler and lifecycle
 
 `RefreshSchedulingService` is an actor. It lists the small source registry, reads local refresh
-metadata, evaluates all sources, and runs due sources one at a time through the existing
-`CatalogRefreshService`. Due work is ordered by oldest eligibility and then stable source ID.
+metadata, evaluates all sources, and runs due sources one at a time through `SourceRefreshService`.
+That shared boundary performs catalog refresh and, where configured for an M3U source, optional XMLTV
+acquisition/import after catalog publication. Due work is ordered by oldest eligibility and then stable source ID.
 Automatic refresh concurrency is therefore exactly one. A failure is recorded as a safe outcome and
 does not block the next due source; an already-running same-source refresh becomes `inProgress`.
 
@@ -60,10 +61,10 @@ continue to protect every source's last-known-good catalog from failure or cance
 
 ## Persistence and migration
 
-The durable source registry schema is version 2. `RefreshPolicy` is stored with the existing
+The durable source registry schema is version 3. `RefreshPolicy` is stored with the existing
 non-secret source metadata. Version 1 is decoded explicitly and migrated atomically to version 2 with
-`manualOnly`, preserving source ID, display name, kind, endpoint, `CredentialReference` and enabled
-state. Corrupt registries and unsupported future versions still fail without an automatic reset.
+`manualOnly`; version 2 is migrated atomically to version 3 with no XMLTV endpoint. Corrupt registries
+and unsupported future versions still fail without an automatic reset.
 
 ## Security and privacy
 
