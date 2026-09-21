@@ -40,7 +40,7 @@ struct SourceManagementServiceTests {
     #expect(try await reopened.listSources().map(\.id) == [second.id])
   }
 
-  @Test("Version 1 source registry migrates explicitly to version 2 and manual-only policy")
+  @Test("Version 1 source registry migrates to the current schema and manual-only policy")
   func sourceRegistryV1Migration() async throws {
     let fixture = try SourceRegistryFixture()
     defer { try? fixture.remove() }
@@ -65,7 +65,7 @@ struct SourceManagementServiceTests {
 
     let document = try #require(
       JSONSerialization.jsonObject(with: Data(contentsOf: fixture.url)) as? [String: Any])
-    #expect(document["schemaVersion"] as? Int == 2)
+    #expect(document["schemaVersion"] as? Int == 3)
     let persistedText = try #require(String(data: Data(contentsOf: fixture.url), encoding: .utf8))
     #expect(persistedText.contains("manualOnly"))
     #expect(!persistedText.contains("synthetic-private-password"))
@@ -125,6 +125,49 @@ struct SourceManagementServiceTests {
       editing: nil
     )
     #expect(m3uIssues == [.init(field: .endpoint, reason: .forbiddenURLComponents)])
+
+    let xmltvIssues = await context.service.validateDraft(
+      SourceDraft(
+        displayName: "Playlist",
+        kind: .m3u,
+        endpoint: "https://example.invalid/list.m3u",
+        epgEndpoint: "https://user:secret@example.invalid/guide.xml?token=synthetic#fragment",
+        credential: .none
+      ),
+      editing: nil
+    )
+    #expect(xmltvIssues == [.init(field: .epgEndpoint, reason: .forbiddenURLComponents)])
+    #expect(!String(describing: xmltvIssues).contains("secret"))
+
+    let xtreamEPGIssues = await context.service.validateDraft(
+      SourceDraft(
+        displayName: "Provider",
+        kind: .xtreamCompatible,
+        endpoint: "https://example.invalid/provider",
+        epgEndpoint: "https://example.invalid/guide.xml",
+        credential: .replace(username: "user", secret: "synthetic-secret")
+      ),
+      editing: nil
+    )
+    #expect(xtreamEPGIssues == [.init(field: .epgEndpoint, reason: .epgUnsupportedForSourceKind)])
+  }
+
+  @Test("M3U XMLTV endpoint persists without exposing credential material")
+  func m3uXMLTVEndpointPersists() async throws {
+    let context = makeContext()
+    let created = try await context.service.createSource(
+      from: SourceDraft(
+        displayName: "Playlist",
+        kind: .m3u,
+        endpoint: "https://example.invalid/list.m3u",
+        epgEndpoint: "https://example.invalid/guide.xml",
+        credential: .none
+      )
+    )
+
+    #expect(
+      created.epgConfiguration?.endpoint.url == URL(string: "https://example.invalid/guide.xml"))
+    #expect(!String(describing: created).contains("guide.xml"))
   }
 
   @Test("Xtream create stores only a credential reference and list returns the source")
