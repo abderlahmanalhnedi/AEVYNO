@@ -16,6 +16,7 @@ struct AEVYNOiOSApp: App {
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
   private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
+  private let epgServiceFactory: EPGNowNextViewModel.ServiceFactory
 
   init() {
     let serviceContainer = AppSourceServiceContainer()
@@ -36,6 +37,7 @@ struct AEVYNOiOSApp: App {
     playbackServiceFactory = { try await serviceContainer.playbackDependencies() }
     continueWatchingServiceFactory = { try await serviceContainer.services().continueWatching }
     favoritesServiceFactory = { try await serviceContainer.services().favorites }
+    epgServiceFactory = { try await serviceContainer.services().epg }
   }
 
   var body: some Scene {
@@ -50,7 +52,8 @@ struct AEVYNOiOSApp: App {
             sourceServiceFactory: sourceServiceFactory,
             playbackServiceFactory: playbackServiceFactory,
             continueWatchingServiceFactory: continueWatchingServiceFactory,
-            favoritesServiceFactory: favoritesServiceFactory
+            favoritesServiceFactory: favoritesServiceFactory,
+            epgServiceFactory: epgServiceFactory
           )
         }
       }

@@ -2,8 +2,13 @@ import Domain
 import Foundation
 import Persistence
 
-/// Catalog-to-EPG join boundary. SwiftUI never sees SQLite or provider identifiers.
-public actor ProductionEPGService {
+/// Safe Now/Next presentation boundary. SwiftUI never sees SQLite or provider identifiers.
+public protocol EPGPresenting: Sendable {
+  func nowNext(for catalogItemID: String, at instant: Date) async throws -> EPGNowNextPresentation
+}
+
+/// Catalog-to-EPG join implementation behind the presentation boundary.
+public actor ProductionEPGService: EPGPresenting {
   private let catalog: any CatalogQueryRepository
   private let epg: any EPGQueryRepository
 
