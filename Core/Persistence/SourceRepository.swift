@@ -22,7 +22,7 @@ public protocol SourceRepository: Sendable {
 
 /// Durable user-authored source metadata. This store intentionally lives outside the catalog cache.
 public actor FileSourceRepository: SourceRepository {
-  public static let currentSchemaVersion = 2
+  public static let currentSchemaVersion = 3
 
   private let fileURL: URL
   private let fileManager: FileManager
@@ -99,7 +99,8 @@ public actor FileSourceRepository: SourceRepository {
       endpoint: existing.endpoint,
       credentialReference: existing.credentialReference,
       isEnabled: isEnabled,
-      refreshPolicy: existing.refreshPolicy
+      refreshPolicy: existing.refreshPolicy,
+      epgConfiguration: existing.epgConfiguration
     )
     try persist(sources)
   }
@@ -119,7 +120,7 @@ public actor FileSourceRepository: SourceRepository {
       case 1:
         let legacy = try JSONDecoder().decode(SourceRegistryV1.self, from: data)
         sources = legacy.sources.map { $0.migratedConfiguration }
-      case Self.currentSchemaVersion:
+      case 2, Self.currentSchemaVersion:
         sources = try JSONDecoder().decode(SourceRegistry.self, from: data).sources
       default:
         throw SourceRepositoryError.unsupportedSchema
@@ -128,7 +129,7 @@ public actor FileSourceRepository: SourceRepository {
         throw SourceRepositoryError.corruptedStore
       }
       for source in sources { try validate(source) }
-      if header.schemaVersion == 1 {
+      if header.schemaVersion < Self.currentSchemaVersion {
         try persist(sources)
       } else {
         loadedSources = sources

@@ -221,6 +221,7 @@ private struct TVSourceEditorView: View {
     case name
     case kind
     case endpoint
+    case epgEndpoint
     case username
     case password
     case replaceCredential
@@ -241,6 +242,7 @@ private struct TVSourceEditorView: View {
   @State private var displayName: String
   @State private var kind: SourceKind
   @State private var endpoint: String
+  @State private var epgEndpoint: String
   @State private var isEnabled: Bool
   @State private var refreshPolicy: RefreshPolicy
   @State private var replacingCredential: Bool
@@ -269,6 +271,9 @@ private struct TVSourceEditorView: View {
     _endpoint = State(
       initialValue: source?.configuration.endpoint?.url.absoluteString ?? initialDraft?.endpoint
         ?? "")
+    _epgEndpoint = State(
+      initialValue: source?.configuration.epgConfiguration?.endpoint.url.absoluteString
+        ?? initialDraft?.epgEndpoint ?? "")
     _isEnabled = State(
       initialValue: source?.configuration.isEnabled ?? initialDraft?.isEnabled ?? true)
     _refreshPolicy = State(
@@ -405,7 +410,8 @@ private struct TVSourceEditorView: View {
       endpoint: configuration.endpoint,
       credentialReference: configuration.credentialReference,
       isEnabled: isEnabled,
-      refreshPolicy: refreshPolicy
+      refreshPolicy: refreshPolicy,
+      epgConfiguration: configuration.epgConfiguration
     )
     return RefreshPolicyEvaluator().evaluate(
       source: displayedConfiguration,
@@ -439,6 +445,12 @@ private struct TVSourceEditorView: View {
       if kind == .xtreamCompatible {
         credentialFields
       } else {
+        TextField(AppText.xmltvEndpoint, text: $epgEndpoint)
+          .textContentType(.URL)
+          .textInputAutocapitalization(.never)
+          .focused($focusedField, equals: .epgEndpoint)
+          .accessibilityIdentifier("source.epg-endpoint")
+          .accessibilityHint(AppText.xmltvEndpointAccessibilityHint)
         Text(AppText.m3uQueryLimitation)
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
@@ -546,6 +558,7 @@ private struct TVSourceEditorView: View {
       displayName: displayName,
       kind: kind,
       endpoint: endpoint,
+      epgEndpoint: epgEndpoint,
       isEnabled: isEnabled,
       refreshPolicy: refreshPolicy,
       credential: credential
@@ -589,6 +602,7 @@ private struct TVSourceEditorView: View {
     case .displayName: focusedField = .name
     case .sourceKind: focusedField = .kind
     case .endpoint: focusedField = .endpoint
+    case .epgEndpoint: focusedField = .epgEndpoint
     case .username: focusedField = .username
     case .credential: focusedField = .password
     }

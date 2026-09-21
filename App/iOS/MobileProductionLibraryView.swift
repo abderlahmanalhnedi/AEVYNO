@@ -18,6 +18,7 @@ struct MobileProductionLibraryView: View {
   private let playbackServiceFactory: PlaybackDetailViewModel.ServiceFactory
   private let continueWatchingServiceFactory: ContinueWatchingViewModel.ServiceFactory
   private let favoritesServiceFactory: FavoritesViewModel.ServiceFactory
+  private let epgServiceFactory: EPGNowNextViewModel.ServiceFactory
 
   init(
     viewModel: ProductionLibraryViewModel,
@@ -25,7 +26,10 @@ struct MobileProductionLibraryView: View {
     sourceServiceFactory: @escaping SourceManagementViewModel.ServiceFactory,
     playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
     continueWatchingServiceFactory: @escaping ContinueWatchingViewModel.ServiceFactory,
-    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory
+    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory,
+    epgServiceFactory: @escaping EPGNowNextViewModel.ServiceFactory = {
+      throw EPGPresentationError.unavailable
+    }
   ) {
     _viewModel = State(initialValue: viewModel)
     self.artworkPipeline = artworkPipeline
@@ -37,6 +41,7 @@ struct MobileProductionLibraryView: View {
     self.favoritesServiceFactory = favoritesServiceFactory
     _favoritesViewModel = State(
       initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
+    self.epgServiceFactory = epgServiceFactory
   }
 
   var body: some View {
@@ -63,7 +68,8 @@ struct MobileProductionLibraryView: View {
           item: item,
           artworkPipeline: artworkPipeline,
           playbackServiceFactory: playbackServiceFactory,
-          favoritesServiceFactory: favoritesServiceFactory
+          favoritesServiceFactory: favoritesServiceFactory,
+          epgServiceFactory: epgServiceFactory
         )
       }
       .sheet(isPresented: $showsSources) {
@@ -343,12 +349,14 @@ private struct MobileLibraryDetailView: View {
   @State private var playbackSession: PlaybackSession?
   @State private var favoritesViewModel: FavoritesViewModel
   @State private var isFavorite = false
+  @State private var epgViewModel: EPGNowNextViewModel
 
   init(
     item: LibraryItemPresentation,
     artworkPipeline: ArtworkImagePipeline,
     playbackServiceFactory: @escaping PlaybackDetailViewModel.ServiceFactory,
-    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory
+    favoritesServiceFactory: @escaping FavoritesViewModel.ServiceFactory,
+    epgServiceFactory: @escaping EPGNowNextViewModel.ServiceFactory
   ) {
     self.item = item
     self.artworkPipeline = artworkPipeline
@@ -359,6 +367,8 @@ private struct MobileLibraryDetailView: View {
       ))
     _favoritesViewModel = State(
       initialValue: FavoritesViewModel(serviceFactory: favoritesServiceFactory))
+    _epgViewModel = State(
+      initialValue: EPGNowNextViewModel(itemID: item.id, serviceFactory: epgServiceFactory))
   }
 
   var body: some View {
@@ -378,6 +388,7 @@ private struct MobileLibraryDetailView: View {
         Text(AppText.libraryItemMetadata(item))
           .aevynoTypography(.metadata)
           .foregroundStyle(AEVYNOColor.secondaryText)
+        nowNext
         playbackActions
         Button(isFavorite ? AppText.removeFromFavorites : AppText.addToFavorites) {
           Task { isFavorite = await favoritesViewModel.toggle(item.id) ?? isFavorite }
@@ -390,6 +401,7 @@ private struct MobileLibraryDetailView: View {
     .background(AEVYNOColor.background)
     .task { await playbackViewModel.load() }
     .task { isFavorite = await favoritesViewModel.isFavorite(item.id) }
+    .task { await epgViewModel.load() }
     .fullScreenCover(
       item: $playbackSession,
       onDismiss: {
@@ -399,6 +411,19 @@ private struct MobileLibraryDetailView: View {
         PlaybackPresentationView(session: session)
       }
     )
+  }
+
+  @ViewBuilder private var nowNext: some View {
+    if item.mediaKind == .live, let now = epgViewModel.presentation.now {
+      VStack(alignment: .leading, spacing: AEVYNOSpacing.xs) {
+        Text(AppText.nowProgramme(now.title)).aevynoTypography(.status)
+        if let next = epgViewModel.presentation.next {
+          Text(AppText.nextProgramme(next.title))
+            .aevynoTypography(.metadata).foregroundStyle(AEVYNOColor.secondaryText)
+        }
+      }
+      .accessibilityIdentifier("library.detail.now-next")
+    }
   }
 
   @ViewBuilder
@@ -564,6 +589,7 @@ private struct MobileSourceEditorView: View {
   @State private var displayName: String
   @State private var kind: SourceKind
   @State private var endpoint: String
+  @State private var epgEndpoint: String
   @State private var isEnabled: Bool
   @State private var refreshPolicy: RefreshPolicy
   @State private var replacingCredential: Bool
@@ -584,6 +610,8 @@ private struct MobileSourceEditorView: View {
     _displayName = State(initialValue: source?.configuration.displayName ?? "")
     _kind = State(initialValue: source?.configuration.kind ?? .xtreamCompatible)
     _endpoint = State(initialValue: source?.configuration.endpoint?.url.absoluteString ?? "")
+    _epgEndpoint = State(
+      initialValue: source?.configuration.epgConfiguration?.endpoint.url.absoluteString ?? "")
     _isEnabled = State(initialValue: source?.configuration.isEnabled ?? true)
     _refreshPolicy = State(initialValue: source?.configuration.refreshPolicy ?? .manualOnly)
     _replacingCredential = State(initialValue: source == nil)
@@ -603,6 +631,13 @@ private struct MobileSourceEditorView: View {
           .textContentType(.URL)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
+        if kind == .m3u {
+          TextField(AppText.xmltvEndpoint, text: $epgEndpoint)
+            .textContentType(.URL)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .accessibilityHint(AppText.xmltvEndpointAccessibilityHint)
+        }
       }
 
       Section(AppText.automaticRefresh) {
@@ -708,6 +743,7 @@ private struct MobileSourceEditorView: View {
       displayName: displayName,
       kind: kind,
       endpoint: endpoint,
+      epgEndpoint: epgEndpoint,
       isEnabled: isEnabled,
       refreshPolicy: refreshPolicy,
       credential: credential
