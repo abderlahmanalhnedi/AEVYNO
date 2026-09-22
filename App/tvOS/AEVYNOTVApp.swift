@@ -62,8 +62,10 @@ struct AEVYNOTVApp: App {
       playbackEngineFactory = { playbackFixture.makeEngine() }
       continueWatchingServiceFactory = TVContinueWatchingFixture.service(arguments: arguments)
       favoritesServiceFactory = TVFavoritesFixture.service(arguments: arguments)
-      let hasNowNextFixture = arguments.contains("--ui-production-now-next")
-      if hasNowNextFixture {
+      let hasEPGFixture =
+        arguments.contains("--ui-production-now-next")
+        || arguments.contains("--ui-production-guide")
+      if hasEPGFixture {
         epgServiceFactory = { TVEPGPresentationFixture.service() }
       } else {
         epgServiceFactory = { throw EPGPresentationError.unavailable }

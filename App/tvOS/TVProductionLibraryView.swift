@@ -25,6 +25,7 @@ struct TVProductionLibraryView: View {
   @State private var continueWatchingSession: PlaybackSession?
   @State private var resumedContinueWatchingID: String?
   @State private var showsSources = false
+  @State private var showsGuide = false
 
   private let artworkPipeline: ArtworkImagePipeline
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
@@ -90,6 +91,16 @@ struct TVProductionLibraryView: View {
         isPresented: $showsSources,
         destination: { TVSourcesView(serviceFactory: sourceServiceFactory) }
       )
+      .navigationDestination(isPresented: $showsGuide) {
+        if let sourceID = guideSourceID {
+          TVEPGGuideView(
+            sourceID: sourceID, serviceFactory: epgServiceFactory,
+            playbackServiceFactory: playbackServiceFactory,
+            playbackEngineFactory: playbackEngineFactory
+          )
+          .onDisappear { focusLibraryFallback() }
+        }
+      }
       .searchable(
         text: $viewModel.searchText,
         placement: .automatic,
@@ -397,8 +408,17 @@ struct TVProductionLibraryView: View {
         Button(AppText.sources) { showsSources = true }
           .buttonStyle(.bordered)
           .accessibilityIdentifier("library.sources")
+        Button(AppText.guide) { showsGuide = true }
+          .buttonStyle(.bordered)
+          .disabled(guideSourceID == nil)
+          .accessibilityIdentifier("library.guide")
       }
     }
+  }
+
+  private var guideSourceID: SourceConfiguration.ID? {
+    viewModel.selectedSourceID ?? viewModel.context?.sources.first(where: \.isEnabled)?.id
+      ?? viewModel.context?.sources.first?.id
   }
 
   @ViewBuilder
