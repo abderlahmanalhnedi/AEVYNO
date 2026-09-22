@@ -146,6 +146,92 @@ final class AEVYNOTVUITests: XCTestCase {
     try app.performAccessibilityAudit()
   }
 
+  func testGuideEntryLoadsDeterministicInitialFocus() {
+    let app = launchApp(arguments: ["--ui-production-guide"])
+    let guide = app.buttons["library.guide"]
+    XCTAssertTrue(guide.waitForExistence(timeout: 10))
+    XCTAssertTrue(focusAndSelect(guide, in: app))
+    let programme = app.buttons["guide.cell.live-1.morning-brief"]
+    XCTAssertTrue(programme.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: programme))
+  }
+
+  func testGuideProgrammeDetailBackRestoresExactFocus() {
+    let app = launchApp(arguments: ["--ui-production-guide"])
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    let programme = app.buttons["guide.cell.live-1.morning-brief"]
+    XCTAssertTrue(programme.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: programme))
+    XCUIRemote.shared.press(.select)
+    XCTAssertTrue(app.staticTexts["Morning Brief"].waitForExistence(timeout: 5))
+    XCUIRemote.shared.press(.menu)
+    XCTAssertTrue(programme.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: programme))
+  }
+
+  func testGuideWithoutEPGIsSafe() {
+    let app = launchApp(arguments: ["--ui-production-catalog"])
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    XCTAssertTrue(app.staticTexts["Guide is unavailable"].waitForExistence(timeout: 5))
+  }
+
+  func testArabicGuideAccessibilityDoesNotExposeEPGIdentity() throws {
+    let app = launchApp(arguments: ["--ui-production-guide"], locale: "ar")
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    let programme = app.buttons["guide.cell.live-1.morning-brief"]
+    XCTAssertTrue(programme.waitForExistence(timeout: 5))
+    XCTAssertTrue(programme.label.contains("Morning Brief"))
+    XCTAssertFalse("\(programme.label) \(programme.value ?? "")".contains("synthetic-news"))
+    try app.performAccessibilityAudit()
+  }
+
+  func testGuideRightMovesToNextStableProgrammeCell() {
+    let app = launchApp(arguments: ["--ui-production-guide"])
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    let first = app.buttons["guide.cell.live-1.morning-brief"]
+    let next = app.buttons["guide.cell.live-1.market-review"]
+    XCTAssertTrue(first.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: first))
+    XCUIRemote.shared.press(.right)
+    XCTAssertTrue(next.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: next))
+  }
+
+  func testGuideDownMovesToNextChannelStableProgrammeCell() {
+    let app = launchApp(arguments: ["--ui-production-guide"])
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    let first = app.buttons["guide.cell.live-1.morning-brief"]
+    let below = app.buttons["guide.cell.live-2.matchday"]
+    XCTAssertTrue(first.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: first))
+    XCUIRemote.shared.press(.down)
+    XCTAssertTrue(below.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: below))
+  }
+
+  func testGuidePlayableProgrammeUsesExistingPlaybackSessionPath() {
+    let app = launchApp(arguments: ["--ui-production-guide"])
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    let playable = app.buttons["guide.cell.m3u-1.playable-schedule"]
+    XCTAssertTrue(playable.waitForExistence(timeout: 5))
+    XCTAssertTrue(focusAndSelect(playable, in: app))
+    XCTAssertTrue(focusAndSelect(app.buttons["guide.detail.play"], in: app))
+    XCTAssertTrue(
+      app.descendants(matching: .any)["playback.state.playing"].waitForExistence(timeout: 5))
+  }
+
+  func testGuideBoundedNextPageRestoresValidFirstCellFocus() {
+    let app = launchApp(arguments: ["--ui-production-guide"])
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    let more = app.buttons["guide.more-channels"]
+    XCTAssertTrue(more.waitForExistence(timeout: 5))
+    XCTAssertTrue(focusAndSelect(more, in: app))
+    let pageTwo = app.buttons["guide.cell.live-page-1.page-two-brief"]
+    XCTAssertTrue(pageTwo.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: pageTwo))
+    XCTAssertFalse(app.buttons["guide.cell.live-1.morning-brief"].exists)
+  }
+
   func testProductionArabicRTLSearch() {
     let app = launchApp(arguments: ["--ui-production-search-arabic"], locale: "ar")
     XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 10))
