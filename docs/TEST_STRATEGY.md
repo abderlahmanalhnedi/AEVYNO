@@ -11,6 +11,8 @@ Must cover:
 - M3U parsing.
 - XMLTV explicit-offset time parsing, malformed-entry isolation, bounded streaming behavior, and
   deterministic Now/Next interval/overlap semantics.
+- bounded source-scoped Guide intervals, channel pages, deterministic programme ordering, gaps, and
+  100/1,000/10,000-channel synthetic persistence measurements.
 - provider response normalization.
 - stable ID construction.
 - watch-progress rules.
@@ -44,6 +46,8 @@ Critical journeys:
 - English/German/Arabic locale launches for owned screens.
 - Arabic RTL Home focus movement.
 - Arabic RTL Detail/back focus restoration.
+- Guide entry, deterministic programme focus/detail/back restoration, safe empty Guide state, and
+  Arabic Guide accessibility with synthetic fixtures only.
 - long and mixed-direction Arabic text does not break critical layouts.
 
 ## 3. Localization and RTL tests

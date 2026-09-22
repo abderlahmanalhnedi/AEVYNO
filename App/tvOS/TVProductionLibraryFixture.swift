@@ -31,6 +31,7 @@ actor TVProductionLibraryFixture: ProductionLibraryServing {
     }
     if arguments.contains("--ui-production-catalog")
       || arguments.contains("--ui-production-now-next")
+      || arguments.contains("--ui-production-guide")
       || arguments.contains("--ui-production-search-results")
       || arguments.contains("--ui-production-search-empty")
       || arguments.contains("--ui-production-search-arabic")

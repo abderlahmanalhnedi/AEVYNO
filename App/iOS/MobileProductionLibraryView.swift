@@ -12,6 +12,7 @@ struct MobileProductionLibraryView: View {
   @State private var favoritesViewModel: FavoritesViewModel
   @State private var continueWatchingSession: PlaybackSession?
   @State private var showsSources = false
+  @State private var showsGuide = false
 
   private let artworkPipeline: ArtworkImagePipeline
   private let sourceServiceFactory: SourceManagementViewModel.ServiceFactory
@@ -60,7 +61,11 @@ struct MobileProductionLibraryView: View {
           }
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button(AppText.sources, systemImage: "externaldrive") { showsSources = true }
+          HStack {
+            Button(AppText.guide, systemImage: "calendar") { showsGuide = true }
+              .disabled(guideSourceID == nil)
+            Button(AppText.sources, systemImage: "externaldrive") { showsSources = true }
+          }
         }
       }
       .navigationDestination(item: $selectedItem) { item in
@@ -76,6 +81,13 @@ struct MobileProductionLibraryView: View {
         MobileLibrarySourcesView(
           viewModel: SourceManagementViewModel(serviceFactory: sourceServiceFactory)
         )
+      }
+      .navigationDestination(isPresented: $showsGuide) {
+        if let sourceID = guideSourceID {
+          MobileEPGGuideView(
+            sourceID: sourceID, serviceFactory: epgServiceFactory,
+            playbackServiceFactory: playbackServiceFactory)
+        }
       }
       .searchable(text: $viewModel.searchText, prompt: AppText.librarySearchPrompt)
       .onSubmit(of: .search) {
@@ -107,6 +119,11 @@ struct MobileProductionLibraryView: View {
         Task { await continueWatchingViewModel.reload() }
       }
     }
+  }
+
+  private var guideSourceID: SourceConfiguration.ID? {
+    viewModel.selectedSourceID ?? viewModel.context?.sources.first(where: \.isEnabled)?.id
+      ?? viewModel.context?.sources.first?.id
   }
 
   @ViewBuilder

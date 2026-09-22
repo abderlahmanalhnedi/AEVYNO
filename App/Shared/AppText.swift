@@ -63,6 +63,22 @@ enum AppText {
   static func nextProgramme(_ title: String) -> String {
     String.localizedStringWithFormat(localized("epg.next", defaultValue: "Next: %@"), title)
   }
+  static let guide = localized("epg.guide.title", defaultValue: "Guide")
+  static let guideEmptyTitle = localized("epg.guide.empty.title", defaultValue: "No guide data yet")
+  static let guideEmptyMessage = localized(
+    "epg.guide.empty.message", defaultValue: "Refresh a mapped M3U source to load its schedule.")
+  static let guideUnavailable = localized(
+    "epg.guide.unavailable", defaultValue: "Guide is unavailable")
+  static let guideLoadMore = localized("epg.guide.load_more", defaultValue: "More channels")
+  static let guideNow = localized("epg.guide.now", defaultValue: "Now")
+  static func guideTime(_ date: Date) -> String {
+    date.formatted(date: .omitted, time: .shortened)
+  }
+  static func guideProgrammeAccessibility(_ title: String, channel: String, start: Date, end: Date)
+    -> String
+  {
+    "\(title), \(channel), \(guideTime(start))–\(guideTime(end))"
+  }
 
   static let libraryTitle = localized("library.title", defaultValue: "Library")
   static let continueWatching = localized(

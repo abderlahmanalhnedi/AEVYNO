@@ -20,6 +20,9 @@ public protocol EPGQueryRepository: Sendable {
   func nowNext(
     sourceID: SourceConfiguration.ID, channelID: EPGChannelIdentity, at instant: Date
   ) async throws -> EPGNowNextPresentation
+  func programmes(
+    sourceID: SourceConfiguration.ID, channelIDs: [EPGChannelIdentity], interval: EPGGuideInterval
+  ) async throws -> [EPGProgramme]
 }
 
 /// Rebuildable source-scoped XMLTV cache. Its separate database prevents EPG publishing from
@@ -176,6 +179,32 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
     return EPGNowNextPresentation(now: now, next: next)
   }
 
+  public func programmes(
+    sourceID: SourceConfiguration.ID, channelIDs: [EPGChannelIdentity], interval: EPGGuideInterval
+  ) throws -> [EPGProgramme] {
+    try Task.checkCancellation()
+    let channels = Array(Set(channelIDs)).sorted { $0.rawValue < $1.rawValue }
+    guard !channels.isEmpty, channels.count <= 50 else { return [] }
+    let placeholders = Array(repeating: "?", count: channels.count).joined(separator: ",")
+    let row = try readerDatabase().statement(
+      """
+      SELECT programme_id,channel,start,end,title,subtitle,description,category FROM epg_programmes
+      WHERE source=? AND channel IN (\(placeholders)) AND CAST(end AS REAL)>? AND CAST(start AS REAL)<?
+      ORDER BY channel COLLATE BINARY, CAST(start AS REAL) ASC, programme_id COLLATE BINARY ASC
+      """,
+      [sourceID.rawValue.uuidString] + channels.map(\.rawValue)
+        + [
+          String(interval.start.timeIntervalSince1970), String(interval.end.timeIntervalSince1970),
+        ])
+    var programmes: [EPGProgramme] = []
+    while try row.step() {
+      try Task.checkCancellation()
+      guard let programme = try decodeProgramme(row) else { throw EPGStoreError.writeFailed }
+      programmes.append(programme)
+    }
+    return programmes
+  }
+
   /// Internal deterministic verification hook; never exposed through the repository protocols.
   func stagedRowCountForTesting() throws -> Int {
     try writerDatabase().scalar("SELECT COUNT(*) FROM epg_staging")
@@ -186,6 +215,10 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
   {
     let row = try database.statement(sql, values)
     guard try row.step() else { return nil }
+    return try decodeProgramme(row)
+  }
+
+  private func decodeProgramme(_ row: CatalogStatement) throws -> EPGProgramme? {
     guard let channelText = row.text(1), let channel = EPGChannelIdentity(rawValue: channelText),
       let startText = row.text(2), let start = TimeInterval(startText), let endText = row.text(3),
       let end = TimeInterval(endText),

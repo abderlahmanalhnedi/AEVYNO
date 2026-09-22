@@ -175,9 +175,10 @@ Exit gate:
 
 ## Phase 6 — Media experience
 
-Phase 6A XMLTV/EPG Foundation is stable on main. Phase 6B adds M3U-only sanitized XMLTV endpoint
-configuration, shared manual/scheduled acquisition and a small Now/Next detail presentation; it does
-not add source URL guessing, Xtream EPG, a full guide, or CloudKit EPG.
+Phase 6A XMLTV/EPG Foundation and Phase 6B acquisition/Now-Next are stable on main. Phase 6C adds a
+bounded source-scoped Guide over the existing local EPG boundary: 40 catalog candidates per page and
+an eight-hour initial window. It does not add source URL guessing, Xtream EPG, CloudKit EPG, or an
+unbounded timeline.
 
 Candidates:
 - EPG.

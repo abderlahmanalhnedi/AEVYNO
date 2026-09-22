@@ -147,6 +147,98 @@ func epgScaleSmokeMeasurement() async throws {
   }
 }
 
+@Test("Guide interval query is source scoped, bounded, ordered, and excludes schedule gaps")
+func epgGuideIntervalQuery() async throws {
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  let store = try fixture.makeStore()
+  let staging = try await store.beginStaging(sourceID: fixture.source)
+  try await store.stage(
+    [
+      fixture.programme("Later", 7_200, 10_800, channel: "two"),
+      fixture.programme("Overlap A", 0, 3_600, channel: "one"),
+      fixture.programme("Overlap B", 1_800, 5_400, channel: "one"),
+      fixture.programme("Outside", 28_800, 32_400, channel: "one"),
+    ], in: staging)
+  try await store.commitStagedReplacement(staging, at: Date(timeIntervalSince1970: 1))
+  let interval = try #require(
+    EPGGuideInterval(start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 7_200))
+  )
+  let programmes = try await store.programmes(
+    sourceID: fixture.source,
+    channelIDs: [EPGChannelIdentity(rawValue: "two")!, EPGChannelIdentity(rawValue: "one")!],
+    interval: interval)
+  #expect(programmes.map(\.title) == ["Overlap A", "Overlap B"])
+  #expect(
+    programmes.allSatisfy { $0.timeRange.start < interval.end && $0.timeRange.end > interval.start }
+  )
+}
+
+@Test("Guide interval rejects an unbounded request")
+func epgGuideIntervalIsBounded() {
+  #expect(EPGGuideInterval(start: .distantPast, end: .distantFuture) == nil)
+  let initial = EPGGuideInterval.initial(at: Date(timeIntervalSince1970: 0))
+  #expect(initial.end.timeIntervalSince(initial.start) == 8 * 60 * 60)
+}
+
+@Test(
+  "Production guide excludes unmapped catalog rows and preserves exact playable catalog identities")
+func productionGuideUsesExactMappings() async throws {
+  let source = SourceConfiguration.ID(rawValue: UUID())
+  let scope = CatalogScope(sourceID: source, origin: .m3u, kind: .unspecified)
+  let mapped = CatalogItem(
+    id: "playable-catalog-item", scope: scope, title: "Mapped channel",
+    epgChannelID: EPGChannelIdentity(rawValue: "exact-channel"))
+  let unmapped = CatalogItem(id: "unmapped", scope: scope, title: "No mapping")
+  let programme = EPGProgramme(
+    channelID: EPGChannelIdentity(rawValue: "exact-channel")!,
+    timeRange: EPGTimeRange(
+      start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 3_600))!,
+    title: "Current")!
+  let service = ProductionEPGService(
+    catalog: GuideCatalogStub(items: [mapped, unmapped]), epg: GuideEPGStub(programmes: [programme])
+  )
+  let interval = try #require(
+    EPGGuideInterval(start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 7_200))
+  )
+  let guide = try await service.guide(sourceID: source, interval: interval, offset: 0)
+  #expect(guide.channels.map(\.id) == ["playable-catalog-item"])
+  #expect(guide.channels.first?.programmes.map(\.title) == ["Current"])
+}
+
+private actor GuideCatalogStub: CatalogQueryRepository {
+  let storedItems: [CatalogItem]
+  init(items: [CatalogItem]) { storedItems = items }
+  func item(id: String) -> CatalogItem? { storedItems.first { $0.id == id } }
+  func items(matching _: CatalogFilter, page: CatalogPage) -> [CatalogItem] {
+    Array(storedItems.dropFirst(page.offset).prefix(page.limit))
+  }
+  func searchItems(matching _: CatalogFilter, query _: CatalogSearchQuery, page: CatalogPage)
+    -> [CatalogItem]
+  { Array(storedItems.dropFirst(page.offset).prefix(page.limit)) }
+  func categories(matching _: CatalogFilter, page _: CatalogPage) -> [CatalogCategory] { [] }
+  func categorySummaries(matching _: CatalogFilter, page _: CatalogPage) -> [CatalogCategorySummary]
+  { [] }
+  func itemCount(matching _: CatalogFilter) -> Int { storedItems.count }
+  func sourceCatalogCount(sourceID _: SourceConfiguration.ID?) -> Int { 1 }
+}
+
+private actor GuideEPGStub: EPGQueryRepository {
+  let storedProgrammes: [EPGProgramme]
+  init(programmes: [EPGProgramme]) { storedProgrammes = programmes }
+  func nowNext(sourceID _: SourceConfiguration.ID, channelID _: EPGChannelIdentity, at _: Date)
+    -> EPGNowNextPresentation
+  { EPGNowNextPresentation(now: nil, next: nil) }
+  func programmes(
+    sourceID _: SourceConfiguration.ID, channelIDs: [EPGChannelIdentity], interval: EPGGuideInterval
+  ) -> [EPGProgramme] {
+    storedProgrammes.filter {
+      channelIDs.contains($0.channelID) && $0.timeRange.start < interval.end
+        && $0.timeRange.end > interval.start
+    }
+  }
+}
+
 @Test("XMLTV import stages bounded normalized rows and atomically replaces the source snapshot")
 func xmltvImportPublishesAndCleansStaging() async throws {
   let fixture = EPGFixture()

@@ -26,3 +26,10 @@ measurement on 2026-09-20 staged, published, and queried two programmes per chan
 programmes in 0.0031 s, 1,000 / 2,000 in 0.0214 s, and 10,000 / 20,000 in 0.2410 s. These are local
 debug measurements, not a device performance claim. Physical-device cache/memory observation and a
 representative provider-derived multi-day corpus remain required before guide UI work.
+
+## Phase 6C bounded Guide query
+
+Phase 6C reuses `ProductionEPGService` for a source-scoped Guide presentation. It reads one exact
+catalog candidate page (40 rows) and one set-based indexed programme query for an eight-hour interval
+(two hours before through six hours after the opening instant). It does not materialize full EPG data,
+infer identities, or change Now/Next semantics. See [EPG Guide UI](EPG_GUIDE_UI.md).

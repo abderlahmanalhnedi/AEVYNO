@@ -97,6 +97,11 @@ queries. It does not infer identities from titles, alter catalog IDs, add a guid
 access SQLite/provider data. See [ADR-0015](../decisions/ADR-0015-epg-xmltv-foundation.md) and
 [EPG Foundation](EPG_FOUNDATION.md).
 
+Phase 6C retains that boundary: `ProductionEPGService` composes a bounded committed catalog page
+with a source-scoped EPG interval query into guide-safe rows. App views receive no SQLite, XMLTV
+channel identity, provider reference, endpoint, or playback URL. Playback remains on the catalog-ID
+`PlaybackSession` path. See [EPG Guide UI](EPG_GUIDE_UI.md).
+
 Post-Phase-2 source management stores small, user-authored `SourceConfiguration` records in a
 versioned, atomically replaced Application Support JSON registry. It keeps credentials in Keychain
 and rebuildable catalog/refresh state in SQLite. `SourceManagementService` owns validation and
