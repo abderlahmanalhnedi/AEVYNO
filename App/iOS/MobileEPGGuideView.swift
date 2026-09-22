@@ -30,7 +30,7 @@ struct MobileEPGGuideView: View {
       } else if let guide = viewModel.guide, !guide.channels.isEmpty {
         guideRows(guide)
       } else {
-        StatePresentation(
+        StatusPanel(
           symbolName: "calendar",
           title: viewModel.isUnavailable ? AppText.guideUnavailable : AppText.guideEmptyTitle,
           message: AppText.guideEmptyMessage)
