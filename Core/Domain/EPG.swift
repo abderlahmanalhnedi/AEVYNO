@@ -65,3 +65,46 @@ public struct EPGNowNextPresentation: Equatable, Sendable {
     self.next = next
   }
 }
+
+/// A bounded absolute-time window. Views format these UTC instants locally.
+public struct EPGGuideInterval: Equatable, Sendable {
+  public static let maximumDuration: TimeInterval = 8 * 60 * 60
+  public let start: Date
+  public let end: Date
+
+  public init?(start: Date, end: Date) {
+    guard end > start, end.timeIntervalSince(start) <= Self.maximumDuration else { return nil }
+    self.start = start
+    self.end = end
+  }
+
+  public static func initial(at now: Date) -> EPGGuideInterval {
+    EPGGuideInterval(
+      start: now.addingTimeInterval(-2 * 60 * 60), end: now.addingTimeInterval(6 * 60 * 60))!
+  }
+}
+
+/// Guide-safe channel data. `id` is the stable playable catalog identity, never an EPG ID.
+public struct EPGGuideChannel: Identifiable, Equatable, Sendable {
+  public let id: String
+  public let title: String
+  public let programmes: [EPGProgramme]
+
+  public init(id: String, title: String, programmes: [EPGProgramme]) {
+    self.id = id
+    self.title = title
+    self.programmes = programmes
+  }
+}
+
+public struct EPGGuidePresentation: Equatable, Sendable {
+  public let interval: EPGGuideInterval
+  public let channels: [EPGGuideChannel]
+  public let nextOffset: Int?
+
+  public init(interval: EPGGuideInterval, channels: [EPGGuideChannel], nextOffset: Int?) {
+    self.interval = interval
+    self.channels = channels
+    self.nextOffset = nextOffset
+  }
+}
