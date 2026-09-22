@@ -154,6 +154,13 @@ theme.
 
 ## Validation boundary
 
+## Guide entry
+
+The production Library provides a Guide entry only when a source is available. It passes the selected
+source identity to the shared EPG presentation boundary; the Guide never receives a catalog database,
+provider adapter, endpoint, or credential. Programme playback reuses the existing catalog-ID playback
+resolver. See [EPG Guide UI](EPG_GUIDE_UI.md).
+
 Deterministic shared tests use local actors/stubs and synthetic catalog values only. tvOS UI tests
 use injected local production-library and source-management fixtures; they never access provider
 networking, production credentials or the user's catalog. Final command counts and CI links are
