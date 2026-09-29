@@ -4,6 +4,37 @@ Phase 6A is data, ingestion, and bounded-query work only. It contains no TV guid
 
 `XMLTVParser` is Foundation SAX parsing over an `InputStream`; it processes one programme at a time, caps retained text, and reports only bounded category warnings. `XMLTVEPGImportService` writes normalized non-secret programme rows to a temporary local spool during parsing, then reads it in 256-row batches into staging. It accepts standard `programme` fields and explicit-offset XMLTV times. Timezone-free and invalid intervals are skipped, while malformed documents are fatal; every terminal path removes the spool and staging rows.
 
+## Phase 6D compatibility policy
+
+The synthetic corpus covers absent/empty optional fields, entities/CDATA, Arabic Unicode, harmless
+attribute/whitespace variation, repeated categories, unknown safe elements, duplicates, overlaps,
+unmapped channels, and retention exclusion. Invalid programmes are skipped; structural XML errors fail
+the document. Overlong text is skipped rather than silently truncated into valid metadata. Failed,
+cancelled, and successful imports remove their temporary spool and staging rows; publication preserves
+the prior committed source snapshot until its final atomic replacement.
+
+The acquisition boundary deliberately returns bounded `Data` (64 MiB maximum) before parsing. Phase 6D
+does not introduce network-to-spool streaming. The deterministic smoke test covers 100/1,000/10,000
+channels (two programmes each); it is not a device memory claim.
+
+Cancellation is checked before parsing, for each spool write, before each bounded staging batch, and
+before atomic publication. A cancellation before publication discards staging and the spool, leaving
+the prior source snapshot visible. Once SQLite has entered the short atomic publication transaction,
+the operation is allowed to complete or roll back as SQLite requires; it is not interrupted mid-commit.
+
+On the local macOS Swift runtime, the deterministic synthetic measurement recorded these independent
+phase times (two programmes/channel): 100 channels: parse 0.1245 s, staging 0.0012 s, publication
+0.0009 s, Now/Next 0.0003 s, Guide 0.0004 s, cache 300,576 bytes; 1,000: 1.1300 s, 0.0110 s, 0.0046 s,
+0.0003 s, 0.0004 s, 2,088,656 bytes; 10,000: 10.9792 s, 0.1317 s, 0.0780 s, 0.0003 s, 0.0005 s,
+24,435,016 bytes. Normalized-spool and end-to-end import durations are intentionally not labelled as
+independent measurements because that boundary is not instrumented.
+
+A warmed `/usr/bin/time -l` micro-measurement allocated a filled 64 MiB `Data` and then consumed it
+through `InputStream` with a 64 KiB buffer: base peak RSS was about 142.1 MB, `Data` about 209.3 MB,
+and `Data` plus `InputStream` about 209.3 MB. This is local runtime evidence, not a device claim, but
+it found no material additional copy attributable to `Data -> InputStream`; a streaming transport
+redesign is not justified by Phase 6D evidence.
+
 `SQLiteEPGStore` is a source-scoped SQLite v1 cache using invisible staging and WAL. Foreign keys are enabled on each connection and staging rows are also explicitly removed on successful commit, discard, error, cancellation, and reopen. Readers see EPG A during parsing/staging and see EPG B only after a short atomic commit. Successful publication keeps 24 hours of recent history and 14 days of future starts. The cache is excluded from backup and is rebuildable; it is never synced to CloudKit.
 
 ## Phase 6B acquisition and Now/Next

@@ -27,8 +27,9 @@ public final class XMLTVParser: NSObject {
   private var handler: ((EPGProgramme) throws -> Void)?
   private var failure: Error?
   private var current: Draft?
-  private var element = ""
+  private var textElement: String?
   private var text = ""
+  private var textExceededLimit = false
   private var programmeCount = 0
   private var skippedCount = 0
   private var warnings: [String] = []
@@ -58,8 +59,9 @@ public final class XMLTVParser: NSObject {
     self.handler = handler
     failure = nil
     current = nil
-    element = ""
+    textElement = nil
     text = ""
+    textExceededLimit = false
     programmeCount = 0
     skippedCount = 0
     warnings = []
@@ -71,7 +73,13 @@ public final class XMLTVParser: NSObject {
 
   private func finishProgramme() {
     defer { current = nil }
-    guard let current, let channel = EPGChannelIdentity(rawValue: current.channel),
+    guard let current else { return }
+    guard !current.textExceededLimit else {
+      skippedCount += 1
+      warning("skipped-programme-text-too-long")
+      return
+    }
+    guard let channel = EPGChannelIdentity(rawValue: current.channel),
       let start = XMLTVTimestamp.parse(current.start), let end = XMLTVTimestamp.parse(current.stop),
       let range = EPGTimeRange(start: start, end: end),
       let programme = EPGProgramme(
@@ -98,6 +106,7 @@ public final class XMLTVParser: NSObject {
     var subtitle: String?
     var description: String?
     var category: String?
+    var textExceededLimit = false
   }
 }
 
@@ -110,8 +119,9 @@ extension XMLTVParser: XMLParserDelegate {
       parser.abortParsing()
       return
     }
-    element = elementName
+    textElement = nil
     text = ""
+    textExceededLimit = false
     if elementName == "programme" {
       guard let channel = attributes["channel"], let start = attributes["start"],
         let stop = attributes["stop"]
@@ -121,12 +131,20 @@ extension XMLTVParser: XMLParserDelegate {
         return
       }
       current = Draft(channel: channel, start: start, stop: stop)
+    } else if current != nil, Self.maximumLength(for: elementName) != nil {
+      textElement = elementName
     }
   }
 
   public func parser(_ parser: Foundation.XMLParser, foundCharacters string: String) {
-    guard current != nil, text.utf8.count < Self.maximumFieldUTF8Length else { return }
-    text += String(string.prefix(Self.maximumFieldUTF8Length))
+    guard let element = textElement, let maximum = Self.maximumLength(for: element), current != nil
+    else { return }
+    let remaining = maximum - text.utf8.count
+    guard remaining >= string.utf8.count else {
+      textExceededLimit = true
+      return
+    }
+    text += string
   }
 
   public func parser(
@@ -134,22 +152,38 @@ extension XMLTVParser: XMLParserDelegate {
     qualifiedName qName: String?
   ) {
     guard var draft = current else { return }
+    if elementName == "programme" {
+      finishProgramme()
+      return
+    }
+    guard textElement == elementName else { return }
     let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if textExceededLimit { draft.textExceededLimit = true }
     switch elementName {
     case "title": draft.title = value
     case "sub-title": draft.subtitle = value
     case "desc": draft.description = value
-    case "category": draft.category = value
-    case "programme":
-      finishProgramme()
-      return
+    // XMLTV permits multiple categories. The domain has one category field, so retain the first
+    // non-empty value rather than making outcome depend on element order after that point.
+    case "category" where draft.category == nil && !value.isEmpty: draft.category = value
     default: break
     }
     current = draft
+    textElement = nil
+    text = ""
+    textExceededLimit = false
   }
 
   public func parser(_ parser: Foundation.XMLParser, parseErrorOccurred parseError: Error) {
     if failure == nil { failure = XMLTVParserError.malformedDocument }
+  }
+
+  private static func maximumLength(for element: String) -> Int? {
+    switch element {
+    case "title": 4_096
+    case "sub-title", "desc", "category": maximumFieldUTF8Length
+    default: nil
+    }
   }
 }
 
