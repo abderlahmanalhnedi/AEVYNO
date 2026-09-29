@@ -2,9 +2,9 @@ import CryptoKit
 import Domain
 import Foundation
 import IPTVCore
-import Library
 import Testing
 
+@testable import Library
 @testable import Persistence
 
 @Test("XMLTV SAX parser normalizes timezone-aware programmes without retaining a document DOM")
@@ -47,6 +47,47 @@ func xmltvMalformedProgrammeIsSkippable() throws {
   #expect(report.programmeCount == 1)
   #expect(report.skippedProgrammeCount == 1)
   #expect(values.map(\.title) == ["Good"])
+}
+
+@Test("XMLTV compatibility corpus preserves optional, Unicode, CDATA, entity, and unknown content")
+func xmltvCompatibilityCorpus() throws {
+  let xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <tv generator-info-name="synthetic"><channel id="empty" />
+    <programme stop="20260920130000Z" channel="news" start="20260920120000Z" extra="ignored">
+      <title><![CDATA[الأخبار & العالم]]></title><desc>Fish &amp; Chips</desc>
+      <category>News</category><category>Ignored later category</category><unknown data="safe">ignored</unknown>
+    </programme><programme channel="news" start="20260920120000Z" stop="20260920130000Z"><title>الأخبار &amp; العالم</title></programme></tv>
+    """
+  var values: [EPGProgramme] = []
+  let report = try XMLTVParser().parse(stream: InputStream(data: Data(xml.utf8))) {
+    values.append($0)
+  }
+  #expect(report.programmeCount == 2)
+  #expect(values.first?.title == "الأخبار & العالم")
+  #expect(values.first?.description == "Fish & Chips")
+  #expect(values.first?.category == "News")
+  #expect(values.map(\.id).count == 2)
+}
+
+@Test("XMLTV rejects bounded text records without accepting truncated programme metadata")
+func xmltvOverlongTextIsSkipped() throws {
+  let longTitle = String(repeating: "x", count: XMLTVParser.maximumFieldUTF8Length + 1)
+  let xml =
+    "<tv><programme channel=\"news\" start=\"20260920120000Z\" stop=\"20260920130000Z\"><title>\(longTitle)</title></programme></tv>"
+  let report = try XMLTVParser().parse(stream: InputStream(data: Data(xml.utf8))) { _ in }
+  #expect(report.programmeCount == 0)
+  #expect(report.skippedProgrammeCount == 1)
+  #expect(report.warnings == ["skipped-programme-text-too-long"])
+}
+
+@Test("Structurally malformed XMLTV fails the document after prior valid records")
+func xmltvMalformedDocumentFails() throws {
+  let xml =
+    "<tv><programme channel=\"news\" start=\"20260920120000Z\" stop=\"20260920130000Z\"><title>Valid</title></programme><programme>"
+  #expect(throws: XMLTVParserError.malformedDocument) {
+    try XMLTVParser().parse(stream: InputStream(data: Data(xml.utf8))) { _ in }
+  }
 }
 
 struct EPGFixture {
@@ -115,35 +156,73 @@ func m3uMappingIsConservative() async throws {
   #expect(items.allSatisfy { $0.scope.kind == .unspecified })
 }
 
-@Test("Synthetic 100, 1000 and 10000 channel EPG imports retain bounded Now Next lookups")
+@Test("Synthetic 100, 1000 and 10000 channel EPG parse and persistence phases remain bounded")
 func epgScaleSmokeMeasurement() async throws {
   for channels in [100, 1_000, 10_000] {
     let fixture = EPGFixture()
     defer { try? FileManager.default.removeItem(at: fixture.directory) }
     let store = try fixture.makeStore()
-    let started = ContinuousClock.now
+    let programmes = (0..<channels).flatMap { index in
+      [
+        fixture.programme(
+          "Channel \(index) Slot 0", 0, 3_600, channel: "channel-\(index)"),
+        fixture.programme(
+          "Channel \(index) Slot 1", 3_600, 7_200, channel: "channel-\(index)"),
+      ]
+    }
+    let xml =
+      "<tv>"
+      + programmes.map { programme in
+        "<programme channel=\"\(programme.channelID.rawValue)\" start=\"19700101000000Z\" stop=\"19700101010000Z\"><title>\(programme.title)</title></programme>"
+      }.joined() + "</tv>"
+    let parseStarted = ContinuousClock.now
+    let report = try XMLTVParser().parse(stream: InputStream(data: Data(xml.utf8))) { _ in }
+    let parseDuration = parseStarted.duration(to: .now)
+    #expect(report.programmeCount == programmes.count)
+
     let staging = try await store.beginStaging(sourceID: fixture.source)
     var batch: [EPGProgramme] = []
-    for index in 0..<channels {
-      for slot in 0..<2 {
-        batch.append(
-          fixture.programme(
-            "Channel \(index) Slot \(slot)", TimeInterval(slot * 3_600),
-            TimeInterval((slot + 1) * 3_600), channel: "channel-\(index)"))
-        if batch.count == SQLiteEPGStore.batchLimit {
-          try await store.stage(batch, in: staging)
-          batch.removeAll(keepingCapacity: true)
-        }
+    let stagingStarted = ContinuousClock.now
+    for programme in programmes {
+      batch.append(programme)
+      if batch.count == SQLiteEPGStore.batchLimit {
+        try await store.stage(batch, in: staging)
+        batch.removeAll(keepingCapacity: true)
       }
     }
     if !batch.isEmpty { try await store.stage(batch, in: staging) }
+    let stagingDuration = stagingStarted.duration(to: .now)
+    let publicationStarted = ContinuousClock.now
     try await store.commitStagedReplacement(staging, at: Date(timeIntervalSince1970: 1))
+    let publicationDuration = publicationStarted.duration(to: .now)
+    let nowNextStarted = ContinuousClock.now
     let lookup = try await store.nowNext(
       sourceID: fixture.source, channelID: EPGChannelIdentity(rawValue: "channel-\(channels - 1)")!,
       at: Date(timeIntervalSince1970: 1))
+    let nowNextDuration = nowNextStarted.duration(to: .now)
     #expect(lookup.now?.title == "Channel \(channels - 1) Slot 0")
+    let interval = try #require(
+      EPGGuideInterval(
+        start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 3_600)))
+    let guideStarted = ContinuousClock.now
+    let guide = try await store.programmes(
+      sourceID: fixture.source,
+      channelIDs: (0..<min(50, channels)).compactMap {
+        EPGChannelIdentity(rawValue: "channel-\($0)")
+      },
+      interval: interval)
+    let guideDuration = guideStarted.duration(to: .now)
+    #expect(guide.count == min(50, channels))
+    let cacheSize = ["epg.sqlite", "epg.sqlite-wal", "epg.sqlite-shm"].reduce(0) {
+      total, name in
+      total
+        + ((try? FileManager.default.attributesOfItem(
+          atPath: fixture.directory.appendingPathComponent(name).path)[.size] as? NSNumber)?
+          .intValue ?? 0)
+    }
     print(
-      "EPG scale \(channels) channels / \(channels * 2) programmes: \(started.duration(to: .now))")
+      "EPG-SCALE channels=\(channels) programmes=\(programmes.count) parse=\(parseDuration) staging=\(stagingDuration) publication=\(publicationDuration) now-next=\(nowNextDuration) guide=\(guideDuration) cache-bytes=\(cacheSize)"
+    )
   }
 }
 
@@ -282,6 +361,92 @@ func failedXMLTVImportPreservesCommittedEPG() async throws {
   #expect(value.now?.title == "Original")
 }
 
+@Test("A successful XMLTV retry after failure replaces the preserved last known good snapshot")
+func xmltvRetryAfterFailureRecovers() async throws {
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  let store = try fixture.makeStore()
+  let original = try await store.beginStaging(sourceID: fixture.source)
+  try await store.stage([fixture.programme("Original", 0, 3_600)], in: original)
+  try await store.commitStagedReplacement(original, at: Date(timeIntervalSince1970: 1))
+  let service = XMLTVEPGImportService(repository: store)
+  await #expect(throws: XMLTVParserError.self) {
+    try await service.importXMLTV(
+      stream: InputStream(data: Data("<tv><programme".utf8)), sourceID: fixture.source,
+      at: Date(timeIntervalSince1970: 1))
+  }
+  let valid =
+    "<tv><programme channel=\"news\" start=\"19700101000000Z\" stop=\"19700101010000Z\"><title>Replacement</title></programme></tv>"
+  _ = try await service.importXMLTV(
+    stream: InputStream(data: Data(valid.utf8)), sourceID: fixture.source,
+    at: Date(timeIntervalSince1970: 1))
+  #expect(try await store.stagedRowCountForTesting() == 0)
+  let current = try await store.nowNext(
+    sourceID: fixture.source, channelID: EPGChannelIdentity(rawValue: "news")!,
+    at: Date(timeIntervalSince1970: 1))
+  #expect(current.now?.title == "Replacement")
+}
+
+@Test("Staging failure cleans the spool and preserves last known good EPG")
+func xmltvStagingFailureCleansSpoolAndPreservesLKG() async throws {
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  let store = try fixture.makeStore()
+  let original = try await store.beginStaging(sourceID: fixture.source)
+  try await store.stage([fixture.programme("Original", 0, 3_600)], in: original)
+  try await store.commitStagedReplacement(original, at: Date(timeIntervalSince1970: 1))
+  let spoolDirectory = fixture.directory.appendingPathComponent("spool", isDirectory: true)
+  try FileManager.default.createDirectory(at: spoolDirectory, withIntermediateDirectories: true)
+  let service = XMLTVEPGImportService(
+    repository: FailingEPGRepository(base: store), temporaryDirectory: spoolDirectory)
+  let xml =
+    "<tv><programme channel=\"news\" start=\"19700101000000Z\" stop=\"19700101010000Z\"><title>Replacement</title></programme></tv>"
+  await #expect(throws: EPGStoreError.writeFailed) {
+    try await service.importXMLTV(
+      stream: InputStream(data: Data(xml.utf8)), sourceID: fixture.source,
+      at: Date(timeIntervalSince1970: 1))
+  }
+  #expect(try FileManager.default.contentsOfDirectory(atPath: spoolDirectory.path).isEmpty)
+  #expect(try await store.stagedRowCountForTesting() == 0)
+  let current = try await store.nowNext(
+    sourceID: fixture.source, channelID: EPGChannelIdentity(rawValue: "news")!,
+    at: Date(timeIntervalSince1970: 1))
+  #expect(current.now?.title == "Original")
+}
+
+@Test(arguments: [
+  XMLTVImportPhase.parsing, .spoolProduction, .staging, .publication,
+])
+func xmltvCancellationAtEachImportBoundaryPreservesLKG(_ phase: XMLTVImportPhase) async throws {
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  let store = try fixture.makeStore()
+  let original = try await store.beginStaging(sourceID: fixture.source)
+  try await store.stage([fixture.programme("Original", 0, 3_600)], in: original)
+  try await store.commitStagedReplacement(original, at: Date(timeIntervalSince1970: 1))
+  let spoolDirectory = fixture.directory.appendingPathComponent("spool", isDirectory: true)
+  try FileManager.default.createDirectory(at: spoolDirectory, withIntermediateDirectories: true)
+  let service = XMLTVEPGImportService(
+    repository: store, temporaryDirectory: spoolDirectory,
+    phaseHook: { observed in
+      guard observed == phase else { return }
+      throw CancellationError()
+    })
+  let xml =
+    "<tv><programme channel=\"news\" start=\"19700101000000Z\" stop=\"19700101010000Z\"><title>Replacement</title></programme></tv>"
+  await #expect(throws: CancellationError.self) {
+    try await service.importXMLTV(
+      stream: InputStream(data: Data(xml.utf8)), sourceID: fixture.source,
+      at: Date(timeIntervalSince1970: 1))
+  }
+  #expect(try FileManager.default.contentsOfDirectory(atPath: spoolDirectory.path).isEmpty)
+  #expect(try await store.stagedRowCountForTesting() == 0)
+  let current = try await store.nowNext(
+    sourceID: fixture.source, channelID: EPGChannelIdentity(rawValue: "news")!,
+    at: Date(timeIntervalSince1970: 1))
+  #expect(current.now?.title == "Original")
+}
+
 @Test("Discard and reopen remove abandoned EPG staging rows without touching committed programmes")
 func epgDiscardAndReopenCleanStaging() async throws {
   let fixture = EPGFixture()
@@ -359,4 +524,15 @@ func epgNowNextEdgeSemantics() async throws {
   let future = try await store.nowNext(
     sourceID: fixture.source, channelID: channel, at: Date(timeIntervalSince1970: 39))
   #expect(future.next?.title == "Future")
+}
+
+private actor FailingEPGRepository: EPGImportRepository {
+  let base: SQLiteEPGStore
+  init(base: SQLiteEPGStore) { self.base = base }
+  func beginStaging(sourceID: SourceConfiguration.ID) async throws -> UUID {
+    try await base.beginStaging(sourceID: sourceID)
+  }
+  func stage(_: [EPGProgramme], in _: UUID) async throws { throw EPGStoreError.writeFailed }
+  func commitStagedReplacement(_: UUID, at _: Date) async throws { throw EPGStoreError.writeFailed }
+  func discardStaging(_ stagingID: UUID) async { await base.discardStaging(stagingID) }
 }

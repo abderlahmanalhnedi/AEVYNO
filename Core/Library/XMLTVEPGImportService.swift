@@ -15,6 +15,13 @@ public struct XMLTVEPGImportReport: Equatable, Sendable {
   }
 }
 
+enum XMLTVImportPhase: Equatable, Sendable {
+  case parsing
+  case spoolProduction
+  case staging
+  case publication
+}
+
 /// Streams XMLTV into a normalized temporary spool, then stages bounded batches before one atomic
 /// publication. The spool contains only normalized, non-secret EPG metadata and is always removed.
 public actor XMLTVEPGImportService {
@@ -23,17 +30,36 @@ public actor XMLTVEPGImportService {
 
   private let repository: any EPGImportRepository
   private let parser: XMLTVParser
+  private let temporaryDirectory: URL
+  private let phaseHook: (@Sendable (XMLTVImportPhase) throws -> Void)?
 
-  public init(repository: any EPGImportRepository, parser: XMLTVParser = XMLTVParser()) {
+  public init(
+    repository: any EPGImportRepository, parser: XMLTVParser = XMLTVParser(),
+    temporaryDirectory: URL = FileManager.default.temporaryDirectory
+  ) {
     self.repository = repository
     self.parser = parser
+    self.temporaryDirectory = temporaryDirectory
+    phaseHook = nil
+  }
+
+  /// Internal deterministic test seam. Production callers do not install a hook.
+  init(
+    repository: any EPGImportRepository, parser: XMLTVParser = XMLTVParser(),
+    temporaryDirectory: URL = FileManager.default.temporaryDirectory,
+    phaseHook: @escaping @Sendable (XMLTVImportPhase) throws -> Void
+  ) {
+    self.repository = repository
+    self.parser = parser
+    self.temporaryDirectory = temporaryDirectory
+    self.phaseHook = phaseHook
   }
 
   public func importXMLTV(
     stream: InputStream, sourceID: SourceConfiguration.ID, at now: Date
   ) async throws -> XMLTVEPGImportReport {
     let stagingID = try await repository.beginStaging(sourceID: sourceID)
-    let spool = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let spool = temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer {
       try? FileManager.default.removeItem(at: spool)
     }
@@ -42,15 +68,18 @@ public actor XMLTVEPGImportService {
       let writer = try FileHandle(forWritingTo: spool)
       defer { try? writer.close() }
       let encoder = JSONEncoder()
+      try phaseHook?(.parsing)
       let parseReport = try parser.parse(stream: stream) { programme in
         try Task.checkCancellation()
         try writer.write(encoder.encode(programme))
         try writer.write(contentsOf: Data([0x0A]))
+        try self.phaseHook?(.spoolProduction)
       }
       try writer.close()
       try Task.checkCancellation()
       try await stageSpool(spool, stagingID: stagingID)
       try Task.checkCancellation()
+      try phaseHook?(.publication)
       try await repository.commitStagedReplacement(stagingID, at: now)
       return XMLTVEPGImportReport(
         parsedProgrammeCount: parseReport.programmeCount,
@@ -76,6 +105,7 @@ public actor XMLTVEPGImportService {
         guard !line.isEmpty else { continue }
         batch.append(try decoder.decode(EPGProgramme.self, from: line))
         if batch.count == SQLiteEPGStore.batchLimit {
+          try phaseHook?(.staging)
           try await repository.stage(batch, in: stagingID)
           batch.removeAll(keepingCapacity: true)
         }
@@ -83,6 +113,9 @@ public actor XMLTVEPGImportService {
       guard pending.count <= Self.maximumSpoolLineSize else { throw EPGStoreError.invalidInput }
     }
     guard pending.isEmpty else { throw EPGStoreError.invalidInput }
-    if !batch.isEmpty { try await repository.stage(batch, in: stagingID) }
+    if !batch.isEmpty {
+      try phaseHook?(.staging)
+      try await repository.stage(batch, in: stagingID)
+    }
   }
 }
