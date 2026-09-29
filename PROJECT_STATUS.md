@@ -14,9 +14,12 @@ implementation and automated exit gate complete on main; physical review pending
 Phase 6A XMLTV/EPG foundation is stable on main through PR #31 at merge commit
 `f9169da9f209dbcaf7528ba1819f1ca4aaf2bea6`; post-merge CI `35524819690` succeeded. Phase 6B
 XMLTV acquisition and Now/Next is stable on main through PR #32 at merge commit
-`5726e6287ddcf733363c9086d6b228f8416c9ba9`; post-merge CI `35624332615` succeeded. Phase 6C
-is in local development on `feature/phase-6c-epg-guide-ui`: a bounded source-scoped Guide over the
-existing EPG service. Source URL guessing, Xtream EPG, CloudKit EPG, and an unbounded timeline remain out of scope.
+`5726e6287ddcf733363c9086d6b228f8416c9ba9`; post-merge CI `35624332615` succeeded. Phase 6C EPG
+Guide UI is stable on main through PR #33 at merge commit
+`5eeaf9ddabe36f45f455dc48565c48b2d3a7888f`; post-merge CI `35757673052` succeeded. Phase 6D XMLTV
+compatibility/import resilience is in local development on `feature/phase-6d-xmltv-resilience`.
+Source URL guessing, Xtream EPG, CloudKit EPG, tokenized XMLTV URLs, and an unbounded timeline remain
+out of scope.
 
 Phase 0 is complete in simulator. Its physical Apple TV validation remains pending because
 the owner is currently away from the device; the Phase 0 roadmap exit allows this explicit

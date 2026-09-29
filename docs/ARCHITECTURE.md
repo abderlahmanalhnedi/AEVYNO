@@ -102,6 +102,11 @@ with a source-scoped EPG interval query into guide-safe rows. App views receive 
 channel identity, provider reference, endpoint, or playback URL. Playback remains on the catalog-ID
 `PlaybackSession` path. See [EPG Guide UI](EPG_GUIDE_UI.md).
 
+XMLTV compatibility recovery remains inside `IPTVCore` record normalization: an invalid programme can
+be skipped, but structural XML failure cannot become a successful import. `Library` owns normalized
+temporary-spool cleanup and `Persistence` owns explicit staging cleanup and source-scoped atomic
+publication; neither layer changes catalog transaction boundaries or exposes SQLite to UI.
+
 Post-Phase-2 source management stores small, user-authored `SourceConfiguration` records in a
 versioned, atomically replaced Application Support JSON registry. It keeps credentials in Keychain
 and rebuildable catalog/refresh state in SQLite. `SourceManagementService` owns validation and

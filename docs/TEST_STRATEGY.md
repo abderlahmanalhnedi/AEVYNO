@@ -11,6 +11,10 @@ Must cover:
 - M3U parsing.
 - XMLTV explicit-offset time parsing, malformed-entry isolation, bounded streaming behavior, and
   deterministic Now/Next interval/overlap semantics.
+- Synthetic XMLTV compatibility fixtures, spool/staging cleanup, retry/reopen behavior, and
+  last-known-good preservation.
+- XMLTV cancellation injection at parse, spool-production, staging, and pre-publication boundaries;
+  the test must prove no source publication, no staged rows, no retained spool, and LKG readability.
 - bounded source-scoped Guide intervals, channel pages, deterministic programme ordering, gaps, and
   100/1,000/10,000-channel synthetic persistence measurements.
 - provider response normalization.

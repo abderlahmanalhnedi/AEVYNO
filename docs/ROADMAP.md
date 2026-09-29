@@ -175,7 +175,9 @@ Exit gate:
 
 ## Phase 6 — Media experience
 
-Phase 6A XMLTV/EPG Foundation and Phase 6B acquisition/Now-Next are stable on main. Phase 6C adds a
+Phase 6A XMLTV/EPG Foundation, Phase 6B acquisition/Now-Next, and Phase 6C Guide UI are stable on
+main. Phase 6D is compatibility/import-resilience hardening only; it does not change the Guide,
+credentials, acquisition architecture, or local-only EPG boundary. Phase 6C adds a
 bounded source-scoped Guide over the existing local EPG boundary: 40 catalog candidates per page and
 an eight-hour initial window. It does not add source URL guessing, Xtream EPG, CloudKit EPG, or an
 unbounded timeline.
