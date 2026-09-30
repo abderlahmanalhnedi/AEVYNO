@@ -243,6 +243,22 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertFalse(app.buttons["guide.cell.live-1.morning-brief"].exists)
   }
 
+  func testGuideTimeNavigationKeepsChannelFocusAndReturnsToNow() {
+    let app = launchApp(arguments: ["--ui-production-guide"])
+    XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
+    let first = app.buttons["guide.cell.live-1.morning-brief"]
+    XCTAssertTrue(first.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: first))
+
+    XCTAssertTrue(focusAndSelect(app.buttons["guide.window.next"], in: app))
+    XCTAssertTrue(first.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: first))
+
+    XCTAssertTrue(focusAndSelect(app.buttons["guide.window.now"], in: app))
+    XCTAssertTrue(first.waitForExistence(timeout: 5))
+    XCTAssertTrue(waitForFocus(on: first))
+  }
+
   func testProductionArabicRTLSearch() {
     let app = launchApp(arguments: ["--ui-production-search-arabic"], locale: "ar")
     XCTAssertTrue(app.searchFields.firstMatch.waitForExistence(timeout: 10))
