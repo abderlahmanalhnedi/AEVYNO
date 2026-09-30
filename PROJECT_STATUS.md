@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-09-20
+Last updated: 2026-09-30
 
 ## Current phase
 
@@ -17,7 +17,12 @@ XMLTV acquisition and Now/Next is stable on main through PR #32 at merge commit
 `5726e6287ddcf733363c9086d6b228f8416c9ba9`; post-merge CI `35624332615` succeeded. Phase 6C EPG
 Guide UI is stable on main through PR #33 at merge commit
 `5eeaf9ddabe36f45f455dc48565c48b2d3a7888f`; post-merge CI `35757673052` succeeded. Phase 6D XMLTV
-compatibility/import resilience is in local development on `feature/phase-6d-xmltv-resilience`.
+compatibility/import resilience is stable on main through PR #34 at merge commit
+`f99bbd8d820e456086ad62648495825794be1804`; post-merge CI `36630491502` succeeded after an initial
+tvOS Favorites focus simulator/SwiftUI flake. The focused test reproduced as passing 3/3 after a
+simulator restart, related Favorites tests passed, and the CI rerun completed with 61/61 tvOS UI
+tests. Phase 6E EPG freshness and safe status is in local implementation on
+`feature/phase-6e-epg-health-status`.
 Source URL guessing, Xtream EPG, CloudKit EPG, tokenized XMLTV URLs, and an unbounded timeline remain
 out of scope.
 

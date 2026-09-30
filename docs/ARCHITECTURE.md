@@ -331,3 +331,11 @@ Use structured logs/categories such as:
 - image pipeline.
 
 Never log secrets or full credential-bearing URLs.
+
+### EPG health boundary
+
+The rebuildable local EPG cache owns current operational metadata, not CloudKit. `SQLiteEPGStore`
+publishes and reads source-scoped health facts; `ProductionEPGService` and source management expose
+safe domain values to UI. SwiftUI does not query SQLite, endpoints, or provider adapters. Failure
+categories are normalized before crossing this boundary, so presentation and accessibility text
+cannot include raw transport, XML, URL, credential, filesystem, or provider diagnostics.
