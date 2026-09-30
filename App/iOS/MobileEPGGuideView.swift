@@ -32,8 +32,8 @@ struct MobileEPGGuideView: View {
       } else {
         StatusPanel(
           symbolName: "calendar",
-          title: viewModel.isUnavailable ? AppText.guideUnavailable : AppText.guideEmptyTitle,
-          message: AppText.guideEmptyMessage)
+          title: viewModel.isUnavailable ? AppText.guideUnavailable : viewModel.emptyStateTitle,
+          message: viewModel.emptyStateMessage)
       }
     }
     .navigationTitle(AppText.guide).background(AEVYNOColor.background)

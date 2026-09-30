@@ -48,19 +48,31 @@ actor TVSourceManagementFixture: SourceManaging, RefreshScheduling {
         } else {
           .manualOnly
         }
+      let hasEPGStatus = arguments.contains("--ui-source-epg-status")
+      let epgConfiguration = hasEPGStatus ? EPGConfiguration(endpoint: endpoint) : nil
+      let health: EPGHealth? =
+        if hasEPGStatus {
+          EPGHealth(
+            configured: true, lastAttemptedAt: .now, lastSuccessfulAt: .now,
+            lastCommittedProgrammeCount: 12, coverageStartAt: .now.addingTimeInterval(-60),
+            coverageEndAt: .now.addingTimeInterval(3_600), lastResult: .failure,
+            lastFailureCategory: .networkUnavailable)
+        } else { nil }
       sources = [
         ManagedSource(
           configuration: SourceConfiguration(
             id: Self.seededID,
             displayName: "Demo Source",
-            kind: .xtreamCompatible,
+            kind: hasEPGStatus ? .m3u : .xtreamCompatible,
             endpoint: endpoint,
-            credentialReference: CredentialReference(
-              rawValue: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1))),
+            credentialReference: hasEPGStatus
+              ? nil
+              : CredentialReference(
+                rawValue: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1))),
             isEnabled: !arguments.contains("--ui-source-disabled"),
-            refreshPolicy: policy
+            refreshPolicy: policy, epgConfiguration: epgConfiguration
           ),
-          refreshMetadata: nil
+          refreshMetadata: nil, epgHealth: health
         )
       ]
     } else {
