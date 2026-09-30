@@ -12,14 +12,18 @@ are sorted by exact channel identity, start time, then programme identity. The p
 catalog-item IDs, display titles, and programme metadata only; the encrypted XMLTV mapping stays in
 the service boundary.
 
-The current implementation intentionally does not prefetch adjacent days or materialize a source's
-whole schedule. “More channels” replaces the bounded candidate page. A later navigation slice may
-load adjacent bounded time windows after a measured interaction review.
+The Guide keeps one explicit eight-hour interval. Previous and Next shift the current interval by
+exactly eight hours from its existing boundaries; Jump to Now restores the canonical two-hours-before
+through six-hours-after interval. Time movement retains the current catalog page offset. Every reload
+therefore remains one 40-candidate catalog page plus one source-scoped indexed interval query; it
+does not prefetch adjacent days or materialize a source schedule.
 
 ## UI and playback
 
 tvOS uses native focusable programme cells in channel rows. Returning from programme detail restores
-the remembered programme cell; leaving the guide returns to the existing library focus fallback.
+the remembered programme cell; leaving the guide returns to the existing library focus fallback. A
+time-window replacement restores focus to the first programme on the prior channel when available,
+then the first available programme, then the action that initiated navigation for an empty window.
 iPhone and iPad use the same guide presentation in vertically scrolling channel sections with
 horizontal programme rows and no tvOS focus state.
 
@@ -43,5 +47,6 @@ SwiftUI hierarchy.
 
 ## Remaining validation
 
-Physical Apple TV focus/RTL, iPhone/iPad touch layout, real-provider corpus behavior, and wider
-time-window navigation remain future validation work.
+Physical Apple TV focus/RTL, iPhone/iPad touch layout, and real-provider corpus behavior remain
+pending. Phase 6F-A real-provider validation is blocked until owner-approved provider data is
+available; no compatibility defect or production change was found.
