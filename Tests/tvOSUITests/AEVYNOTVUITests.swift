@@ -175,6 +175,17 @@ final class AEVYNOTVUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Guide is unavailable"].waitForExistence(timeout: 5))
   }
 
+  func testSourceGuideStatusRetainsFocusAndDoesNotExposeProviderDetails() {
+    let app = launchSourceManagement(arguments: ["--ui-source-seeded", "--ui-source-epg-status"])
+    let row = app.buttons["sources.row"]
+    XCTAssertTrue(row.waitForExistence(timeout: 10))
+    XCTAssertTrue(waitForFocus(on: row))
+    XCTAssertTrue(row.label.contains("Latest guide refresh failed"))
+    XCTAssertTrue(row.label.contains("Previous guide data is still available"))
+    XCTAssertFalse(row.label.contains("example.invalid"))
+    XCTAssertFalse(row.label.contains("00000000"))
+  }
+
   func testArabicGuideAccessibilityDoesNotExposeEPGIdentity() throws {
     let app = launchApp(arguments: ["--ui-production-guide"], locale: "ar")
     XCTAssertTrue(focusAndSelect(app.buttons["library.guide"], in: app))
