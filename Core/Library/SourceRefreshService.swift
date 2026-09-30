@@ -27,14 +27,17 @@ public struct SourceRefreshService: CatalogRefreshing, Sendable {
     guard source.epgConfiguration != nil, let xmltvAcquisition, let epgImporter else {
       return report
     }
+    let attemptedAt = Date()
     do {
       let data = try await xmltvAcquisition.acquire(from: source)
       _ = try await epgImporter.importXMLTV(
-        stream: InputStream(data: data), sourceID: source.id, at: report.completedAt)
+        stream: InputStream(data: data), sourceID: source.id, at: attemptedAt)
     } catch is CancellationError {
       throw CancellationError()
     } catch {
       // Catalog and EPG are independently committed caches. Keep the catalog available.
+      try? await epgImporter.recordFailure(
+        sourceID: source.id, at: Date(), error: error)
     }
     return report
   }

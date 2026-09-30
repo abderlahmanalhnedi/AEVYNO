@@ -90,6 +90,32 @@ public actor XMLTVEPGImportService {
     }
   }
 
+  /// Records a safe current failure fact while deliberately retaining the previous committed dataset.
+  public func recordFailure(sourceID: SourceConfiguration.ID, at: Date, error: Error) async throws {
+    guard !Self.isCancellation(error) else { return }
+    try await repository.recordFailure(
+      sourceID: sourceID, at: at, category: Self.failureCategory(for: error))
+  }
+
+  static func failureCategory(for error: Error) -> EPGFailureCategory {
+    if let error = error as? M3UAcquisitionError {
+      switch error {
+      case .transportUnavailable, .authenticationRejected, .httpError, .unsafeRedirect:
+        return .networkUnavailable
+      case .timedOut: return .timeout
+      case .responseTooLarge: return .responseTooLarge
+      case .emptyResponse, .invalidSourceConfiguration: return .invalidGuideData
+      }
+    }
+    if error is XMLTVParserError { return .invalidGuideData }
+    if error is EPGStoreError { return .persistenceFailure }
+    return .unknown
+  }
+
+  private static func isCancellation(_ error: Error) -> Bool {
+    error is CancellationError || error as? XMLTVParserError == .cancelled
+  }
+
   private func stageSpool(_ url: URL, stagingID: UUID) async throws {
     let reader = try FileHandle(forReadingFrom: url)
     defer { try? reader.close() }

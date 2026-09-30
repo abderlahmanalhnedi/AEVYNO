@@ -8,6 +8,7 @@ public protocol EPGPresenting: Sendable {
   func guide(
     sourceID: SourceConfiguration.ID, interval: EPGGuideInterval, offset: Int
   ) async throws -> EPGGuidePresentation
+  func health(sourceID: SourceConfiguration.ID) async throws -> EPGHealth
 }
 
 /// Catalog-to-EPG join implementation behind the presentation boundary.
@@ -15,10 +16,15 @@ public actor ProductionEPGService: EPGPresenting {
   public static let guideChannelPageSize = 40
   private let catalog: any CatalogQueryRepository
   private let epg: any EPGQueryRepository
+  private let sources: (any SourceRepository)?
 
-  public init(catalog: any CatalogQueryRepository, epg: any EPGQueryRepository) {
+  public init(
+    catalog: any CatalogQueryRepository, epg: any EPGQueryRepository,
+    sources: (any SourceRepository)? = nil
+  ) {
     self.catalog = catalog
     self.epg = epg
+    self.sources = sources
   }
 
   public func nowNext(for catalogItemID: String, at instant: Date) async throws
@@ -56,5 +62,22 @@ public actor ProductionEPGService: EPGPresenting {
     return EPGGuidePresentation(
       interval: interval, channels: channels,
       nextOffset: candidates.count == Self.guideChannelPageSize ? offset + candidates.count : nil)
+  }
+
+  public func health(sourceID: SourceConfiguration.ID) async throws -> EPGHealth {
+    guard let configuration = try await sources?.source(id: sourceID),
+      configuration.kind == .m3u, configuration.epgConfiguration != nil
+    else {
+      return EPGHealth(configured: false)
+    }
+    guard let stored = try await epg.health(sourceID: sourceID) else {
+      return EPGHealth(configured: true)
+    }
+    return EPGHealth(
+      configured: true, lastAttemptedAt: stored.lastAttemptedAt,
+      lastSuccessfulAt: stored.lastSuccessfulAt,
+      lastCommittedProgrammeCount: stored.lastCommittedProgrammeCount,
+      coverageStartAt: stored.coverageStartAt, coverageEndAt: stored.coverageEndAt,
+      lastResult: stored.lastResult, lastFailureCategory: stored.lastFailureCategory)
   }
 }

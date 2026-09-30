@@ -1,5 +1,65 @@
 import Foundation
 
+/// Safe, provider-neutral outcome of the latest attempted EPG refresh.
+public enum EPGRefreshResult: String, Codable, Equatable, Sendable {
+  case success
+  case failure
+}
+
+/// Deliberately small diagnostics surface; it never carries an endpoint, provider, or parser detail.
+public enum EPGFailureCategory: String, Codable, Equatable, Sendable {
+  case networkUnavailable
+  case timeout
+  case responseTooLarge
+  case invalidGuideData
+  case persistenceFailure
+  case unknown
+}
+
+public enum EPGCoverageState: Equatable, Sendable {
+  case noData
+  case futureOnly
+  case currentCoverage
+  case expired
+}
+
+/// Current local operational facts for one source's EPG cache, not a refresh history.
+public struct EPGHealth: Equatable, Sendable {
+  public let configured: Bool
+  public let lastAttemptedAt: Date?
+  public let lastSuccessfulAt: Date?
+  public let lastCommittedProgrammeCount: Int
+  public let coverageStartAt: Date?
+  public let coverageEndAt: Date?
+  public let lastResult: EPGRefreshResult?
+  public let lastFailureCategory: EPGFailureCategory?
+
+  public init(
+    configured: Bool, lastAttemptedAt: Date? = nil, lastSuccessfulAt: Date? = nil,
+    lastCommittedProgrammeCount: Int = 0, coverageStartAt: Date? = nil,
+    coverageEndAt: Date? = nil, lastResult: EPGRefreshResult? = nil,
+    lastFailureCategory: EPGFailureCategory? = nil
+  ) {
+    self.configured = configured
+    self.lastAttemptedAt = lastAttemptedAt
+    self.lastSuccessfulAt = lastSuccessfulAt
+    self.lastCommittedProgrammeCount = lastCommittedProgrammeCount
+    self.coverageStartAt = coverageStartAt
+    self.coverageEndAt = coverageEndAt
+    self.lastResult = lastResult
+    self.lastFailureCategory = lastFailureCategory
+  }
+
+  public func coverage(at instant: Date) -> EPGCoverageState {
+    guard lastCommittedProgrammeCount > 0, let coverageStartAt, let coverageEndAt else {
+      return .noData
+    }
+    if coverageEndAt <= instant { return .expired }
+    if coverageStartAt > instant { return .futureOnly }
+    return .currentCoverage
+  }
+}
+
 /// An opaque XMLTV channel identifier. Persistence scopes it by source configuration ID.
 public struct EPGChannelIdentity: Codable, Hashable, Sendable, RawRepresentable {
   public let rawValue: String

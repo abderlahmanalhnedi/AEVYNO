@@ -73,13 +73,15 @@ public struct SourceValidationIssue: Equatable, Sendable {
 public struct ManagedSource: Equatable, Sendable, Identifiable {
   public let configuration: SourceConfiguration
   public let refreshMetadata: CatalogRefreshMetadata?
+  public let epgHealth: EPGHealth?
 
   public init(
     configuration: SourceConfiguration,
-    refreshMetadata: CatalogRefreshMetadata?
+    refreshMetadata: CatalogRefreshMetadata?, epgHealth: EPGHealth? = nil
   ) {
     self.configuration = configuration
     self.refreshMetadata = refreshMetadata
+    self.epgHealth = epgHealth
   }
 
   public var id: SourceConfiguration.ID { configuration.id }
@@ -171,6 +173,7 @@ public actor SourceManagementService: SourceManaging {
   private let m3uAcquisition: M3UAcquisitionService
   private let m3uParser: M3UParser
   private let refreshService: any CatalogRefreshing
+  private let epgRepository: (any EPGQueryRepository)?
 
   public init(
     sourceRepository: any SourceRepository,
@@ -179,7 +182,8 @@ public actor SourceManagementService: SourceManaging {
     providerAdapter: any ProviderAdapter,
     m3uAcquisition: M3UAcquisitionService,
     m3uParser: M3UParser = M3UParser(),
-    refreshService: any CatalogRefreshing
+    refreshService: any CatalogRefreshing,
+    epgRepository: (any EPGQueryRepository)? = nil
   ) {
     self.sourceRepository = sourceRepository
     self.credentialStore = credentialStore
@@ -188,6 +192,7 @@ public actor SourceManagementService: SourceManaging {
     self.m3uAcquisition = m3uAcquisition
     self.m3uParser = m3uParser
     self.refreshService = refreshService
+    self.epgRepository = epgRepository
   }
 
   public static func openDefault() async throws -> SourceManagementService {
@@ -219,7 +224,8 @@ public actor SourceManagementService: SourceManaging {
       catalogRepository: catalogRepository,
       providerAdapter: providerAdapter,
       m3uAcquisition: m3uAcquisition,
-      refreshService: sourceRefresh
+      refreshService: sourceRefresh,
+      epgRepository: epgRepository
     )
     let refreshScheduling = RefreshSchedulingService(
       sourceRepository: sourceRepository,
@@ -246,7 +252,8 @@ public actor SourceManagementService: SourceManaging {
       repository: favoriteRepository,
       catalogRevisions: revisionCenter
     )
-    let epg = ProductionEPGService(catalog: catalogRepository, epg: epgRepository)
+    let epg = ProductionEPGService(
+      catalog: catalogRepository, epg: epgRepository, sources: sourceRepository)
     return ProductionSourceServices(
       sourceManagement: sourceManagement,
       refreshScheduling: refreshScheduling,
@@ -277,7 +284,10 @@ public actor SourceManagementService: SourceManaging {
       } catch {
         throw SourceManagementError.persistenceFailure
       }
-      managed.append(ManagedSource(configuration: source, refreshMetadata: metadata))
+      managed.append(
+        ManagedSource(
+          configuration: source, refreshMetadata: metadata,
+          epgHealth: try await health(for: source)))
     }
     return managed
   }
@@ -293,11 +303,23 @@ public actor SourceManagementService: SourceManaging {
     do {
       return ManagedSource(
         configuration: configuration,
-        refreshMetadata: try await catalogRepository.refreshMetadata(for: id)
+        refreshMetadata: try await catalogRepository.refreshMetadata(for: id),
+        epgHealth: try await health(for: configuration)
       )
     } catch {
       throw SourceManagementError.persistenceFailure
     }
+  }
+
+  private func health(for source: SourceConfiguration) async throws -> EPGHealth? {
+    guard source.kind == .m3u, source.epgConfiguration != nil else { return nil }
+    let stored = try await epgRepository?.health(sourceID: source.id)
+    return EPGHealth(
+      configured: true, lastAttemptedAt: stored?.lastAttemptedAt,
+      lastSuccessfulAt: stored?.lastSuccessfulAt,
+      lastCommittedProgrammeCount: stored?.lastCommittedProgrammeCount ?? 0,
+      coverageStartAt: stored?.coverageStartAt, coverageEndAt: stored?.coverageEndAt,
+      lastResult: stored?.lastResult, lastFailureCategory: stored?.lastFailureCategory)
   }
 
   public func validateDraft(
