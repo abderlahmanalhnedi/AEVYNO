@@ -182,6 +182,11 @@ bounded source-scoped Guide over the existing local EPG boundary: 40 catalog can
 an eight-hour initial window. It does not add source URL guessing, Xtream EPG, CloudKit EPG, or an
 unbounded timeline.
 
+Phase 6E adds local-only, source-wide EPG freshness facts and safe status presentation. It keeps
+last-known-good guide data on refresh failure, does not add a history log, provider-specific EPG,
+or a Guide redesign. Owner-approved real-provider XMLTV corpus validation and physical-device
+performance evidence remain exit gates.
+
 Candidates:
 - EPG.
 - subtitle/audio refinements.

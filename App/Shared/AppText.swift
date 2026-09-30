@@ -69,6 +69,15 @@ enum AppText {
     "epg.guide.empty.message", defaultValue: "Refresh a mapped M3U source to load its schedule.")
   static let guideUnavailable = localized(
     "epg.guide.unavailable", defaultValue: "Guide is unavailable")
+  static let guideNotConfiguredTitle = localized(
+    "epg.guide.not_configured.title", defaultValue: "Guide not configured")
+  static let guideNotConfiguredMessage = localized(
+    "epg.guide.not_configured.message",
+    defaultValue: "No guide source is configured for this source.")
+  static let guideNotAvailableYetMessage = localized(
+    "epg.guide.not_available_yet.message", defaultValue: "Guide data is not available yet.")
+  static let guideExpiredMessage = localized(
+    "epg.guide.expired.message", defaultValue: "The available guide schedule has expired.")
   static let guideLoadMore = localized("epg.guide.load_more", defaultValue: "More channels")
   static let guideNow = localized("epg.guide.now", defaultValue: "Now")
   static func guideTime(_ date: Date) -> String {
@@ -78,6 +87,56 @@ enum AppText {
     -> String
   {
     "\(title), \(channel), \(guideTime(start))–\(guideTime(end))"
+  }
+
+  static func epgStatus(_ health: EPGHealth, at now: Date = Date()) -> [String] {
+    guard health.configured else {
+      return [localized("epg.status.not_configured", defaultValue: "Guide not configured")]
+    }
+    guard let lastSuccessfulAt = health.lastSuccessfulAt else {
+      if health.lastResult == .failure {
+        return [localized("epg.status.refresh_failed", defaultValue: "Latest guide refresh failed")]
+      }
+      return [localized("epg.status.not_updated", defaultValue: "Guide not updated yet")]
+    }
+    var status = [
+      String.localizedStringWithFormat(
+        localized("epg.status.updated", defaultValue: "Updated %@"), guideDate(lastSuccessfulAt)),
+      String.localizedStringWithFormat(
+        localized("epg.status.programme_count", defaultValue: "%ld programmes"),
+        health.lastCommittedProgrammeCount),
+    ]
+    switch health.coverage(at: now) {
+    case .expired:
+      status.append(localized("epg.status.expired", defaultValue: "Schedule expired"))
+    case .futureOnly:
+      if let start = health.coverageStartAt {
+        status.append(
+          String.localizedStringWithFormat(
+            localized("epg.status.available_from", defaultValue: "Schedule available from %@"),
+            guideDate(start)))
+      }
+    case .currentCoverage:
+      if let end = health.coverageEndAt {
+        status.append(
+          String.localizedStringWithFormat(
+            localized("epg.status.available_until", defaultValue: "Schedule available until %@"),
+            guideDate(end)))
+      }
+    case .noData:
+      status.append(localized("epg.status.no_data", defaultValue: "No guide data available"))
+    }
+    if health.lastResult == .failure {
+      status.append(
+        localized(
+          "epg.status.previous_data_retained",
+          defaultValue: "Latest guide refresh failed. Previous guide data is still available."))
+    }
+    return status
+  }
+
+  private static func guideDate(_ date: Date) -> String {
+    date.formatted(date: .abbreviated, time: .shortened)
   }
 
   static let libraryTitle = localized("library.title", defaultValue: "Library")

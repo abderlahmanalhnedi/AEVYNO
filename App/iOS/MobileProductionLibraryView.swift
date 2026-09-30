@@ -551,7 +551,8 @@ private struct MobileLibrarySourcesView: View {
     AppText.sourceRowAccessibilityLabel(
       name: source.configuration.displayName,
       kind: AppText.sourceKind(source.configuration.kind),
-      status: source.configuration.isEnabled ? AppText.enabled : AppText.disabled
+      status: ([source.configuration.isEnabled ? AppText.enabled : AppText.disabled]
+        + (source.epgHealth.map { AppText.epgStatus($0) } ?? [])).joined(separator: ", ")
     )
   }
 }
@@ -581,6 +582,13 @@ private struct MobileSourceRow: View {
         Text(AppText.refreshPolicy(source.configuration.refreshPolicy))
           .font(.caption)
           .foregroundStyle(.secondary)
+        if let health = source.epgHealth {
+          ForEach(AppText.epgStatus(health), id: \.self) { status in
+            Text(status)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+        }
       }
       Spacer(minLength: AEVYNOSpacing.sm)
       VStack(alignment: .trailing, spacing: AEVYNOSpacing.xxs) {

@@ -14,6 +14,9 @@ public protocol EPGImportRepository: Sendable {
   func stage(_ programmes: [EPGProgramme], in stagingID: UUID) async throws
   func commitStagedReplacement(_ stagingID: UUID, at now: Date) async throws
   func discardStaging(_ stagingID: UUID) async
+  func recordFailure(
+    sourceID: SourceConfiguration.ID, at: Date, category: EPGFailureCategory
+  ) async throws
 }
 
 public protocol EPGQueryRepository: Sendable {
@@ -23,12 +26,13 @@ public protocol EPGQueryRepository: Sendable {
   func programmes(
     sourceID: SourceConfiguration.ID, channelIDs: [EPGChannelIdentity], interval: EPGGuideInterval
   ) async throws -> [EPGProgramme]
+  func health(sourceID: SourceConfiguration.ID) async throws -> EPGHealth?
 }
 
 /// Rebuildable source-scoped XMLTV cache. Its separate database prevents EPG publishing from
 /// migrating or blocking catalog writes while retaining the same SQLite actor ownership pattern.
 public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
-  public static let schemaVersion = 1
+  public static let schemaVersion = 2
   public static let batchLimit = 256
   public static let retainedPast: TimeInterval = 24 * 60 * 60
   public static let retainedFuture: TimeInterval = 14 * 24 * 60 * 60
@@ -113,10 +117,6 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
     let database = try writerDatabase()
     do {
       try Task.checkCancellation()
-      guard
-        try database.scalar(
-          "SELECT COUNT(*) FROM epg_staging WHERE staging_id=?", [stagingID.uuidString]) > 0
-      else { throw EPGStoreError.invalidInput }
       let lower = now.addingTimeInterval(-Self.retainedPast).timeIntervalSince1970
       let upper = now.addingTimeInterval(Self.retainedFuture).timeIntervalSince1970
       try database.execute("PRAGMA synchronous = FULL")
@@ -133,6 +133,23 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
         "DELETE FROM epg_staging WHERE staging_id=?", [stagingID.uuidString])
       try database.execute(
         "DELETE FROM epg_staging_sessions WHERE staging_id=?", [stagingID.uuidString])
+      let count = try database.scalar(
+        "SELECT COUNT(*) FROM epg_programmes WHERE source=?", [source.rawValue.uuidString])
+      let bounds = try coverageBounds(database, sourceID: source)
+      try database.execute(
+        """
+        INSERT INTO epg_health(source,last_attempt,last_success,programme_count,coverage_start,coverage_end,last_result,failure_category)
+        VALUES(?,?,?,?,?,?,?,NULL)
+        ON CONFLICT(source) DO UPDATE SET
+          last_attempt=excluded.last_attempt,last_success=excluded.last_success,
+          programme_count=excluded.programme_count,coverage_start=excluded.coverage_start,
+          coverage_end=excluded.coverage_end,last_result=excluded.last_result,failure_category=NULL
+        """,
+        [
+          source.rawValue.uuidString, String(now.timeIntervalSince1970),
+          String(now.timeIntervalSince1970), String(count), bounds.start, bounds.end,
+          EPGRefreshResult.success.rawValue,
+        ])
       try database.execute("COMMIT")
       try database.execute("PRAGMA synchronous = NORMAL")
       activeSources[stagingID] = nil
@@ -153,6 +170,24 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
       "DELETE FROM epg_staging WHERE staging_id=?", [stagingID.uuidString])
     try? database.executeIgnoringCancellation(
       "DELETE FROM epg_staging_sessions WHERE staging_id=?", [stagingID.uuidString])
+  }
+
+  public func recordFailure(
+    sourceID: SourceConfiguration.ID, at: Date, category: EPGFailureCategory
+  ) throws {
+    let database = try writerDatabase()
+    try database.execute(
+      """
+      INSERT INTO epg_health(source,last_attempt,last_success,programme_count,coverage_start,coverage_end,last_result,failure_category)
+      VALUES(?,?,?,?,?,?,?,?)
+      ON CONFLICT(source) DO UPDATE SET
+        last_attempt=excluded.last_attempt,last_result=excluded.last_result,
+        failure_category=excluded.failure_category
+      """,
+      [
+        sourceID.rawValue.uuidString, String(at.timeIntervalSince1970), nil, "0", nil, nil,
+        EPGRefreshResult.failure.rawValue, category.rawValue,
+      ])
   }
 
   public func nowNext(
@@ -205,6 +240,28 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
     return programmes
   }
 
+  public func health(sourceID: SourceConfiguration.ID) throws -> EPGHealth? {
+    let row = try readerDatabase().statement(
+      """
+      SELECT last_attempt,last_success,programme_count,coverage_start,coverage_end,last_result,failure_category
+      FROM epg_health WHERE source=?
+      """, [sourceID.rawValue.uuidString])
+    guard try row.step() else { return nil }
+    let date: (Int32) -> Date? = { index in
+      guard let text = row.text(index), let value = TimeInterval(text) else { return nil }
+      return Date(timeIntervalSince1970: value)
+    }
+    guard let countText = row.text(2), let count = Int(countText), count >= 0 else {
+      throw EPGStoreError.writeFailed
+    }
+    let result = row.text(5).flatMap(EPGRefreshResult.init(rawValue:))
+    let failure = row.text(6).flatMap(EPGFailureCategory.init(rawValue:))
+    return EPGHealth(
+      configured: false, lastAttemptedAt: date(0), lastSuccessfulAt: date(1),
+      lastCommittedProgrammeCount: count, coverageStartAt: date(3), coverageEndAt: date(4),
+      lastResult: result, lastFailureCategory: failure)
+  }
+
   /// Internal deterministic verification hook; never exposed through the repository protocols.
   func stagedRowCountForTesting() throws -> Int {
     try writerDatabase().scalar("SELECT COUNT(*) FROM epg_staging")
@@ -232,6 +289,16 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
     return programme
   }
 
+  private func coverageBounds(_ database: CatalogDatabase, sourceID: SourceConfiguration.ID) throws
+    -> (start: String?, end: String?)
+  {
+    let row = try database.statement(
+      "SELECT MIN(CAST(start AS REAL)),MAX(CAST(end AS REAL)) FROM epg_programmes WHERE source=?",
+      [sourceID.rawValue.uuidString])
+    guard try row.step() else { throw EPGStoreError.writeFailed }
+    return (row.text(0), row.text(1))
+  }
+
   private func writerDatabase() throws -> CatalogDatabase {
     try Task.checkCancellation()
     guard let writer else { throw EPGStoreError.unavailable }
@@ -246,7 +313,9 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
 
   private static func prepare(_ database: CatalogDatabase) throws {
     let version = try database.scalar("PRAGMA user_version")
-    guard version == 0 || version == Self.schemaVersion else { throw EPGStoreError.unavailable }
+    guard version == 0 || version == 1 || version == Self.schemaVersion else {
+      throw EPGStoreError.unavailable
+    }
     if version == 0 {
       try database.execute("BEGIN IMMEDIATE")
       do {
@@ -260,7 +329,23 @@ public actor SQLiteEPGStore: EPGImportRepository, EPGQueryRepository {
         try database.execute(
           "CREATE TABLE epg_staging(staging_id TEXT NOT NULL, source TEXT NOT NULL, programme_id TEXT NOT NULL, channel TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL, title TEXT NOT NULL, subtitle TEXT, description TEXT, category TEXT, PRIMARY KEY(staging_id,programme_id), FOREIGN KEY(staging_id) REFERENCES epg_staging_sessions(staging_id) ON DELETE CASCADE)"
         )
-        try database.execute("PRAGMA user_version=1")
+        try database.execute(
+          "CREATE TABLE epg_health(source TEXT PRIMARY KEY,last_attempt TEXT,last_success TEXT,programme_count TEXT NOT NULL,coverage_start TEXT,coverage_end TEXT,last_result TEXT NOT NULL,failure_category TEXT)"
+        )
+        try database.execute("PRAGMA user_version=2")
+        try database.execute("COMMIT")
+      } catch {
+        try? database.rollback()
+        throw EPGStoreError.writeFailed
+      }
+    }
+    if version == 1 {
+      try database.execute("BEGIN IMMEDIATE")
+      do {
+        try database.execute(
+          "CREATE TABLE epg_health(source TEXT PRIMARY KEY,last_attempt TEXT,last_success TEXT,programme_count TEXT NOT NULL,coverage_start TEXT,coverage_end TEXT,last_result TEXT NOT NULL,failure_category TEXT)"
+        )
+        try database.execute("PRAGMA user_version=2")
         try database.execute("COMMIT")
       } catch {
         try? database.rollback()

@@ -7,6 +7,10 @@ enum TVEPGPresentationFixture {
   static func service() -> any EPGPresenting { Schedule() }
 
   private actor Schedule: EPGPresenting {
+    func health(sourceID _: SourceConfiguration.ID) async throws -> EPGHealth {
+      EPGHealth(configured: true, lastCommittedProgrammeCount: 5)
+    }
+
     func nowNext(for catalogItemID: String, at instant: Date) async throws
       -> EPGNowNextPresentation
     {

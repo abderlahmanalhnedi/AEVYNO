@@ -64,3 +64,26 @@ Phase 6C reuses `ProductionEPGService` for a source-scoped Guide presentation. I
 catalog candidate page (40 rows) and one set-based indexed programme query for an eight-hour interval
 (two hours before through six hours after the opening instant). It does not materialize full EPG data,
 infer identities, or change Now/Next semantics. See [EPG Guide UI](EPG_GUIDE_UI.md).
+
+## Phase 6E EPG freshness and safe status
+
+`epg.sqlite` schema v2 adds one local-only `epg_health` row per source. It stores only the latest
+attempt time, latest successful publication time, committed programme count, source-wide minimum
+start and maximum end, latest result, and a provider-neutral failure category. It never stores an
+endpoint, credentials, provider identifiers, raw XML, parser diagnostics, or a refresh history.
+
+Configuration remains the source registry's truth: only an M3U source with a supported XMLTV
+configuration is configured. A configured source without a metadata row has never completed an
+import. Publication writes the programme replacement and success facts in the same SQLite
+transaction. A zero-programme publication is a successful, factual no-data publication.
+
+Coverage is source-wide evidence only: no data when the committed count is zero, future-only when
+the earliest retained programme starts after the viewing instant, current coverage when the bounds
+span it, and expired when the latest retained end is not later than it. It never claims that every
+channel has a current schedule.
+
+Failed acquisition/import writes only the latest attempt, failure result, and one of
+`networkUnavailable`, `timeout`, `responseTooLarge`, `invalidGuideData`, `persistenceFailure`, or
+`unknown`; it retains last-success facts and the last-known-good EPG snapshot. Lifecycle
+cancellation records no user-visible failure and retains the prior visible status. Version-one
+caches migrate in place by adding this table without modifying committed programmes.

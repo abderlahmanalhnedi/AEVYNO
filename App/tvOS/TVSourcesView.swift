@@ -159,6 +159,13 @@ struct TVSourcesView: View {
           Text(AppText.sourceKind(configuration.kind))
             .aevynoTypography(.metadata)
             .foregroundStyle(AEVYNOColor.secondaryText)
+          if let health = source.epgHealth {
+            ForEach(AppText.epgStatus(health), id: \.self) { status in
+              Text(status)
+                .aevynoTypography(.metadata)
+                .foregroundStyle(AEVYNOColor.secondaryText)
+            }
+          }
         }
         Spacer()
         Text(configuration.isEnabled ? AppText.enabled : AppText.disabled)
@@ -176,7 +183,8 @@ struct TVSourcesView: View {
       AppText.sourceRowAccessibilityLabel(
         name: configuration.displayName,
         kind: AppText.sourceKind(configuration.kind),
-        status: configuration.isEnabled ? AppText.enabled : AppText.disabled
+        status: ([configuration.isEnabled ? AppText.enabled : AppText.disabled]
+          + (source.epgHealth.map { AppText.epgStatus($0) } ?? [])).joined(separator: ", ")
       )
     )
     .accessibilityHint(AppText.editSourceAccessibilityHint)

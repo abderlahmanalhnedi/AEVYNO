@@ -48,13 +48,13 @@ struct TVEPGGuideView: View {
       } else if viewModel.isUnavailable {
         StatusPanel(
           symbolName: "calendar.badge.exclamationmark", title: AppText.guideUnavailable,
-          message: AppText.guideEmptyMessage)
+          message: viewModel.emptyStateMessage)
       } else if let guide = viewModel.guide, !guide.channels.isEmpty {
         guideContent(guide)
       } else {
         StatusPanel(
-          symbolName: "calendar", title: AppText.guideEmptyTitle,
-          message: AppText.guideEmptyMessage)
+          symbolName: "calendar", title: viewModel.emptyStateTitle,
+          message: viewModel.emptyStateMessage)
       }
     }
     .navigationTitle(AppText.guide)

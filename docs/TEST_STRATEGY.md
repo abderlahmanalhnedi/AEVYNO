@@ -136,3 +136,11 @@ Every completed Codex task must state:
 - tests not run and why.
 
 No "all good" without evidence.
+
+## EPG health coverage
+
+EPG persistence tests verify atomic success facts, zero-programme publication, failure retention of
+last-known-good data and facts, retry replacement, reopen durability, and v1-to-v2 migration.
+Failure mapping tests exercise safe normalized categories and cancellation's no-record behavior.
+Focused platform tests cover compact source status and Guide empty states; physical Apple TV and
+representative provider XMLTV corpus validation remain required.

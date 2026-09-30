@@ -136,6 +136,134 @@ func epgAtomicNowNext() async throws {
   #expect(boundary.now?.title == "Next")
 }
 
+@Test("EPG health records atomic publication facts, retains LKG after failure, and resets on retry")
+func epgHealthPublicationAndFailureSemantics() async throws {
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  let store = try fixture.makeStore()
+  let firstAttempt = Date(timeIntervalSince1970: 1_000_000)
+  let staging = try await store.beginStaging(sourceID: fixture.source)
+  try await store.stage(
+    [
+      fixture.programme("Current", 999_900, 1_000_100),
+      fixture.programme("Future", 1_000_100, 1_000_200),
+    ],
+    in: staging)
+  try await store.commitStagedReplacement(staging, at: firstAttempt)
+
+  let success = try #require(await store.health(sourceID: fixture.source))
+  #expect(success.lastAttemptedAt == firstAttempt)
+  #expect(success.lastSuccessfulAt == firstAttempt)
+  #expect(success.lastCommittedProgrammeCount == 2)
+  #expect(success.coverageStartAt == Date(timeIntervalSince1970: 999_900))
+  #expect(success.coverageEndAt == Date(timeIntervalSince1970: 1_000_200))
+  #expect(success.lastResult == .success)
+  #expect(success.lastFailureCategory == nil)
+  #expect(success.coverage(at: firstAttempt) == .currentCoverage)
+
+  let failedAttempt = firstAttempt.addingTimeInterval(60)
+  try await store.recordFailure(
+    sourceID: fixture.source, at: failedAttempt, category: .networkUnavailable)
+  let failure = try #require(await store.health(sourceID: fixture.source))
+  #expect(failure.lastAttemptedAt == failedAttempt)
+  #expect(failure.lastSuccessfulAt == firstAttempt)
+  #expect(failure.lastCommittedProgrammeCount == 2)
+  #expect(failure.coverageEndAt == success.coverageEndAt)
+  #expect(failure.lastResult == .failure)
+  #expect(failure.lastFailureCategory == .networkUnavailable)
+  #expect(
+    try await store.nowNext(
+      sourceID: fixture.source, channelID: EPGChannelIdentity(rawValue: "news")!, at: firstAttempt
+    ).now?.title == "Current")
+
+  let retry = firstAttempt.addingTimeInterval(120)
+  let retryStaging = try await store.beginStaging(sourceID: fixture.source)
+  try await store.stage([fixture.programme("Replacement", 999_950, 1_000_400)], in: retryStaging)
+  try await store.commitStagedReplacement(retryStaging, at: retry)
+  let retried = try #require(await store.health(sourceID: fixture.source))
+  #expect(retried.lastAttemptedAt == retry)
+  #expect(retried.lastSuccessfulAt == retry)
+  #expect(retried.lastCommittedProgrammeCount == 1)
+  #expect(retried.coverageEndAt == Date(timeIntervalSince1970: 1_000_400))
+  #expect(retried.lastResult == .success)
+  #expect(retried.lastFailureCategory == nil)
+}
+
+@Test("Zero-programme EPG publication is an explicit successful no-data state that survives reopen")
+func epgHealthZeroPublicationAndReopen() async throws {
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  let at = Date(timeIntervalSince1970: 1_000_000)
+  let store = try fixture.makeStore()
+  let staging = try await store.beginStaging(sourceID: fixture.source)
+  try await store.commitStagedReplacement(staging, at: at)
+  let published = try #require(await store.health(sourceID: fixture.source))
+  #expect(published.lastResult == .success)
+  #expect(published.lastCommittedProgrammeCount == 0)
+  #expect(published.coverage(at: at) == .noData)
+
+  let reopened = try SQLiteEPGStore(url: fixture.directory.appendingPathComponent("epg.sqlite"))
+  let persisted = try #require(await reopened.health(sourceID: fixture.source))
+  #expect(persisted == published)
+}
+
+@Test("EPG health migration from schema version one preserves committed programmes")
+func epgHealthMigratesVersionOneDatabase() async throws {
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  try FileManager.default.createDirectory(at: fixture.directory, withIntermediateDirectories: true)
+  let url = fixture.directory.appendingPathComponent("epg.sqlite")
+  let source = fixture.source.rawValue.uuidString
+  let database = try CatalogDatabase(url: url)
+  try database.execute(
+    "CREATE TABLE epg_programmes(source TEXT NOT NULL, programme_id TEXT NOT NULL, channel TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL, title TEXT NOT NULL, subtitle TEXT, description TEXT, category TEXT, PRIMARY KEY(source,programme_id))"
+  )
+  try database.execute("CREATE INDEX epg_now_next ON epg_programmes(source,channel,start,end)")
+  try database.execute(
+    "CREATE TABLE epg_staging_sessions(staging_id TEXT PRIMARY KEY, source TEXT NOT NULL)")
+  try database.execute(
+    "CREATE TABLE epg_staging(staging_id TEXT NOT NULL, source TEXT NOT NULL, programme_id TEXT NOT NULL, channel TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL, title TEXT NOT NULL, subtitle TEXT, description TEXT, category TEXT, PRIMARY KEY(staging_id,programme_id))"
+  )
+  try database.execute(
+    "INSERT INTO epg_programmes(source,programme_id,channel,start,end,title) VALUES(?,?,?,?,?,?)",
+    [source, "old", "news", "0", "10", "Retained"])
+  try database.execute("PRAGMA user_version=1")
+
+  let store = try SQLiteEPGStore(url: url)
+  #expect(try await store.health(sourceID: fixture.source) == nil)
+  #expect(
+    try await store.nowNext(
+      sourceID: fixture.source, channelID: EPGChannelIdentity(rawValue: "news")!,
+      at: Date(timeIntervalSince1970: 5)
+    ).now?.title == "Retained")
+}
+
+@Test("EPG failures map to safe provider-neutral categories and cancellation records nothing")
+func epgFailureClassificationIsSafe() async throws {
+  #expect(
+    XMLTVEPGImportService.failureCategory(for: M3UAcquisitionError.transportUnavailable)
+      == .networkUnavailable)
+  #expect(XMLTVEPGImportService.failureCategory(for: M3UAcquisitionError.timedOut) == .timeout)
+  #expect(
+    XMLTVEPGImportService.failureCategory(for: M3UAcquisitionError.responseTooLarge)
+      == .responseTooLarge)
+  #expect(
+    XMLTVEPGImportService.failureCategory(for: XMLTVParserError.malformedDocument)
+      == .invalidGuideData)
+  #expect(
+    XMLTVEPGImportService.failureCategory(for: EPGStoreError.writeFailed) == .persistenceFailure)
+  struct SensitiveError: Error { let message: String }
+  let sensitive = SensitiveError(message: "https://user:token@example.invalid/guide?token=secret")
+  #expect(XMLTVEPGImportService.failureCategory(for: sensitive) == .unknown)
+
+  let fixture = EPGFixture()
+  defer { try? FileManager.default.removeItem(at: fixture.directory) }
+  let importer = XMLTVEPGImportService(repository: try fixture.makeStore())
+  try await importer.recordFailure(sourceID: fixture.source, at: .now, error: CancellationError())
+  let store = try SQLiteEPGStore(url: fixture.directory.appendingPathComponent("epg.sqlite"))
+  #expect(try await store.health(sourceID: fixture.source) == nil)
+}
+
 @Test("M3U TVG ID survives encrypted catalog persistence and absent TVG ID remains unmapped")
 func m3uMappingIsConservative() async throws {
   let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -316,6 +444,7 @@ private actor GuideEPGStub: EPGQueryRepository {
         && $0.timeRange.end > interval.start
     }
   }
+  func health(sourceID _: SourceConfiguration.ID) -> EPGHealth? { nil }
 }
 
 @Test("XMLTV import stages bounded normalized rows and atomically replaces the source snapshot")
@@ -535,4 +664,7 @@ private actor FailingEPGRepository: EPGImportRepository {
   func stage(_: [EPGProgramme], in _: UUID) async throws { throw EPGStoreError.writeFailed }
   func commitStagedReplacement(_: UUID, at _: Date) async throws { throw EPGStoreError.writeFailed }
   func discardStaging(_ stagingID: UUID) async { await base.discardStaging(stagingID) }
+  func recordFailure(
+    sourceID _: SourceConfiguration.ID, at _: Date, category _: EPGFailureCategory
+  ) async throws { throw EPGStoreError.writeFailed }
 }
