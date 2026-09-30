@@ -79,6 +79,16 @@ enum AppText {
   static let guideExpiredMessage = localized(
     "epg.guide.expired.message", defaultValue: "The available guide schedule has expired.")
   static let guideLoadMore = localized("epg.guide.load_more", defaultValue: "More channels")
+  static let guidePreviousWindow = localized(
+    "epg.guide.previous_window", defaultValue: "Previous")
+  static let guideNowWindow = localized("epg.guide.now_window", defaultValue: "Now")
+  static let guideNextWindow = localized("epg.guide.next_window", defaultValue: "Next")
+  static let guidePreviousWindowHint = localized(
+    "epg.guide.previous_window.hint", defaultValue: "Shows the previous guide window")
+  static let guideNowWindowHint = localized(
+    "epg.guide.now_window.hint", defaultValue: "Returns to the current guide window")
+  static let guideNextWindowHint = localized(
+    "epg.guide.next_window.hint", defaultValue: "Shows the next guide window")
   static let guideNow = localized("epg.guide.now", defaultValue: "Now")
   static func guideTime(_ date: Date) -> String {
     date.formatted(date: .omitted, time: .shortened)
