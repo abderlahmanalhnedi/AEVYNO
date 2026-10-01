@@ -148,8 +148,13 @@ struct TVEPGGuideView: View {
       .padding(.horizontal, AEVYNOSpacing.xxl).padding(.vertical, AEVYNOSpacing.xl)
     }
     .accessibilityIdentifier("guide.loaded")
-    .onChange(of: guide.interval) { _, _ in
-      restoreFocus(afterWindowChange: guide)
+    .onChange(of: guide) { previous, current in
+      restoreFocus(
+        in: current,
+        preferredChannelID: previous.interval == current.interval ? nil : viewModel.focusChannelID,
+        fallbackTimeNavigation: previous.interval == current.interval
+          ? nil : viewModel.timeNavigationAction
+      )
     }
   }
 
@@ -192,14 +197,18 @@ struct TVEPGGuideView: View {
     }
   }
 
-  private func restoreFocus(afterWindowChange guide: EPGGuidePresentation) {
+  private func restoreFocus(
+    in guide: EPGGuidePresentation,
+    preferredChannelID: String?,
+    fallbackTimeNavigation: EPGGuideTimeNavigationAction?
+  ) {
     guard selection == nil else { return }
     let preferred =
-      guide.channels.first(where: { $0.id == viewModel.focusChannelID && !$0.programmes.isEmpty })
+      guide.channels.first(where: { $0.id == preferredChannelID && !$0.programmes.isEmpty })
       ?? guide.channels.first(where: { !$0.programmes.isEmpty })
     guard let channel = preferred, let programme = channel.programmes.first else {
       focusedProgrammeID = nil
-      focusedTimeNavigation = viewModel.timeNavigationAction
+      focusedTimeNavigation = fallbackTimeNavigation
       resetFocus(in: guideFocusScope)
       return
     }
