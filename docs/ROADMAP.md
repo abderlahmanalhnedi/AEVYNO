@@ -187,6 +187,15 @@ last-known-good guide data on refresh failure, does not add a history log, provi
 or a Guide redesign. Owner-approved real-provider XMLTV corpus validation and physical-device
 performance evidence remain exit gates.
 
+Phase 6F-A real-provider XMLTV validation is **BLOCKED / PENDING EXTERNAL VALIDATION INPUT**:
+owner-approved real XMLTV/M3U data is unavailable; no compatibility defect was found or production
+change made in that validation slice. Phase 6F-B bounded Guide time navigation is **STABLE ON MAIN**
+through PR #36 at `5a50668a8d4cedeed4b43ff86f0d7e9499d3aac0`; post-merge push CI `36898632649`
+passed Core / Build / Analyze and tvOS UI Tests. Previous/Next shift the bounded eight-hour window,
+Jump to Now restores its canonical interval, and catalog paging remains bounded to 40 candidates.
+Physical Apple TV Guide focus/navigation, EPG performance, EPG health/status focus and Arabic RTL,
+and physical iPhone/iPad touch/layout/status review remain pending.
+
 Candidates:
 - EPG.
 - subtitle/audio refinements.
