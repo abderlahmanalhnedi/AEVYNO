@@ -24,7 +24,9 @@ struct TVEPGGuideView: View {
   @State private var viewModel: EPGGuideViewModel
   @State private var selection: TVGuideProgrammeSelection?
   @FocusState private var focusedProgrammeID: String?
+  @FocusState private var focusedTimeNavigation: EPGGuideTimeNavigationAction?
   @State private var rememberedProgrammeID: String?
+  @State private var rememberedChannelID: String?
 
   init(
     sourceID: SourceConfiguration.ID,
@@ -58,13 +60,26 @@ struct TVEPGGuideView: View {
       }
     }
     .navigationTitle(AppText.guide)
+    .focusScope(guideFocusScope)
     .sheet(item: $selection, onDismiss: restoreProgrammeFocus) { selection in
       TVGuideProgrammeDetail(
         selection: selection, playbackServiceFactory: playbackServiceFactory,
         playbackEngineFactory: playbackEngineFactory)
     }
     .toolbar {
-      ToolbarItem(placement: .topBarTrailing) {
+      ToolbarItemGroup(placement: .topBarTrailing) {
+        Button(AppText.guidePreviousWindow) { navigate(.previous) }
+          .focused($focusedTimeNavigation, equals: .previous)
+          .accessibilityIdentifier("guide.window.previous")
+          .accessibilityHint(AppText.guidePreviousWindowHint)
+        Button(AppText.guideNowWindow) { navigate(.now) }
+          .focused($focusedTimeNavigation, equals: .now)
+          .accessibilityIdentifier("guide.window.now")
+          .accessibilityHint(AppText.guideNowWindowHint)
+        Button(AppText.guideNextWindow) { navigate(.next) }
+          .focused($focusedTimeNavigation, equals: .next)
+          .accessibilityIdentifier("guide.window.next")
+          .accessibilityHint(AppText.guideNextWindowHint)
         if viewModel.guide?.nextOffset != nil {
           Button(AppText.guideLoadMore) { Task { await viewModel.loadNextPage() } }
             .accessibilityIdentifier("guide.more-channels")
@@ -87,6 +102,7 @@ struct TVEPGGuideView: View {
                   let identity = "\(channel.id)|\(programme.id)"
                   Button {
                     rememberedProgrammeID = identity
+                    rememberedChannelID = channel.id
                     selection = TVGuideProgrammeSelection(channel: channel, programme: programme)
                   } label: {
                     VStack(alignment: .leading, spacing: AEVYNOSpacing.xs) {
@@ -131,12 +147,14 @@ struct TVEPGGuideView: View {
       }
       .padding(.horizontal, AEVYNOSpacing.xxl).padding(.vertical, AEVYNOSpacing.xl)
     }
-    .focusScope(guideFocusScope)
     .accessibilityIdentifier("guide.loaded")
-    .onChange(of: guide.channels.map(\.id)) { _, _ in
-      guard let channel = guide.channels.first, let first = channel.programmes.first else { return }
-      focusedProgrammeID = "\(channel.id)|\(first.id)"
-      resetFocus(in: guideFocusScope)
+    .onChange(of: guide) { previous, current in
+      restoreFocus(
+        in: current,
+        preferredChannelID: previous.interval == current.interval ? nil : viewModel.focusChannelID,
+        fallbackTimeNavigation: previous.interval == current.interval
+          ? nil : viewModel.timeNavigationAction
+      )
     }
   }
 
@@ -166,6 +184,38 @@ struct TVEPGGuideView: View {
       focusedProgrammeID = rememberedProgrammeID
       resetFocus(in: guideFocusScope)
     }
+  }
+
+  private func navigate(_ action: EPGGuideTimeNavigationAction) {
+    guard selection == nil else { return }
+    Task {
+      switch action {
+      case .previous: await viewModel.previousWindow(focusing: rememberedChannelID)
+      case .now: await viewModel.jumpToNow(focusing: rememberedChannelID)
+      case .next: await viewModel.nextWindow(focusing: rememberedChannelID)
+      }
+    }
+  }
+
+  private func restoreFocus(
+    in guide: EPGGuidePresentation,
+    preferredChannelID: String?,
+    fallbackTimeNavigation: EPGGuideTimeNavigationAction?
+  ) {
+    guard selection == nil else { return }
+    let preferred =
+      guide.channels.first(where: { $0.id == preferredChannelID && !$0.programmes.isEmpty })
+      ?? guide.channels.first(where: { !$0.programmes.isEmpty })
+    guard let channel = preferred, let programme = channel.programmes.first else {
+      focusedProgrammeID = nil
+      focusedTimeNavigation = fallbackTimeNavigation
+      resetFocus(in: guideFocusScope)
+      return
+    }
+    rememberedChannelID = channel.id
+    focusedTimeNavigation = nil
+    focusedProgrammeID = "\(channel.id)|\(programme.id)"
+    resetFocus(in: guideFocusScope)
   }
 
   private func programmeAccessibilitySuffix(_ programme: EPGProgramme) -> String {

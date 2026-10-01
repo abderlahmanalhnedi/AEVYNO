@@ -142,6 +142,13 @@ public struct EPGGuideInterval: Equatable, Sendable {
     EPGGuideInterval(
       start: now.addingTimeInterval(-2 * 60 * 60), end: now.addingTimeInterval(6 * 60 * 60))!
   }
+
+  /// Moves an already bounded window by whole Guide windows without consulting wall-clock time.
+  public func shifted(byWindowCount count: Int) -> EPGGuideInterval {
+    EPGGuideInterval(
+      start: start.addingTimeInterval(Self.maximumDuration * Double(count)),
+      end: end.addingTimeInterval(Self.maximumDuration * Double(count)))!
+  }
 }
 
 /// Guide-safe channel data. `id` is the stable playable catalog identity, never an EPG ID.

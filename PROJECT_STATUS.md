@@ -21,8 +21,11 @@ compatibility/import resilience is stable on main through PR #34 at merge commit
 `f99bbd8d820e456086ad62648495825794be1804`; post-merge CI `36630491502` succeeded after an initial
 tvOS Favorites focus simulator/SwiftUI flake. The focused test reproduced as passing 3/3 after a
 simulator restart, related Favorites tests passed, and the CI rerun completed with 61/61 tvOS UI
-tests. Phase 6E EPG freshness and safe status is in local implementation on
-`feature/phase-6e-epg-health-status`.
+tests. Phase 6E EPG freshness and safe status is stable on main through PR #35 at merge commit
+`f3d6707109db42ae4518409f33f594856f29db2b`; post-merge CI `36755959432` succeeded. Phase 6F-A
+real-provider XMLTV validation is **BLOCKED / PENDING EXTERNAL VALIDATION INPUT**: no owner-approved
+real XMLTV, M3U, or persisted AEVYNO provider source is available; no compatibility defect was found
+and no production change was made. Phase 6F-B bounded Guide time navigation is in local development.
 Source URL guessing, Xtream EPG, CloudKit EPG, tokenized XMLTV URLs, and an unbounded timeline remain
 out of scope.
 

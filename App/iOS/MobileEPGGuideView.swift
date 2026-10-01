@@ -46,6 +46,7 @@ struct MobileEPGGuideView: View {
   private func guideRows(_ guide: EPGGuidePresentation) -> some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: AEVYNOSpacing.md) {
+        guideTimeNavigation
         TimelineView(.periodic(from: .now, by: 60)) { _ in
           Text(
             "\(AppText.guideNow) · \(AppText.guideTime(guide.interval.start)) – \(AppText.guideTime(guide.interval.end))"
@@ -84,6 +85,20 @@ struct MobileEPGGuideView: View {
         }
       }.padding(AEVYNOSpacing.md)
     }
+  }
+
+  private var guideTimeNavigation: some View {
+    HStack {
+      Button(AppText.guidePreviousWindow) { Task { await viewModel.previousWindow() } }
+        .accessibilityHint(AppText.guidePreviousWindowHint)
+      Spacer()
+      Button(AppText.guideNowWindow) { Task { await viewModel.jumpToNow() } }
+        .accessibilityHint(AppText.guideNowWindowHint)
+      Spacer()
+      Button(AppText.guideNextWindow) { Task { await viewModel.nextWindow() } }
+        .accessibilityHint(AppText.guideNextWindowHint)
+    }
+    .buttonStyle(.bordered)
   }
 }
 

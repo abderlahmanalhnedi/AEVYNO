@@ -388,6 +388,19 @@ func epgGuideIntervalIsBounded() {
   #expect(initial.end.timeIntervalSince(initial.start) == 8 * 60 * 60)
 }
 
+@Test("Guide windows shift exactly one bounded interval and preserve canonical Now shape")
+func epgGuideWindowShiftsAreDeterministic() {
+  let now = Date(timeIntervalSince1970: 1_000_000)
+  let initial = EPGGuideInterval.initial(at: now)
+  let next = initial.shifted(byWindowCount: 1)
+  let previous = next.shifted(byWindowCount: -1)
+
+  #expect(next.start == initial.end)
+  #expect(next.end.timeIntervalSince(next.start) == EPGGuideInterval.maximumDuration)
+  #expect(previous == initial)
+  #expect(EPGGuideInterval.initial(at: now) == initial)
+}
+
 @Test(
   "Production guide excludes unmapped catalog rows and preserves exact playable catalog identities")
 func productionGuideUsesExactMappings() async throws {
