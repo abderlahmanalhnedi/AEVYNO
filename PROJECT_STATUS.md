@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 ## Current phase
 
@@ -25,7 +25,12 @@ tests. Phase 6E EPG freshness and safe status is stable on main through PR #35 a
 `f3d6707109db42ae4518409f33f594856f29db2b`; post-merge CI `36755959432` succeeded. Phase 6F-A
 real-provider XMLTV validation is **BLOCKED / PENDING EXTERNAL VALIDATION INPUT**: no owner-approved
 real XMLTV, M3U, or persisted AEVYNO provider source is available; no compatibility defect was found
-and no production change was made. Phase 6F-B bounded Guide time navigation is in local development.
+and no production change was made. Phase 6F-B bounded Guide time navigation is **STABLE ON MAIN**
+through PR #36 at merge commit `5a50668a8d4cedeed4b43ff86f0d7e9499d3aac0`; post-merge push CI
+`36898632649` succeeded for both Core / Build / Analyze and tvOS UI Tests. Physical Apple TV Guide
+focus/navigation, EPG performance and Arabic RTL review, EPG health/status focus review, and physical
+iPhone/iPad touch/layout/status review remain pending. Local scale/RSS evidence is not physical-device
+performance evidence; owner-approved real-provider XMLTV corpus validation remains blocked.
 Source URL guessing, Xtream EPG, CloudKit EPG, tokenized XMLTV URLs, and an unbounded timeline remain
 out of scope.
 
